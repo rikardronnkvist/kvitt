@@ -1,0 +1,156 @@
+:root {
+  color-scheme: light;
+  font-family: Inter, system-ui, sans-serif;
+  line-height: 1.5;
+  color: #14213d;
+  background: #f7f7fb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+a {
+  color: #0f62fe;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: 0;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: #0f62fe;
+  color: #fff;
+}
+
+button.secondary {
+  background: #dbe4ff;
+  color: #14213d;
+}
+
+button.danger {
+  background: #d90429;
+}
+
+button.active {
+  background: #14213d;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  background: #fff;
+}
+
+.page-layout,
+.auth-page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.page-layout.narrow {
+  max-width: 720px;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.header-actions,
+.button-row,
+.form-inline,
+.expense-header,
+.member-row,
+.auth-switcher,
+.tab-row,
+.group-header {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.card {
+  background: #fff;
+  border-radius: 1rem;
+  padding: 1rem;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.group-card {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  color: #14213d;
+  border: 1px solid #e5e7eb;
+}
+
+.grid,
+.stack,
+.form-grid,
+.split-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.grid {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.form-grid label,
+.split-grid label {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.list-reset {
+  list-style: none;
+  padding: 1rem;
+  margin: 0;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.checkbox-row input {
+  width: auto;
+}
+
+.auth-card {
+  max-width: 460px;
+  margin: 4rem auto;
+}
+
+.error-text {
+  color: #b42318;
+  margin: 0;
+}
