@@ -1,0 +1,28 @@
+version: '3.8'
+services:
+  backend:
+    build: ./backend
+    environment:
+      - JWT_SECRET=${JWT_SECRET:-changeme-use-a-strong-secret}
+      - PORT=${PORT:-3000}
+      - DB_PATH=/app/data/kvitt.db
+    volumes:
+      - kvitt_data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  kvitt_data:
+    driver: local

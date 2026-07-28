@@ -1,0 +1,28 @@
+import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import Login from './pages/Login.jsx';
+import Dashboard from './pages/Dashboard.jsx';
+import GroupView from './pages/GroupView.jsx';
+import AddExpense from './pages/AddExpense.jsx';
+
+function ProtectedRoute() {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+  return <Outlet />;
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Login />} />
+      <Route element={<ProtectedRoute />}>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/groups/:id" element={<GroupView />} />
+        <Route path="/groups/:id/expenses/new" element={<AddExpense />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
