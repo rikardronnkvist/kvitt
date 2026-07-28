@@ -47,6 +47,17 @@ docker run --rm -v kvitt_kvitt_data:/data -v "$PWD":/backup alpine \
 Adjust the volume name if your Compose project name differs.
 
 ### Development setup
+Run both backend and frontend together from the project root:
+```bash
+npm install
+npm run install:all
+npm run dev
+```
+
+The backend starts on `http://localhost:3000` and the frontend Vite dev server starts on `http://localhost:5173`, proxying `/api` requests to the backend.
+
+Alternatively, run each in a separate terminal:
+
 Backend:
 ```bash
 cd backend
@@ -60,8 +71,6 @@ cd frontend
 npm install
 npm run dev
 ```
-
-The Vite development server proxies `/api` requests to `http://localhost:3000`.
 
 ---
 
@@ -112,6 +121,17 @@ docker run --rm -v kvitt_kvitt_data:/data -v "$PWD":/backup alpine \
 Justera volymnamnet om ditt Compose-projektnamn skiljer sig.
 
 ### Utvecklingsmiljö
+Kör backend och frontend tillsammans från projektroten:
+```bash
+npm install
+npm run install:all
+npm run dev
+```
+
+Backend startar på `http://localhost:3000` och Vites utvecklingsserver startar på `http://localhost:5173` och proxar `/api` till backend.
+
+Alternativt, kör var och en i ett eget terminalfönster:
+
 Backend:
 ```bash
 cd backend
@@ -125,5 +145,3 @@ cd frontend
 npm install
 npm run dev
 ```
-
-Vites utvecklingsserver proxar `/api` till `http://localhost:3000`.
