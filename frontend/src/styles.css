@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
   font-family: "Inter", system-ui, sans-serif;
   line-height: 1.5;
   font-weight: 400;
@@ -29,40 +29,6 @@
   --border-subtle: rgba(17, 24, 39, 0.08);
   --border-strong: rgba(17, 24, 39, 0.14);
   --overlay: rgba(17, 24, 39, 0.42);
-}
-
-:root[data-theme="dark"] {
-  --app-bg: #0f1417;
-  --app-surface: rgba(18, 24, 28, 0.92);
-  --app-surface-strong: #151c20;
-  --app-surface-muted: #1a2328;
-  --app-surface-inset: #202a30;
-  --text-primary: #f5f7f8;
-  --text-secondary: #b5c0c8;
-  --text-muted: #90a0ab;
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.14);
-  --overlay: rgba(3, 7, 10, 0.66);
-  --shadow-soft: 0 18px 40px rgba(0, 0, 0, 0.35);
-  --shadow-strong: 0 28px 72px rgba(0, 0, 0, 0.52);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) {
-    --app-bg: #0f1417;
-    --app-surface: rgba(18, 24, 28, 0.92);
-    --app-surface-strong: #151c20;
-    --app-surface-muted: #1a2328;
-    --app-surface-inset: #202a30;
-    --text-primary: #f5f7f8;
-    --text-secondary: #b5c0c8;
-    --text-muted: #90a0ab;
-    --border-subtle: rgba(255, 255, 255, 0.08);
-    --border-strong: rgba(255, 255, 255, 0.14);
-    --overlay: rgba(3, 7, 10, 0.66);
-    --shadow-soft: 0 18px 40px rgba(0, 0, 0, 0.35);
-    --shadow-strong: 0 28px 72px rgba(0, 0, 0, 0.52);
-  }
 }
 
 * {
@@ -302,15 +268,6 @@ input[type="radio"] {
   animation: shimmer 1.25s infinite;
 }
 
-:root[data-theme="dark"] .skeleton::after {
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) .skeleton::after {
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
-  }
-}
 
 @keyframes shimmer {
   100% {

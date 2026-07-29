@@ -37,11 +37,6 @@ export default function Login() {
     setMode(isRegisterRoute ? 'register' : 'login');
   }, [isRegisterRoute]);
 
-  useEffect(() => {
-    document.documentElement.dataset.theme = localStorage.getItem('theme-preference')
-      || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-  }, []);
-
   const handleChange = (setter) => (event) => {
     const { name, value } = event.target;
     setter((previous) => ({ ...previous, [name]: value }));
