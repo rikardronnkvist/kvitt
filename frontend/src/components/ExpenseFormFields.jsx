@@ -35,8 +35,6 @@ export default function ExpenseFormFields({
   submitLabel,
 }) {
   const { selectedMembers, equalSplits, customTotal, customDifference, hasValidAmount } = getSplitSummary(form, members);
-  const activeCategory = categories.find((category) => String(category.id) === String(form.category_id));
-  const ActiveCategoryIcon = activeCategory ? getCategoryIcon(activeCategory.icon) : null;
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -50,6 +48,35 @@ export default function ExpenseFormFields({
 
   return (
     <form className="space-y-6" onSubmit={handleSubmit}>
+      <div className="space-y-2">
+        <p className="section-eyebrow">Kategori</p>
+        <div className="flex flex-wrap gap-2">
+          {categories.map((category) => {
+            const Icon = getCategoryIcon(category.icon);
+            const isActive = String(form.category_id) === String(category.id);
+            return (
+              <button
+                key={category.id}
+                type="button"
+                title={category.name}
+                onClick={() => setForm((previous) => ({ ...previous, category_id: String(category.id) }))}
+                className={[
+                  'inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition',
+                  isActive
+                    ? 'border-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--text-primary)]'
+                    : 'border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[var(--text-secondary)] hover:bg-[var(--app-surface-muted)]',
+                ].join(' ')}
+                aria-pressed={isActive}
+                aria-label={category.name}
+              >
+                <Icon className="h-4 w-4" />
+                {category.name}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2">
         <label className="field-label md:col-span-2">
           Titel
@@ -87,29 +114,6 @@ export default function ExpenseFormFields({
               </option>
             ))}
           </select>
-        </label>
-
-        <label className="field-label">
-          Kategori
-          <div className="relative">
-            <select
-              value={form.category_id}
-              onChange={(event) => setForm((previous) => ({ ...previous, category_id: event.target.value }))}
-              required
-              className="pr-9"
-            >
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-            {ActiveCategoryIcon ? (
-              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]">
-                <ActiveCategoryIcon className="h-4 w-4" />
-              </span>
-            ) : null}
-          </div>
         </label>
 
         <label className="field-label md:col-span-2">
