@@ -184,7 +184,7 @@ export default function GroupView() {
 
   const timeline = useMemo(() => {
     return [
-      ...expenses.map((expense) => ({ ...expense, kind: 'expense', activityDate: expense.created_at })),
+      ...expenses.map((expense) => ({ ...expense, kind: 'expense', activityDate: expense.occurred_at || expense.created_at })),
       ...settlements.map((settlement) => ({
         ...settlement,
         kind: 'settlement',

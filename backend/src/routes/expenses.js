@@ -16,6 +16,7 @@ const expenseSchema = z.object({
   amount: z.number().positive(),
   currency: z.string().trim().min(1).max(10).default('SEK'),
   category_id: z.number().int().positive().optional(),
+  occurred_at: z.string().trim().optional(),
   paid_by_user_id: z.number().int().positive(),
   notes: z.string().trim().max(1000).optional().nullable(),
   splits: z.array(splitSchema).optional(),
@@ -40,6 +41,13 @@ function validateAndResolveCategoryId(categoryId) {
   return category.id;
 }
 
+function normalizeOccurredAt(occurredAt) {
+  if (!occurredAt) return new Date().toISOString();
+  const parsed = new Date(occurredAt);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString();
+}
+
 function parseExpenseRows(rows) {
   const expenses = new Map();
   for (const row of rows) {
@@ -58,6 +66,7 @@ function parseExpenseRows(rows) {
         category_name: row.category_name ?? null,
         category_icon: row.category_icon ?? null,
         notes: row.notes,
+        occurred_at: row.occurred_at ?? row.created_at,
         created_at: row.created_at,
         splits: [],
       });
@@ -83,7 +92,7 @@ router.get('/:groupId/export', (req, res) => {
   }
 
   const rows = db.prepare(`
-    SELECT e.id, e.title, e.amount, e.currency, e.notes, e.created_at,
+    SELECT e.id, e.title, e.amount, e.currency, e.notes, e.occurred_at, e.created_at,
            c.name AS category_name,
            COALESCE(NULLIF(TRIM(payer.full_name), ''), payer.email) AS paid_by_display_name,
            GROUP_CONCAT(COALESCE(NULLIF(TRIM(split_user.full_name), ''), split_user.email) || ':' || printf('%.2f', es.amount_owed), '; ') AS split_summary
@@ -97,7 +106,7 @@ router.get('/:groupId/export', (req, res) => {
     ORDER BY e.created_at DESC
   `).all(groupId);
 
-  const headers = ['id', 'titel', 'kategori', 'belopp', 'valuta', 'betald_av', 'anteckningar', 'splits', 'skapad'];
+  const headers = ['id', 'titel', 'kategori', 'belopp', 'valuta', 'betald_av', 'anteckningar', 'splits', 'utlagd_tid', 'skapad'];
   const escape = (value) => {
     const text = value == null ? '' : String(value);
     return `"${text.replaceAll('"', '""')}"`;
@@ -112,6 +121,7 @@ router.get('/:groupId/export', (req, res) => {
       row.paid_by_display_name,
       row.notes || '',
       row.split_summary || '',
+      row.occurred_at,
       row.created_at,
     ].map(escape).join(',')))
     .join('\n');
@@ -137,7 +147,7 @@ router.get('/:groupId', (req, res) => {
   }
 
   const rows = db.prepare(`
-    SELECT e.id, e.group_id, e.title, e.amount, e.currency, e.category_id, e.paid_by_user_id, e.notes, e.created_at,
+    SELECT e.id, e.group_id, e.title, e.amount, e.currency, e.category_id, e.paid_by_user_id, e.notes, e.occurred_at, e.created_at,
            c.name AS category_name,
            c.icon AS category_icon,
            payer.full_name AS paid_by_full_name,
@@ -153,7 +163,7 @@ router.get('/:groupId', (req, res) => {
     LEFT JOIN expense_splits es ON es.expense_id = e.id
     LEFT JOIN users split_user ON split_user.id = es.user_id
     WHERE e.group_id = ?
-    ORDER BY e.created_at DESC, es.id ASC
+    ORDER BY e.occurred_at DESC, es.id ASC
   `).all(groupId);
 
   return res.json(parseExpenseRows(rows));
@@ -185,8 +195,12 @@ router.post('/:groupId', (req, res) => {
   const memberIds = new Set(groupMembers.map((member) => member.id));
   const { title, amount, currency, paid_by_user_id, notes } = parsed.data;
   const categoryId = validateAndResolveCategoryId(parsed.data.category_id);
+  const occurredAt = normalizeOccurredAt(parsed.data.occurred_at);
   if (!categoryId) {
     return res.status(400).json({ error: 'Ogiltig kategori för utgiften.' });
+  }
+  if (!occurredAt) {
+    return res.status(400).json({ error: 'Ogiltigt datum eller tid för utlägget.' });
   }
 
   if (!memberIds.has(paid_by_user_id)) {
@@ -220,9 +234,9 @@ router.post('/:groupId', (req, res) => {
 
   const tx = db.transaction(() => {
     const expenseResult = db.prepare(`
-      INSERT INTO expenses (group_id, title, amount, currency, category_id, paid_by_user_id, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(groupId, title, amount, currency, categoryId, paid_by_user_id, notes || null);
+      INSERT INTO expenses (group_id, title, amount, currency, category_id, paid_by_user_id, notes, occurred_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(groupId, title, amount, currency, categoryId, paid_by_user_id, notes || null, occurredAt);
 
     const insertSplit = db.prepare(
       'INSERT INTO expense_splits (expense_id, user_id, amount_owed) VALUES (?, ?, ?)',
@@ -237,7 +251,7 @@ router.post('/:groupId', (req, res) => {
 
   const expenseId = tx();
   const rows = db.prepare(`
-    SELECT e.id, e.group_id, e.title, e.amount, e.currency, e.category_id, e.paid_by_user_id, e.notes, e.created_at,
+    SELECT e.id, e.group_id, e.title, e.amount, e.currency, e.category_id, e.paid_by_user_id, e.notes, e.occurred_at, e.created_at,
            c.name AS category_name,
            c.icon AS category_icon,
            payer.full_name AS paid_by_full_name,
@@ -287,8 +301,12 @@ router.put('/:groupId/:expenseId', (req, res) => {
   const memberIds = new Set(groupMembers.map((member) => member.id));
   const { title, amount, currency, paid_by_user_id, notes } = parsed.data;
   const categoryId = validateAndResolveCategoryId(parsed.data.category_id);
+  const occurredAt = normalizeOccurredAt(parsed.data.occurred_at);
   if (!categoryId) {
     return res.status(400).json({ error: 'Ogiltig kategori för utgiften.' });
+  }
+  if (!occurredAt) {
+    return res.status(400).json({ error: 'Ogiltigt datum eller tid för utlägget.' });
   }
 
   if (!memberIds.has(paid_by_user_id)) {
@@ -321,8 +339,8 @@ router.put('/:groupId/:expenseId', (req, res) => {
   }
 
   const tx = db.transaction(() => {
-    db.prepare('UPDATE expenses SET title = ?, amount = ?, currency = ?, category_id = ?, paid_by_user_id = ?, notes = ? WHERE id = ?')
-      .run(title, amount, currency, categoryId, paid_by_user_id, notes || null, expenseId);
+    db.prepare('UPDATE expenses SET title = ?, amount = ?, currency = ?, category_id = ?, paid_by_user_id = ?, notes = ?, occurred_at = ? WHERE id = ?')
+      .run(title, amount, currency, categoryId, paid_by_user_id, notes || null, occurredAt, expenseId);
 
     db.prepare('DELETE FROM expense_splits WHERE expense_id = ?').run(expenseId);
 
@@ -337,7 +355,7 @@ router.put('/:groupId/:expenseId', (req, res) => {
 
   tx();
   const rows = db.prepare(`
-    SELECT e.id, e.group_id, e.title, e.amount, e.currency, e.category_id, e.paid_by_user_id, e.notes, e.created_at,
+    SELECT e.id, e.group_id, e.title, e.amount, e.currency, e.category_id, e.paid_by_user_id, e.notes, e.occurred_at, e.created_at,
            c.name AS category_name,
            c.icon AS category_icon,
            payer.full_name AS paid_by_full_name,

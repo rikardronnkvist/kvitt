@@ -70,6 +70,7 @@ export function initializeDatabase() {
       category_id INTEGER REFERENCES expense_categories(id),
       paid_by_user_id INTEGER NOT NULL REFERENCES users(id),
       notes TEXT,
+      occurred_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -132,6 +133,10 @@ export function initializeDatabase() {
   if (!expenseColumns.some((column) => column.name === 'category_id')) {
     db.exec('ALTER TABLE expenses ADD COLUMN category_id INTEGER REFERENCES expense_categories(id)');
   }
+  if (!expenseColumns.some((column) => column.name === 'occurred_at')) {
+    db.exec('ALTER TABLE expenses ADD COLUMN occurred_at DATETIME');
+  }
+  db.exec("UPDATE expenses SET occurred_at = COALESCE(created_at, datetime('now')) WHERE occurred_at IS NULL");
 
   const categories = [
     { name: 'Övrigt', icon: 'shapes', sort_order: 0 },
