@@ -10,7 +10,11 @@ export default function ExpenseItem({ expense, onEdit }) {
         item,
       ]),
     ).values(),
-  );
+  ).sort((a, b) => {
+    const initialsA = getUserInitials(a);
+    const initialsB = getUserInitials(b);
+    return initialsA.localeCompare(initialsB, 'sv');
+  });
   const payer = { full_name: expense.paid_by_full_name, email: expense.paid_by_email, initials: expense.paid_by_initials };
   const CategoryIcon = getCategoryIcon(expense.category_icon);
 
