@@ -117,7 +117,7 @@ export default function AppShell() {
               </div>
               <div>
                 <p className="m-0 text-sm font-semibold">Kvitt</p>
-                <p className="m-0 text-xs text-[var(--text-muted)]">Smartare delade utgifter</p>
+                <p className="m-0 text-xs text-[var(--text-muted)]">#teambail on tour</p>
               </div>
             </button>
           </div>
