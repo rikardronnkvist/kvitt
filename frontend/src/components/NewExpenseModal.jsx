@@ -158,7 +158,7 @@ export default function NewExpenseModal({ groupId, members, onClose, onSuccess }
               required
             >
               {members.map((member) => (
-                <option key={member.id} value={member.id}>{member.username}</option>
+                <option key={member.id} value={member.id}>{member.full_name || member.username}</option>
               ))}
             </select>
           </label>
@@ -188,7 +188,7 @@ export default function NewExpenseModal({ groupId, members, onClose, onSuccess }
                       },
                     }))}
                   />
-                  {member.username}
+                  {member.full_name || member.username}
                 </label>
               ))}
             </div>
