@@ -17,6 +17,7 @@ export default function authMiddleware(req, res, next) {
       username: payload.username ?? null,
       user_handle: payload.user_handle,
       is_admin: Boolean(payload.is_admin),
+      current_passkey_id: payload.current_passkey_id ? Number(payload.current_passkey_id) : null,
     };
     return next();
   } catch {

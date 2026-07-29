@@ -191,6 +191,7 @@ export function initializeDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       credential_id TEXT NOT NULL UNIQUE,
+      name TEXT,
       public_key TEXT NOT NULL,
       counter INTEGER NOT NULL DEFAULT 0,
       device_type TEXT NOT NULL,
@@ -267,6 +268,11 @@ export function initializeDatabase() {
     db.exec('ALTER TABLE expenses ADD COLUMN occurred_at DATETIME');
   }
   db.exec("UPDATE expenses SET occurred_at = COALESCE(created_at, datetime('now')) WHERE occurred_at IS NULL");
+
+  const passkeyColumns = db.prepare('PRAGMA table_info(passkeys)').all();
+  if (!passkeyColumns.some((column) => column.name === 'name')) {
+    db.exec('ALTER TABLE passkeys ADD COLUMN name TEXT');
+  }
 
   const categories = [
     { name: 'Övrigt', icon: 'shapes', sort_order: 0 },

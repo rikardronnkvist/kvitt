@@ -88,7 +88,7 @@ router.put('/profile', requireAuth, async (req, res) => {
   db.prepare('UPDATE users SET full_name = ?, phone = ?, initials = ? WHERE id = ?').run(full_name, normalizedPhone, normalizedInitials, req.user.id);
 
   const updatedUser = getAuthUserById(req.user.id);
-  return res.json({ token: signToken(updatedUser), user: updatedUser });
+  return res.json({ token: signToken(updatedUser, { currentPasskeyId: req.user.current_passkey_id }), user: updatedUser });
 });
 
 export default router;
