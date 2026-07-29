@@ -44,9 +44,9 @@ router.get('/', (req, res) => {
   const groups = db.prepare(`
     SELECT g.id, g.name, g.theme_color, g.mileage_rate, g.created_at,
            COUNT(gm2.user_id) AS member_count,
-           MAX(
-             COALESCE((SELECT MAX(COALESCE(e.occurred_at, e.created_at)) FROM expenses e WHERE e.group_id = g.id), g.created_at),
-             COALESCE((SELECT MAX(s.settled_at) FROM settlements s WHERE s.group_id = g.id), g.created_at),
+           COALESCE(
+             (SELECT MAX(COALESCE(e.occurred_at, e.created_at)) FROM expenses e WHERE e.group_id = g.id),
+             (SELECT MAX(s.settled_at) FROM settlements s WHERE s.group_id = g.id),
              g.created_at
            ) AS last_activity_at
     FROM groups g
