@@ -4,6 +4,7 @@ import { ChevronDown, FolderKanban, FolderPlus, LayoutGrid, LogOut, PlusCircle, 
 import { parseUser } from '../lib/session.js';
 import { getUserDisplayName } from '../lib/users.js';
 import { post, put } from '../api/client.js';
+import { GROUP_THEMES } from '../lib/groupTheme.js';
 
 export default function AppShell() {
   const navigate = useNavigate();
@@ -12,6 +13,7 @@ export default function AppShell() {
   const [editingProfile, setEditingProfile] = useState(false);
   const [creatingGroup, setCreatingGroup] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupTheme, setNewGroupTheme] = useState(GROUP_THEMES[0].id);
   const [groupError, setGroupError] = useState('');
   const [groupSaving, setGroupSaving] = useState(false);
   const [profileForm, setProfileForm] = useState({ full_name: '', email: '', current_password: '', new_password: '' });
@@ -58,6 +60,7 @@ export default function AppShell() {
 
   const openCreateGroup = () => {
     setNewGroupName('');
+    setNewGroupTheme(GROUP_THEMES[0].id);
     setGroupError('');
     setCreatingGroup(true);
   };
@@ -88,7 +91,7 @@ export default function AppShell() {
     setGroupError('');
     setGroupSaving(true);
     try {
-      const group = await post('/api/groups', { name: newGroupName });
+      const group = await post('/api/groups', { name: newGroupName, theme_color: newGroupTheme });
       setCreatingGroup(false);
       navigate(`/groups/${group.id}`);
     } catch (err) {
@@ -229,6 +232,26 @@ export default function AppShell() {
                     autoFocus
                   />
                 </label>
+                <div className="grid gap-1.5">
+                  <p className="text-sm font-medium text-[var(--text-secondary)]">Färgtema</p>
+                  <div className="flex flex-wrap gap-2">
+                    {GROUP_THEMES.map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        title={t.name}
+                        onClick={() => setNewGroupTheme(t.id)}
+                        className="h-7 w-7 rounded-full transition hover:scale-110 focus:outline-none"
+                        style={{
+                          background: t.base,
+                          boxShadow: newGroupTheme === t.id ? `0 0 0 2px white, 0 0 0 4px ${t.base}` : undefined,
+                        }}
+                        aria-pressed={newGroupTheme === t.id}
+                        aria-label={t.name}
+                      />
+                    ))}
+                  </div>
+                </div>
                 {groupError ? (
                   <p className="m-0 rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{groupError}</p>
                 ) : null}
