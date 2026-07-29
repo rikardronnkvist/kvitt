@@ -52,12 +52,21 @@ export function initializeDatabase() {
       PRIMARY KEY (group_id, user_id)
     );
 
+    CREATE TABLE IF NOT EXISTS expense_categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      icon TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE IF NOT EXISTS expenses (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
       title TEXT NOT NULL,
       amount REAL NOT NULL,
       currency TEXT NOT NULL DEFAULT 'SEK',
+      category_id INTEGER REFERENCES expense_categories(id),
       paid_by_user_id INTEGER NOT NULL REFERENCES users(id),
       notes TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -112,5 +121,39 @@ export function initializeDatabase() {
   const groupColumns = db.prepare('PRAGMA table_info(groups)').all();
   if (!groupColumns.some((c) => c.name === 'theme_color')) {
     db.exec('ALTER TABLE groups ADD COLUMN theme_color TEXT');
+  }
+
+  const expenseColumns = db.prepare('PRAGMA table_info(expenses)').all();
+  if (!expenseColumns.some((column) => column.name === 'category_id')) {
+    db.exec('ALTER TABLE expenses ADD COLUMN category_id INTEGER REFERENCES expense_categories(id)');
+  }
+
+  const categories = [
+    { name: 'Övrigt', icon: 'shapes', sort_order: 0 },
+    { name: 'Bilresa', icon: 'car', sort_order: 1 },
+    { name: 'Mat', icon: 'utensils-crossed', sort_order: 2 },
+    { name: 'Dryck', icon: 'wine', sort_order: 3 },
+    { name: 'Boende', icon: 'house', sort_order: 4 },
+  ];
+
+  const insertCategory = db.prepare(`
+    INSERT OR IGNORE INTO expense_categories (name, icon, sort_order)
+    VALUES (?, ?, ?)
+  `);
+  for (const category of categories) {
+    insertCategory.run(category.name, category.icon, category.sort_order);
+  }
+
+  const categoryRows = db.prepare('SELECT id FROM expense_categories ORDER BY sort_order ASC, id ASC').all();
+  const uncategorizedExpenses = db.prepare('SELECT id FROM expenses WHERE category_id IS NULL').all();
+  if (categoryRows.length && uncategorizedExpenses.length) {
+    const updateCategory = db.prepare('UPDATE expenses SET category_id = ? WHERE id = ?');
+    const tx = db.transaction(() => {
+      for (const expense of uncategorizedExpenses) {
+        const randomCategory = categoryRows[Math.floor(Math.random() * categoryRows.length)];
+        updateCategory.run(randomCategory.id, expense.id);
+      }
+    });
+    tx();
   }
 }

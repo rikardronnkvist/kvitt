@@ -5,14 +5,14 @@ import ModalShell from './ModalShell.jsx';
 import { createExpenseForm } from '../lib/expenseForm.js';
 import { getCurrentUserId } from '../lib/session.js';
 
-export default function NewExpenseModal({ groupId, members, onClose, onSuccess }) {
+export default function NewExpenseModal({ groupId, members, categories, onClose, onSuccess }) {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState(() => createExpenseForm({ members, currentUserId: getCurrentUserId() }));
+  const [form, setForm] = useState(() => createExpenseForm({ members, categories, currentUserId: getCurrentUserId() }));
 
   useEffect(() => {
-    setForm(createExpenseForm({ members, currentUserId: getCurrentUserId() }));
-  }, [members]);
+    setForm(createExpenseForm({ members, categories, currentUserId: getCurrentUserId() }));
+  }, [members, categories]);
 
   useEffect(() => {
     const handleEscape = (event) => {
@@ -50,6 +50,7 @@ export default function NewExpenseModal({ groupId, members, onClose, onSuccess }
         form={form}
         setForm={setForm}
         members={members}
+        categories={categories}
         error={error}
         saving={saving}
         onCancel={onClose}

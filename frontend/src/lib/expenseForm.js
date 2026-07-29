@@ -1,4 +1,5 @@
 import { getUserDisplayName } from './users.js';
+import { getDefaultCategoryId } from './expenseCategories.js';
 
 function roundMoney(value) {
   return Math.round(Number(value || 0) * 100) / 100;
@@ -30,7 +31,7 @@ function hasEqualSplits(amount, splits) {
   return splits.every((split, index) => Math.abs(split.amount_owed - expected[index].amount_owed) <= 0.01);
 }
 
-export function createExpenseForm({ members, currentUserId, expense }) {
+export function createExpenseForm({ members, categories = [], currentUserId, expense }) {
   const defaultPayerId = members.some((member) => String(member.id) === currentUserId)
     ? currentUserId
     : String(expense?.paid_by_user_id || members[0]?.id || '');
@@ -52,6 +53,7 @@ export function createExpenseForm({ members, currentUserId, expense }) {
     title: expense?.title || '',
     amount: expense ? String(expense.amount) : '',
     currency: expense?.currency || 'SEK',
+    category_id: String(expense?.category_id ?? getDefaultCategoryId(categories) ?? ''),
     paid_by_user_id: String(expense?.paid_by_user_id || defaultPayerId),
     notes: expense?.notes || '',
     split_type: expense && !hasEqualSplits(expense.amount, expense.splits) ? 'custom' : 'equal',
@@ -81,6 +83,7 @@ export function getSplitSummary(form, members) {
 
 export function buildExpensePayload(form, members) {
   const { amount, selectedMembers, customDifference } = getSplitSummary(form, members);
+  const categoryId = Number(form.category_id);
 
   if (!selectedMembers.length) {
     throw new Error('Välj minst en person att dela utgiften med.');
@@ -88,6 +91,10 @@ export function buildExpensePayload(form, members) {
 
   if (!Number.isFinite(amount) || amount <= 0) {
     throw new Error('Belopp måste vara större än 0.');
+  }
+
+  if (!Number.isInteger(categoryId) || categoryId <= 0) {
+    throw new Error('Välj en kategori för utgiften.');
   }
 
   let splits;
@@ -114,6 +121,7 @@ export function buildExpensePayload(form, members) {
     title: form.title,
     amount,
     currency: form.currency || 'SEK',
+    category_id: categoryId,
     paid_by_user_id: Number(form.paid_by_user_id),
     notes: form.notes || null,
     splits,

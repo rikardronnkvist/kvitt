@@ -1,4 +1,5 @@
 import { Receipt } from 'lucide-react';
+import { getCategoryIcon } from '../lib/expenseCategories.js';
 import { formatCurrency, formatDateTime } from '../lib/format.js';
 import { getUserDisplayName, getUserInitials } from '../lib/users.js';
 
@@ -12,6 +13,7 @@ export default function ExpenseItem({ expense, onEdit }) {
     ).values(),
   );
   const payer = { full_name: expense.paid_by_full_name, email: expense.paid_by_email, initials: expense.paid_by_initials };
+  const CategoryIcon = getCategoryIcon(expense.category_icon);
 
   const handleKeyDown = (event) => {
     if (event.key === 'Enter' || event.key === ' ') {
@@ -37,6 +39,10 @@ export default function ExpenseItem({ expense, onEdit }) {
             <div className="flex items-center gap-2">
               <Receipt className="h-4 w-4 text-[var(--text-muted)]" />
               <h3 className="m-0 text-base font-semibold">{expense.title}</h3>
+              <span className="inline-flex items-center gap-1 rounded-md border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-2 py-0.5 text-xs text-[var(--text-secondary)]">
+                <CategoryIcon className="h-3.5 w-3.5" />
+                {expense.category_name || 'Övrigt'}
+              </span>
             </div>
           </div>
           <div className="grid shrink-0 grid-cols-[9.5rem_6.5rem] items-center gap-4 self-center text-right">

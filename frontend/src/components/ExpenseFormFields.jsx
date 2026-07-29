@@ -1,5 +1,6 @@
 import { ReceiptText, SplitSquareVertical } from 'lucide-react';
 import { buildExpensePayload, getSplitSummary } from '../lib/expenseForm.js';
+import { getCategoryIcon } from '../lib/expenseCategories.js';
 import { formatCurrency } from '../lib/format.js';
 import { getUserDisplayName } from '../lib/users.js';
 
@@ -24,6 +25,7 @@ export default function ExpenseFormFields({
   form,
   setForm,
   members,
+  categories,
   error,
   saving,
   onCancel,
@@ -33,6 +35,8 @@ export default function ExpenseFormFields({
   submitLabel,
 }) {
   const { selectedMembers, equalSplits, customTotal, customDifference, hasValidAmount } = getSplitSummary(form, members);
+  const activeCategory = categories.find((category) => String(category.id) === String(form.category_id));
+  const ActiveCategoryIcon = activeCategory ? getCategoryIcon(activeCategory.icon) : null;
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -83,6 +87,29 @@ export default function ExpenseFormFields({
               </option>
             ))}
           </select>
+        </label>
+
+        <label className="field-label">
+          Kategori
+          <div className="relative">
+            <select
+              value={form.category_id}
+              onChange={(event) => setForm((previous) => ({ ...previous, category_id: event.target.value }))}
+              required
+              className="pr-9"
+            >
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+            {ActiveCategoryIcon ? (
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]">
+                <ActiveCategoryIcon className="h-4 w-4" />
+              </span>
+            ) : null}
+          </div>
         </label>
 
         <label className="field-label md:col-span-2">
