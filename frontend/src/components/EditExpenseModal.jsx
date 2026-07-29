@@ -108,10 +108,7 @@ export default function EditExpenseModal({ expense, members, groupId, onClose, o
         aria-label="Redigera utgift"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="modal-header">
-          <h2>Redigera utgift</h2>
-          <button type="button" className="secondary" onClick={onClose}>Stäng</button>
-        </div>
+        <h2>Redigera utgift</h2>
 
         <form onSubmit={handleSubmit} className="form-grid">
           <label>
