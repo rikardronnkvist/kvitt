@@ -68,8 +68,8 @@ export default function Login() {
               <img src="/kvitt.png" alt="Kvitt logo" className="h-16 w-16 object-contain" />
             </div>
             <div className="space-y-1">
-              <h1 className="page-title">#teambail on tour</h1>
-              <p className="m-0 text-sm text-[var(--text-secondary)]">Logga in på Kvitt</p>
+              <h1 className="page-title">Logga in på Kvitt</h1>
+              <p className="m-0 text-sm text-[var(--text-secondary)]">#teambail on tour</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
