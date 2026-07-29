@@ -49,11 +49,6 @@ export default function ExpenseItem({ expense, onDelete, onEdit }) {
             Redigera
           </button>
         ) : null}
-        {onDelete ? (
-          <button type="button" className="danger" onClick={() => onDelete(expense.id)}>
-            Ta bort
-          </button>
-        ) : null}
       </div>
     </article>
   );

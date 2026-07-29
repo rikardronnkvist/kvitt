@@ -368,6 +368,7 @@ export default function GroupView() {
             groupId={id}
             onClose={() => setEditingExpenseId(null)}
             onSave={handleSaveExpense}
+            onDelete={handleDeleteExpense}
           />
         )}
 
