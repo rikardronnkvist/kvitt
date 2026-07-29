@@ -269,7 +269,6 @@ export default function GroupView() {
                   Grupp
                 </span>
                 <h1 className="page-title">{group?.name}</h1>
-                <p className="page-copy">{members.map((member) => getUserDisplayName(member)).join(', ')}</p>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row">
                 <button type="button" className="btn-primary" style={{ background: theme.base, borderColor: theme.base }} onClick={() => setIsAddingExpense(true)}>
