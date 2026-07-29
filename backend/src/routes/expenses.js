@@ -35,7 +35,8 @@ function parseExpenseRows(rows) {
         amount: Number(row.amount),
         currency: row.currency,
         paid_by_user_id: row.paid_by_user_id,
-        paid_by_username: row.paid_by_username,
+        paid_by_full_name: row.paid_by_full_name,
+        paid_by_email: row.paid_by_email,
         notes: row.notes,
         created_at: row.created_at,
         splits: [],
@@ -45,7 +46,8 @@ function parseExpenseRows(rows) {
       expenses.get(row.id).splits.push({
         id: row.split_id,
         user_id: row.split_user_id,
-        username: row.split_username,
+        full_name: row.split_full_name,
+        email: row.split_email,
         amount_owed: Number(row.amount_owed),
       });
     }
@@ -61,8 +63,8 @@ router.get('/:groupId/export', (req, res) => {
 
   const rows = db.prepare(`
     SELECT e.id, e.title, e.amount, e.currency, e.notes, e.created_at,
-           payer.username AS paid_by_username,
-           GROUP_CONCAT(split_user.username || ':' || printf('%.2f', es.amount_owed), '; ') AS split_summary
+           COALESCE(NULLIF(TRIM(payer.full_name), ''), payer.email) AS paid_by_display_name,
+           GROUP_CONCAT(COALESCE(NULLIF(TRIM(split_user.full_name), ''), split_user.email) || ':' || printf('%.2f', es.amount_owed), '; ') AS split_summary
     FROM expenses e
     JOIN users payer ON payer.id = e.paid_by_user_id
     LEFT JOIN expense_splits es ON es.expense_id = e.id
@@ -83,7 +85,7 @@ router.get('/:groupId/export', (req, res) => {
       row.title,
       Number(row.amount).toFixed(2),
       row.currency,
-      row.paid_by_username,
+      row.paid_by_display_name,
       row.notes || '',
       row.split_summary || '',
       row.created_at,
@@ -103,9 +105,11 @@ router.get('/:groupId', (req, res) => {
 
   const rows = db.prepare(`
     SELECT e.id, e.group_id, e.title, e.amount, e.currency, e.paid_by_user_id, e.notes, e.created_at,
-           payer.username AS paid_by_username,
+           payer.full_name AS paid_by_full_name,
+           payer.email AS paid_by_email,
            es.id AS split_id, es.user_id AS split_user_id, es.amount_owed,
-           split_user.username AS split_username
+           split_user.full_name AS split_full_name,
+           split_user.email AS split_email
     FROM expenses e
     JOIN users payer ON payer.id = e.paid_by_user_id
     LEFT JOIN expense_splits es ON es.expense_id = e.id
@@ -129,7 +133,7 @@ router.post('/:groupId', (req, res) => {
   }
 
   const groupMembers = db.prepare(`
-    SELECT u.id, u.username
+    SELECT u.id, u.full_name, u.email
     FROM group_members gm
     JOIN users u ON u.id = gm.user_id
     WHERE gm.group_id = ?
@@ -192,9 +196,11 @@ router.post('/:groupId', (req, res) => {
   const expenseId = tx();
   const rows = db.prepare(`
     SELECT e.id, e.group_id, e.title, e.amount, e.currency, e.paid_by_user_id, e.notes, e.created_at,
-           payer.username AS paid_by_username,
+           payer.full_name AS paid_by_full_name,
+           payer.email AS paid_by_email,
            es.id AS split_id, es.user_id AS split_user_id, es.amount_owed,
-           split_user.username AS split_username
+           split_user.full_name AS split_full_name,
+           split_user.email AS split_email
     FROM expenses e
     JOIN users payer ON payer.id = e.paid_by_user_id
     LEFT JOIN expense_splits es ON es.expense_id = e.id
@@ -224,7 +230,7 @@ router.put('/:groupId/:expenseId', (req, res) => {
   }
 
   const groupMembers = db.prepare(`
-    SELECT u.id, u.username
+    SELECT u.id, u.full_name, u.email
     FROM group_members gm
     JOIN users u ON u.id = gm.user_id
     WHERE gm.group_id = ?
@@ -281,9 +287,11 @@ router.put('/:groupId/:expenseId', (req, res) => {
   tx();
   const rows = db.prepare(`
     SELECT e.id, e.group_id, e.title, e.amount, e.currency, e.paid_by_user_id, e.notes, e.created_at,
-           payer.username AS paid_by_username,
+           payer.full_name AS paid_by_full_name,
+           payer.email AS paid_by_email,
            es.id AS split_id, es.user_id AS split_user_id, es.amount_owed,
-           split_user.username AS split_username
+           split_user.full_name AS split_full_name,
+           split_user.email AS split_email
     FROM expenses e
     JOIN users payer ON payer.id = e.paid_by_user_id
     LEFT JOIN expense_splits es ON es.expense_id = e.id

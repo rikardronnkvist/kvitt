@@ -1,5 +1,6 @@
 import { ArrowRight } from 'lucide-react';
 import { formatCurrency } from '../lib/format.js';
+import { getUserDisplayName } from '../lib/users.js';
 
 export default function BalanceList({ balances, nested = false }) {
   if (!balances.length) {
@@ -14,9 +15,9 @@ export default function BalanceList({ balances, nested = false }) {
           className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-3 py-3 text-sm"
         >
           <div className="flex min-w-0 items-center gap-2">
-            <span className="truncate font-medium">{balance.from.username}</span>
+            <span className="truncate font-medium">{getUserDisplayName(balance.from)}</span>
             <ArrowRight className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
-            <span className="truncate text-[var(--text-secondary)]">{balance.to.username}</span>
+            <span className="truncate text-[var(--text-secondary)]">{getUserDisplayName(balance.to)}</span>
           </div>
           <span className="shrink-0 font-semibold amount-neutral">{formatCurrency(balance.amount, { precise: true })}</span>
         </div>

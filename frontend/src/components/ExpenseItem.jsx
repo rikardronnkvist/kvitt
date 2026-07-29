@@ -1,9 +1,6 @@
 import { Receipt } from 'lucide-react';
 import { formatCurrency, formatDateTime } from '../lib/format.js';
-
-function getDisplayName(item, displayNameByUsername) {
-  return displayNameByUsername[item.username] || item.full_name || item.username;
-}
+import { getUserDisplayName } from '../lib/users.js';
 
 function getInitials(name) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -13,16 +10,16 @@ function getInitials(name) {
   return name.slice(0, 2).toUpperCase();
 }
 
-export default function ExpenseItem({ expense, onEdit, displayNameByUsername }) {
+export default function ExpenseItem({ expense, onEdit }) {
   const uniqueParticipants = Array.from(
     new Map(
-      [{ username: expense.paid_by_username }, ...expense.splits].map((item) => [
-        item.username,
+      [{ user_id: expense.paid_by_user_id, full_name: expense.paid_by_full_name, email: expense.paid_by_email }, ...expense.splits].map((item) => [
+        item.user_id,
         item,
       ]),
     ).values(),
   );
-  const payerDisplayName = getDisplayName({ username: expense.paid_by_username, full_name: expense.paid_by_full_name }, displayNameByUsername);
+  const payerDisplayName = getUserDisplayName({ full_name: expense.paid_by_full_name, email: expense.paid_by_email });
 
   const handleKeyDown = (event) => {
     if (event.key === 'Enter' || event.key === ' ') {
@@ -50,7 +47,7 @@ export default function ExpenseItem({ expense, onEdit, displayNameByUsername }) 
               <h3 className="m-0 text-base font-semibold">{expense.title}</h3>
             </div>
             <p className="mt-1 text-sm text-[var(--text-secondary)]">
-              {payerDisplayName} betalade för {expense.splits.map((split) => getDisplayName(split, displayNameByUsername)).join(', ')}
+              {payerDisplayName} betalade för {expense.splits.map((split) => getUserDisplayName(split)).join(', ')}
             </p>
           </div>
           <div className="grid shrink-0 grid-cols-[9.5rem_6.5rem] items-center gap-4 self-center text-right">
@@ -65,13 +62,13 @@ export default function ExpenseItem({ expense, onEdit, displayNameByUsername }) 
           <div className="flex flex-wrap items-center gap-2">
             {uniqueParticipants.map((participant) => (
               <span
-                key={participant.username}
+                key={participant.user_id}
                 className="inline-flex items-center gap-2 rounded-md border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)]"
               >
                 <span className="flex h-5 w-5 items-center justify-center rounded-md bg-[var(--app-surface-strong)] text-[10px] font-semibold text-[var(--text-primary)]">
-                  {getInitials(getDisplayName(participant, displayNameByUsername))}
+                  {getInitials(getUserDisplayName(participant))}
                 </span>
-                {getDisplayName(participant, displayNameByUsername)}
+                {getUserDisplayName(participant)}
               </span>
             ))}
           </div>

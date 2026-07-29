@@ -17,7 +17,6 @@ function requireAdmin(req, res, next) {
 router.use(requireAdmin);
 
 const updateUserSchema = z.object({
-  username: z.string().trim().min(3).max(30),
   email: z.string().trim().email(),
   is_admin: z.boolean(),
   full_name: z.string().trim().min(1).max(100),
@@ -29,7 +28,7 @@ const updateGroupSchema = z.object({
 
 router.get('/users', (_req, res) => {
   const users = db.prepare(`
-    SELECT u.id, u.username, u.email, u.is_admin, u.full_name, u.created_at,
+    SELECT u.id, u.email, u.is_admin, u.full_name, u.created_at,
            COUNT(gm.group_id) AS group_count
     FROM users u
     LEFT JOIN group_members gm ON gm.user_id = u.id
@@ -65,17 +64,17 @@ router.put('/users/:id', (req, res) => {
 
   try {
     db.prepare(
-      'UPDATE users SET username = ?, email = ?, is_admin = ?, full_name = ? WHERE id = ?',
-    ).run(parsed.data.username, parsed.data.email.toLowerCase(), parsed.data.is_admin ? 1 : 0, parsed.data.full_name, userId);
+      'UPDATE users SET email = ?, is_admin = ?, full_name = ? WHERE id = ?',
+    ).run(parsed.data.email.toLowerCase(), parsed.data.is_admin ? 1 : 0, parsed.data.full_name, userId);
   } catch (error) {
     if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-      return res.status(409).json({ error: 'Användarnamn eller e-post används redan.' });
+      return res.status(409).json({ error: 'E-postadressen används redan.' });
     }
     throw error;
   }
 
   const updated = db.prepare(`
-    SELECT u.id, u.username, u.email, u.is_admin, u.full_name, u.created_at,
+    SELECT u.id, u.email, u.is_admin, u.full_name, u.created_at,
            COUNT(gm.group_id) AS group_count
     FROM users u
     LEFT JOIN group_members gm ON gm.user_id = u.id
@@ -93,7 +92,8 @@ router.put('/users/:id', (req, res) => {
 router.get('/groups', (_req, res) => {
   const groups = db.prepare(`
     SELECT g.id, g.name, g.created_at, g.created_by,
-           u.username AS created_by_username,
+           u.full_name AS created_by_full_name,
+           u.email AS created_by_email,
            COUNT(gm.user_id) AS member_count
     FROM groups g
     JOIN users u ON u.id = g.created_by
@@ -124,7 +124,8 @@ router.put('/groups/:id', (req, res) => {
 
   const updated = db.prepare(`
     SELECT g.id, g.name, g.created_at, g.created_by,
-           u.username AS created_by_username,
+           u.full_name AS created_by_full_name,
+           u.email AS created_by_email,
            COUNT(gm.user_id) AS member_count
     FROM groups g
     JOIN users u ON u.id = g.created_by

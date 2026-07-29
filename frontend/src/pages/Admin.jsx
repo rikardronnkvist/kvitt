@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ShieldCheck, Users, UsersRound } from 'lucide-react';
 import { get, put } from '../api/client.js';
+import { getUserDisplayName } from '../lib/users.js';
 
 function AdminSkeleton() {
   return (
@@ -41,7 +42,6 @@ export default function Admin() {
       setUsers(usersData);
       setGroups(groupsData);
       setUserDrafts(Object.fromEntries(usersData.map((user) => [user.id, {
-        username: user.username,
         email: user.email,
         is_admin: Boolean(user.is_admin),
         full_name: user.full_name,
@@ -87,7 +87,6 @@ export default function Admin() {
     setError('');
     try {
       const updated = await put(`/api/admin/users/${userId}`, {
-        username: draft.username,
         email: draft.email,
         is_admin: Boolean(draft.is_admin),
         full_name: draft.full_name,
@@ -96,7 +95,6 @@ export default function Admin() {
       setUserDrafts((previous) => ({
         ...previous,
         [userId]: {
-          username: updated.username,
           email: updated.email,
           is_admin: Boolean(updated.is_admin),
           full_name: updated.full_name,
@@ -158,17 +156,11 @@ export default function Admin() {
             </div>
             <div className="space-y-4">
               {users.map((user) => {
-                const draft = userDrafts[user.id] || { username: '', email: '', is_admin: false, full_name: '' };
+                const draft = userDrafts[user.id] || { email: '', is_admin: false, full_name: '' };
                 return (
                   <article key={user.id} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
                     <div className="grid gap-4">
-                      <label className="field-label">
-                        Användarnamn
-                        <input
-                          value={draft.username}
-                          onChange={(event) => handleUserDraftChange(user.id, 'username', event.target.value)}
-                        />
-                      </label>
+                      <p className="m-0 text-sm font-medium">{getUserDisplayName(draft)}</p>
                       <label className="field-label">
                         Fullständigt namn
                         <input
@@ -222,7 +214,7 @@ export default function Admin() {
                         />
                       </label>
                       <div className="space-y-1 text-sm text-[var(--text-secondary)]">
-                        <p className="m-0">Skapad av: {group.created_by_username}</p>
+                        <p className="m-0">Skapad av: {getUserDisplayName({ full_name: group.created_by_full_name, email: group.created_by_email })}</p>
                         <p className="m-0">Antal medlemmar: {group.member_count}</p>
                       </div>
                       <button type="button" className="btn-primary" onClick={() => handleSaveGroup(group.id)} disabled={savingGroupId === group.id}>

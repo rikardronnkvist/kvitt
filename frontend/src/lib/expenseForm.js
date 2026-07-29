@@ -1,3 +1,5 @@
+import { getUserDisplayName } from './users.js';
+
 function roundMoney(value) {
   return Math.round(Number(value || 0) * 100) / 100;
 }
@@ -93,7 +95,7 @@ export function buildExpensePayload(form, members) {
     splits = selectedMembers.map((member) => {
       const owed = roundMoney(form.custom_amounts[member.id]);
       if (!Number.isFinite(owed) || owed <= 0) {
-        throw new Error(`Ange ett giltigt belopp för ${member.full_name || member.username}.`);
+        throw new Error(`Ange ett giltigt belopp för ${getUserDisplayName(member)}.`);
       }
       return {
         user_id: member.id,
