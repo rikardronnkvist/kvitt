@@ -169,7 +169,7 @@ export default function ExpenseFormFields({
               placeholder="0"
             />
           </label>
-        ) : null}
+        ) : <div className="hidden md:block" aria-hidden="true" />}
 
         <label className="field-label">
           Betald av
