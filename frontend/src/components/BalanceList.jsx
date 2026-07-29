@@ -2,7 +2,7 @@ import { ArrowRight } from 'lucide-react';
 import { formatCurrency } from '../lib/format.js';
 import { getUserDisplayName } from '../lib/users.js';
 
-export default function BalanceList({ balances, nested = false }) {
+export default function BalanceList({ balances, nested = false, onSelect }) {
   if (!balances.length) {
     return <p className="m-0 text-sm text-[var(--text-secondary)]">Inga utestående saldon just nu.</p>;
   }
@@ -12,7 +12,11 @@ export default function BalanceList({ balances, nested = false }) {
       {balances.map((balance, index) => (
         <div
           key={`${balance.from.id}-${balance.to.id}-${index}`}
-          className="flex items-center justify-between gap-3 py-1.5 text-sm"
+          onClick={onSelect ? () => onSelect(balance) : undefined}
+          className={[
+            'flex items-center justify-between gap-3 py-1.5 text-sm',
+            onSelect ? 'cursor-pointer rounded-lg px-2 -mx-2 transition hover:bg-[var(--app-surface-muted)]' : '',
+          ].join(' ')}
         >
           <div className="flex min-w-0 items-center gap-2">
             <span className="truncate font-medium">{getUserDisplayName(balance.from)}</span>

@@ -137,7 +137,16 @@ export default function NewSettlementModal({ groupId, members, balances, current
             <ArrowRight className="h-4 w-4 text-[var(--text-secondary)]" />
             <h3 className="m-0 text-base font-semibold">Föreslagna regleringar</h3>
           </div>
-          <BalanceList balances={balances} nested />
+          <BalanceList
+            balances={balances}
+            nested
+            onSelect={(balance) => setFormData((previous) => ({
+              ...previous,
+              payer_id: String(balance.from.id),
+              receiver_id: String(balance.to.id),
+              amount: String(balance.amount.toFixed(2)),
+            }))}
+          />
         </section>
 
         {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
