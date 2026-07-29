@@ -180,8 +180,8 @@ export default function AppShell() {
       </div>
 
       {creatingGroup ? (
-        <div className="modal-backdrop" onClick={() => setCreatingGroup(false)}>
-          <div className="modal-sheet md:w-[420px]" onClick={(event) => event.stopPropagation()}>
+        <div className="modal-backdrop app-shell-modal-backdrop" onClick={() => setCreatingGroup(false)}>
+          <div className="modal-sheet app-shell-modal-sheet md:w-[420px]" onClick={(event) => event.stopPropagation()}>
             <form className="space-y-5 p-5 sm:p-6" onSubmit={handleCreateGroup}>
               <div className="space-y-1">
                 <p className="section-eyebrow">Grupper</p>
@@ -237,8 +237,8 @@ export default function AppShell() {
       ) : null}
 
       {editingProfile ? (
-        <div className="modal-backdrop" onClick={() => setEditingProfile(false)}>
-          <div className="modal-sheet md:w-[420px]" onClick={(event) => event.stopPropagation()}>
+        <div className="modal-backdrop app-shell-modal-backdrop" onClick={() => setEditingProfile(false)}>
+          <div className="modal-sheet app-shell-modal-sheet md:w-[420px]" onClick={(event) => event.stopPropagation()}>
             <form className="space-y-5 p-5 sm:p-6" onSubmit={handleSaveProfile}>
               <div className="space-y-1">
                 <p className="section-eyebrow">Profil</p>
