@@ -183,16 +183,6 @@ export default function Login() {
         </div>
 
         <form className="space-y-4" onSubmit={(event) => event.preventDefault()}>
-          <div className="space-y-4">
-            <PasskeyButton
-              label={isRegisterMode ? 'Skapa konto med Passkey' : 'Logga in med Passkey'}
-              loadingLabel="Startar Passkey..."
-              loading={passkeyLoading}
-              disabled={isBusy || (isRegisterMode && (!hasValidRegistrationToken || !hasValidRegisterName))}
-              onClick={isRegisterMode ? onPasskeySignup : handlePasskeyLogin}
-            />
-          </div>
-
           {isRegisterMode ? (
             <>
               {!hasRegistrationToken ? (
@@ -209,7 +199,7 @@ export default function Login() {
                 </p>
               ) : null}
               <label className="field-label">
-                Fullständigt namn
+                För och efternamn
                 <input
                   name="full_name"
                   value={registerForm.full_name}
@@ -219,7 +209,7 @@ export default function Login() {
                 />
               </label>
               <label className="field-label">
-                Telefonnummer
+                Telefonnummer (för enklare Swish'ar)
                 <input
                   name="phone"
                   type="tel"
@@ -230,8 +220,27 @@ export default function Login() {
                   autoComplete="tel"
                 />
               </label>
+              <div className="space-y-4">
+                <PasskeyButton
+                  label="Skapa konto med Passkey"
+                  loadingLabel="Startar Passkey..."
+                  loading={passkeyLoading}
+                  disabled={isBusy || !hasValidRegistrationToken || !hasValidRegisterName}
+                  onClick={onPasskeySignup}
+                />
+              </div>
             </>
-          ) : null}
+          ) : (
+            <div className="space-y-4">
+              <PasskeyButton
+                label="Logga in med Passkey"
+                loadingLabel="Startar Passkey..."
+                loading={passkeyLoading}
+                disabled={isBusy}
+                onClick={handlePasskeyLogin}
+              />
+            </div>
+          )}
 
           {!isRegisterMode && devboxAvailable ? (
             <div className="space-y-3">
