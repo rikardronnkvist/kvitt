@@ -195,29 +195,15 @@ export default function GroupView() {
 
   const timeline = useMemo(() => {
     return [
-      ...expenses.map((expense) => ({
-        ...expense,
-        kind: 'expense',
-        activityDate: expense.occurred_at || expense.created_at,
-        tieBreakerDate: expense.created_at || expense.occurred_at,
-      })),
+      ...expenses.map((expense) => ({ ...expense, kind: 'expense', activityDate: expense.occurred_at || expense.created_at })),
       ...settlements.map((settlement) => ({
         ...settlement,
         kind: 'settlement',
         activityDate: settlement.settled_at,
-        tieBreakerDate: settlement.settled_at,
         payer_display_name: getUserDisplayName({ full_name: settlement.payer_full_name }),
         receiver_display_name: getUserDisplayName({ full_name: settlement.receiver_full_name }),
       })),
-    ].sort((a, b) => {
-      const activityDiff = new Date(b.activityDate).getTime() - new Date(a.activityDate).getTime();
-      if (activityDiff !== 0) return activityDiff;
-
-      const tieBreakerDiff = new Date(b.tieBreakerDate).getTime() - new Date(a.tieBreakerDate).getTime();
-      if (tieBreakerDiff !== 0) return tieBreakerDiff;
-
-      return Number(b.id) - Number(a.id);
-    });
+    ].sort((a, b) => new Date(b.activityDate) - new Date(a.activityDate));
   }, [expenses, settlements]);
 
   const memberBalances = useMemo(
@@ -500,11 +486,6 @@ export default function GroupView() {
 
       <div className="grid gap-6">
         <section className="surface-card overflow-hidden">
-          <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
-            <div>
-              <p className="section-eyebrow">Aktivitet</p>
-            </div>
-          </div>
 
           {timeline.length ? (
             <div>
