@@ -421,3 +421,22 @@ textarea {
 .expenses-list {
   background: white;
 }
+
+.group-overview {
+  display: grid;
+  gap: 2rem;
+}
+
+.balances-section {
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  padding: 1.5rem;
+}
+
+.balances-section h3 {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+}

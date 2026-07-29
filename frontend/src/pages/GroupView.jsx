@@ -270,24 +270,33 @@ export default function GroupView() {
           </div>
 
           {activeTab === 'Utgifter' ? (
-            <div className="expenses-section">
-              {expenses.length > 0 && (
-                <div className="month-summary">
-                  <div>
-                    <h3>{new Date().toLocaleString('sv-SE', { month: 'long', year: 'numeric' })}</h3>
+            <div className="group-overview">
+              <div className="expenses-section">
+                {expenses.length > 0 && (
+                  <div className="month-summary">
+                    <div>
+                      <h3>{new Date().toLocaleString('sv-SE', { month: 'long', year: 'numeric' })}</h3>
+                    </div>
+                    <div className="summary-stats">
+                      <span className="total-amount">SEK {expenses.reduce((sum, e) => sum + e.amount, 0).toFixed(0)}</span>
+                      <span className="total-count">total spent | {expenses.length} expenses</span>
+                    </div>
                   </div>
-                  <div className="summary-stats">
-                    <span className="total-amount">SEK {expenses.reduce((sum, e) => sum + e.amount, 0).toFixed(0)}</span>
-                    <span className="total-count">total spent | {expenses.length} expenses</span>
-                  </div>
+                )}
+                <div className="expenses-list">
+                  {expenses.map((expense) => (
+                    <ExpenseItem key={expense.id} expense={expense} onDelete={handleDeleteExpense} onEdit={handleEditExpense} />
+                  ))}
+                  {!expenses.length ? <p>Inga utgifter registrerade ännu.</p> : null}
+                </div>
+              </div>
+
+              {balances && balances.length > 0 && (
+                <div className="balances-section">
+                  <h3>Skuldsammanfattning</h3>
+                  <BalanceList balances={balances} nested />
                 </div>
               )}
-              <div className="expenses-list">
-                {expenses.map((expense) => (
-                  <ExpenseItem key={expense.id} expense={expense} onDelete={handleDeleteExpense} onEdit={handleEditExpense} />
-                ))}
-                {!expenses.length ? <p>Inga utgifter registrerade ännu.</p> : null}
-              </div>
             </div>
           ) : null}
 
