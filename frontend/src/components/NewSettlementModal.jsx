@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { post } from '../api/client.js';
 import BalanceList from './BalanceList.jsx';
 import ModalShell from './ModalShell.jsx';
-import { formatCurrency } from '../lib/format.js';
 import { getUserDisplayName } from '../lib/users.js';
 
 function normalizeSwishPhone(phone) {
@@ -62,15 +61,6 @@ export default function NewSettlementModal({
     () => members.filter((member) => String(member.id) !== String(formData.payer_id)),
     [members, formData.payer_id],
   );
-
-  const suggestedAmount = useMemo(() => {
-    if (!formData.payer_id || !formData.receiver_id || !balances) return '';
-
-    const payer = Number(formData.payer_id);
-    const receiver = Number(formData.receiver_id);
-    const match = balances.find((row) => row.from?.id === payer && row.to?.id === receiver);
-    return match ? String(match.amount.toFixed(2)) : '';
-  }, [formData.payer_id, formData.receiver_id, balances]);
 
   const selectedReceiver = useMemo(
     () => members.find((member) => String(member.id) === String(formData.receiver_id)) || null,
@@ -201,16 +191,6 @@ export default function NewSettlementModal({
             required
           />
         </label>
-
-        {suggestedAmount ? (
-          <button type="button" className="btn-secondary w-full justify-between" onClick={() => handleFieldChange('amount', suggestedAmount)}>
-            <span className="inline-flex items-center gap-2">
-              <Sparkles className="h-4 w-4" />
-              Använd föreslaget belopp
-            </span>
-            <span className="amount-neutral">{formatCurrency(suggestedAmount, { precise: true })}</span>
-          </button>
-        ) : null}
 
         {showSwishSection ? (
           <div className="space-y-2">
