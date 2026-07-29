@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ShieldCheck, Users, UsersRound } from 'lucide-react';
 import { get, put } from '../api/client.js';
+import { GROUP_THEMES, getThemeForGroup } from '../lib/groupTheme.js';
 import { getUserDisplayName } from '../lib/users.js';
 
 function AdminSkeleton() {
@@ -27,6 +28,7 @@ export default function Admin() {
   const [savingUserId, setSavingUserId] = useState(null);
   const [savingGroupId, setSavingGroupId] = useState(null);
   const [activeTab, setActiveTab] = useState('users');
+  const [selectedGroupId, setSelectedGroupId] = useState(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -42,7 +44,15 @@ export default function Admin() {
         is_admin: Boolean(user.is_admin),
         full_name: user.full_name,
       }])));
-      setGroupDrafts(Object.fromEntries(groupsData.map((group) => [group.id, { name: group.name }])));
+      setGroupDrafts(Object.fromEntries(groupsData.map((group) => [group.id, {
+        name: group.name,
+        theme_color: group.theme_color ?? null,
+      }])));
+      setSelectedGroupId((previous) => {
+        if (!groupsData.length) return null;
+        if (previous && groupsData.some((group) => group.id === previous)) return previous;
+        return groupsData[0].id;
+      });
       setError('');
     } catch (loadError) {
       setError(loadError.message);
@@ -62,10 +72,10 @@ export default function Admin() {
     }));
   };
 
-  const handleGroupDraftChange = (groupId, value) => {
+  const handleGroupDraftChange = (groupId, key, value) => {
     setGroupDrafts((previous) => ({
       ...previous,
-      [groupId]: { ...previous[groupId], name: value },
+      [groupId]: { ...previous[groupId], [key]: value },
     }));
   };
 
@@ -98,11 +108,17 @@ export default function Admin() {
     setSavingGroupId(groupId);
     setError('');
     try {
-      const updated = await put(`/api/admin/groups/${groupId}`, { name: draft.name });
+      const updated = await put(`/api/admin/groups/${groupId}`, {
+        name: draft.name,
+        theme_color: draft.theme_color ?? null,
+      });
       setGroups((previous) => previous.map((group) => (group.id === groupId ? updated : group)));
       setGroupDrafts((previous) => ({
         ...previous,
-        [groupId]: { name: updated.name },
+        [groupId]: {
+          name: updated.name,
+          theme_color: updated.theme_color ?? null,
+        },
       }));
     } catch (saveError) {
       setError(saveError.message);
@@ -115,6 +131,11 @@ export default function Admin() {
     { id: 'users', label: 'Användare', icon: Users, count: users.length },
     { id: 'groups', label: 'Grupper', icon: UsersRound, count: groups.length },
   ];
+  const selectedGroup = groups.find((group) => group.id === selectedGroupId) ?? null;
+  const selectedGroupDraft = selectedGroup ? (groupDrafts[selectedGroup.id] ?? {
+    name: selectedGroup.name,
+    theme_color: selectedGroup.theme_color ?? null,
+  }) : null;
 
   return (
     <div className="space-y-8">
@@ -208,30 +229,94 @@ export default function Admin() {
           ) : null}
 
           {!loading && activeTab === 'groups' ? (
-            <div className="space-y-4">
-              {groups.map((group) => {
-                const draft = groupDrafts[group.id] || { name: '' };
-                return (
-                  <article key={group.id} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
-                    <div className="grid gap-4">
-                      <label className="field-label">
-                        Gruppnamn
-                        <input
-                          value={draft.name}
-                          onChange={(event) => handleGroupDraftChange(group.id, event.target.value)}
-                        />
-                      </label>
-                      <div className="space-y-1 text-sm text-[var(--text-secondary)]">
-                        <p className="m-0">Skapad av: {getUserDisplayName({ full_name: group.created_by_full_name, email: group.created_by_email })}</p>
-                        <p className="m-0">Antal medlemmar: {group.member_count}</p>
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+              <aside className="space-y-2">
+                {groups.map((group) => {
+                  const theme = getThemeForGroup(group);
+                  const isActive = selectedGroupId === group.id;
+                  return (
+                    <button
+                      key={group.id}
+                      type="button"
+                      onClick={() => setSelectedGroupId(group.id)}
+                      className={[
+                        'w-full rounded-lg border px-4 py-3 text-left transition',
+                        isActive
+                          ? 'border-[var(--border-strong)] bg-[var(--app-surface-muted)]'
+                          : 'border-[var(--border-subtle)] bg-[var(--app-surface-strong)] hover:bg-[var(--app-surface-muted)]',
+                      ].join(' ')}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="m-0 truncate text-sm font-semibold">{group.name}</p>
+                          <p className="mt-1 m-0 text-xs text-[var(--text-secondary)]">{group.member_count} medlemmar</p>
+                        </div>
+                        <span className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: theme.base }} />
                       </div>
-                      <button type="button" className="btn-primary" onClick={() => handleSaveGroup(group.id)} disabled={savingGroupId === group.id}>
-                        {savingGroupId === group.id ? 'Sparar...' : 'Spara grupp'}
-                      </button>
+                    </button>
+                  );
+                })}
+              </aside>
+
+              {selectedGroup && selectedGroupDraft ? (
+                <section className="space-y-6 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-5 sm:p-6">
+                  <div className="space-y-1">
+                    <p className="section-eyebrow">Grupp</p>
+                    <h3 className="m-0 text-lg font-semibold">Gruppinställningar</h3>
+                    <p className="m-0 text-sm text-[var(--text-secondary)]">Redigera namn och färgtema för vald grupp.</p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <label className="field-label">
+                      Gruppnamn
+                      <input
+                        value={selectedGroupDraft.name}
+                        onChange={(event) => handleGroupDraftChange(selectedGroup.id, 'name', event.target.value)}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="space-y-3">
+                    <p className="field-label">Färgtema</p>
+                    <div className="flex flex-wrap gap-2">
+                      {GROUP_THEMES.map((theme) => {
+                        const activeThemeId = selectedGroupDraft.theme_color ?? getThemeForGroup(selectedGroup).id;
+                        const isActive = activeThemeId === theme.id;
+                        return (
+                          <button
+                            key={theme.id}
+                            type="button"
+                            title={theme.name}
+                            onClick={() => handleGroupDraftChange(selectedGroup.id, 'theme_color', theme.id)}
+                            className="h-7 w-7 rounded-full transition hover:scale-110 focus:outline-none focus-visible:ring-2"
+                            style={{
+                              background: theme.base,
+                              outline: isActive ? `2px solid ${theme.base}` : undefined,
+                              outlineOffset: isActive ? '2px' : undefined,
+                              boxShadow: isActive ? `0 0 0 3px rgba(255,255,255,0.9), 0 0 0 5px ${theme.base}` : undefined,
+                            }}
+                            aria-pressed={isActive}
+                            aria-label={theme.name}
+                          />
+                        );
+                      })}
                     </div>
-                  </article>
-                );
-              })}
+                  </div>
+
+                  <div className="space-y-1 text-sm text-[var(--text-secondary)]">
+                    <p className="m-0">Skapad av: {getUserDisplayName({ full_name: selectedGroup.created_by_full_name, email: selectedGroup.created_by_email })}</p>
+                    <p className="m-0">Antal medlemmar: {selectedGroup.member_count}</p>
+                  </div>
+
+                  <button type="button" className="btn-primary" onClick={() => handleSaveGroup(selectedGroup.id)} disabled={savingGroupId === selectedGroup.id}>
+                    {savingGroupId === selectedGroup.id ? 'Sparar...' : 'Spara grupp'}
+                  </button>
+                </section>
+              ) : (
+                <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-6">
+                  <p className="m-0 text-sm text-[var(--text-secondary)]">Välj en grupp i listan för att redigera inställningar.</p>
+                </section>
+              )}
             </div>
           ) : null}
         </div>
