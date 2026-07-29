@@ -12,7 +12,6 @@ export default function ExpenseItem({ expense, onEdit }) {
     ).values(),
   );
   const payer = { full_name: expense.paid_by_full_name, email: expense.paid_by_email, initials: expense.paid_by_initials };
-  const payerDisplayName = getUserDisplayName(payer);
 
   const handleKeyDown = (event) => {
     if (event.key === 'Enter' || event.key === ' ') {
@@ -39,9 +38,6 @@ export default function ExpenseItem({ expense, onEdit }) {
               <Receipt className="h-4 w-4 text-[var(--text-muted)]" />
               <h3 className="m-0 text-base font-semibold">{expense.title}</h3>
             </div>
-            <p className="mt-1 text-sm text-[var(--text-secondary)]">
-              {payerDisplayName} betalade för {expense.splits.map((split) => getUserDisplayName(split)).join(', ')}
-            </p>
           </div>
           <div className="grid shrink-0 grid-cols-[9.5rem_6.5rem] items-center gap-4 self-center text-right">
             <p className="m-0 whitespace-nowrap text-xs tabular-nums text-[var(--text-muted)]">{formatDateTime(expense.created_at)}</p>
