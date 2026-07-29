@@ -36,6 +36,7 @@ function ensureUsersSchemaForPasskeys() {
       is_admin INTEGER NOT NULL DEFAULT 0,
       password_hash TEXT NOT NULL,
       full_name TEXT,
+      phone TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
@@ -44,7 +45,7 @@ function ensureUsersSchemaForPasskeys() {
   const getColumn = (name) => userColumns.find((column) => column.name === name);
   const hasColumn = (name) => Boolean(getColumn(name));
 
-  const hasTargetColumns = ['username', 'email', 'password_hash', 'created_at', 'is_admin', 'full_name', 'initials', 'user_handle']
+  const hasTargetColumns = ['username', 'email', 'password_hash', 'created_at', 'is_admin', 'full_name', 'phone', 'initials', 'user_handle']
     .every((name) => hasColumn(name));
   const hasNullableUsername = hasColumn('username') && getColumn('username').notnull === 0;
   const hasNullableEmail = hasColumn('email') && getColumn('email').notnull === 0;
@@ -61,6 +62,7 @@ function ensureUsersSchemaForPasskeys() {
   const selectCreatedAt = hasColumn('created_at') ? 'COALESCE(created_at, CURRENT_TIMESTAMP)' : 'CURRENT_TIMESTAMP';
   const selectIsAdmin = hasColumn('is_admin') ? 'COALESCE(is_admin, 0)' : '0';
   const selectFullName = hasColumn('full_name') ? 'full_name' : 'NULL';
+  const selectPhone = hasColumn('phone') ? 'NULLIF(phone, \'\')' : 'NULL';
   const selectInitials = hasColumn('initials') ? 'initials' : 'NULL';
   const selectUserHandle = hasColumn('user_handle')
     ? 'COALESCE(NULLIF(user_handle, \'\'), \'legacy-\' || id)'
@@ -77,13 +79,14 @@ function ensureUsersSchemaForPasskeys() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         is_admin INTEGER NOT NULL DEFAULT 0,
         full_name TEXT,
+        phone TEXT,
         initials TEXT,
         user_handle TEXT UNIQUE NOT NULL
       );
     `);
 
     db.exec(`
-      INSERT INTO users_new (id, username, email, password_hash, created_at, is_admin, full_name, initials, user_handle)
+      INSERT INTO users_new (id, username, email, password_hash, created_at, is_admin, full_name, phone, initials, user_handle)
       SELECT
         id,
         ${selectUsername},
@@ -92,6 +95,7 @@ function ensureUsersSchemaForPasskeys() {
         ${selectCreatedAt},
         ${selectIsAdmin},
         ${selectFullName},
+        ${selectPhone},
         ${selectInitials},
         ${selectUserHandle}
       FROM users;
@@ -219,6 +223,11 @@ export function initializeDatabase() {
   const hasFullNameColumn = userColumns.some((column) => column.name === 'full_name');
   if (!hasFullNameColumn) {
     db.exec('ALTER TABLE users ADD COLUMN full_name TEXT');
+  }
+
+  const hasPhoneColumn = userColumns.some((column) => column.name === 'phone');
+  if (!hasPhoneColumn) {
+    db.exec('ALTER TABLE users ADD COLUMN phone TEXT');
   }
 
   const hasInitialsColumn = userColumns.some((column) => column.name === 'initials');

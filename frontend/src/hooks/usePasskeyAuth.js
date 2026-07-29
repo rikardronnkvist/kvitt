@@ -43,7 +43,7 @@ export function usePasskeyAuth({ navigate, setError }) {
     return false;
   };
 
-  const handlePasskeySignup = async (displayName, registrationToken) => {
+  const handlePasskeySignup = async (displayName, phone, registrationToken) => {
     if (!ensurePasskeySupport()) {
       return;
     }
@@ -51,7 +51,7 @@ export function usePasskeyAuth({ navigate, setError }) {
     setError('');
     setPasskeyLoading(true);
     try {
-      const data = await registerWithPasskey(displayName, registrationToken);
+      const data = await registerWithPasskey(displayName, phone, registrationToken);
       finishAuth(data);
     } catch (error) {
       setError(getPasskeyErrorMessage(error, 'register'));
