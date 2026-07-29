@@ -20,7 +20,7 @@ export function computeMemberBalances(members, expenses, settlements) {
   return members
     .map((member) => ({
       ...member,
-      balance: Math.round((balanceMap.get(member.id) || 0) * 100) / 100,
+      balance: Math.round(balanceMap.get(member.id) || 0),
     }))
     .sort((a, b) => b.balance - a.balance);
 }

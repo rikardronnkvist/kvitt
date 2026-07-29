@@ -268,6 +268,70 @@ export function initializeDatabase() {
     db.exec('ALTER TABLE expenses ADD COLUMN occurred_at DATETIME');
   }
   db.exec("UPDATE expenses SET occurred_at = COALESCE(created_at, datetime('now')) WHERE occurred_at IS NULL");
+  db.exec('UPDATE expenses SET amount = ROUND(amount)');
+  db.exec('UPDATE expense_splits SET amount_owed = ROUND(amount_owed)');
+  db.exec('UPDATE settlements SET amount = ROUND(amount)');
+  const reconcileSplits = db.transaction(() => {
+    const expenses = db.prepare('SELECT id, CAST(ROUND(amount) AS INTEGER) AS amount FROM expenses').all();
+    const listSplits = db.prepare('SELECT id, CAST(ROUND(amount_owed) AS INTEGER) AS amount_owed FROM expense_splits WHERE expense_id = ? ORDER BY id ASC');
+    const updateSplit = db.prepare('UPDATE expense_splits SET amount_owed = ? WHERE id = ?');
+    const updateExpense = db.prepare('UPDATE expenses SET amount = ? WHERE id = ?');
+
+    for (const expense of expenses) {
+      const splits = listSplits.all(expense.id);
+      if (!splits.length) {
+        continue;
+      }
+
+      for (const split of splits) {
+        split.amount_owed = Math.max(1, split.amount_owed);
+      }
+
+      let targetAmount = expense.amount;
+      const minimumSplitTotal = splits.length;
+      if (targetAmount < minimumSplitTotal) {
+        targetAmount = minimumSplitTotal;
+        updateExpense.run(targetAmount, expense.id);
+      }
+
+      let diff = targetAmount - splits.reduce((sum, split) => sum + split.amount_owed, 0);
+      if (diff === 0) {
+        for (const split of splits) {
+          updateSplit.run(split.amount_owed, split.id);
+        }
+        continue;
+      }
+
+      while (diff !== 0) {
+        let changed = false;
+        for (const split of splits) {
+          if (diff > 0) {
+            split.amount_owed += 1;
+            diff -= 1;
+            changed = true;
+          } else if (split.amount_owed > 1) {
+            split.amount_owed -= 1;
+            diff += 1;
+            changed = true;
+          }
+
+          if (diff === 0) {
+            break;
+          }
+        }
+
+        if (!changed) {
+          splits[0].amount_owed += diff;
+          diff = 0;
+        }
+      }
+
+      for (const split of splits) {
+        updateSplit.run(split.amount_owed, split.id);
+      }
+    }
+  });
+  reconcileSplits();
 
   const passkeyColumns = db.prepare('PRAGMA table_info(passkeys)').all();
   if (!passkeyColumns.some((column) => column.name === 'name')) {

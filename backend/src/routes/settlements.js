@@ -10,7 +10,7 @@ router.use(authMiddleware);
 const settlementSchema = z.object({
   payer_id: z.number().int().positive(),
   receiver_id: z.number().int().positive(),
-  amount: z.number().positive(),
+  amount: z.number().int().positive(),
 });
 
 function requireMembership(groupId, userId) {
@@ -36,7 +36,7 @@ router.get('/:groupId', (req, res) => {
     ORDER BY s.settled_at DESC
   `).all(groupId).map((settlement) => ({
     ...settlement,
-    amount: Number(settlement.amount),
+    amount: Math.round(Number(settlement.amount)),
   }));
 
   return res.json(settlements);
@@ -81,7 +81,7 @@ router.post('/:groupId', (req, res) => {
     WHERE s.id = ?
   `).get(result.lastInsertRowid);
 
-  return res.status(201).json({ ...settlement, amount: Number(settlement.amount) });
+  return res.status(201).json({ ...settlement, amount: Math.round(Number(settlement.amount)) });
 });
 
 router.put('/:groupId/:settlementId', (req, res) => {
@@ -131,7 +131,7 @@ router.put('/:groupId/:settlementId', (req, res) => {
     WHERE s.id = ?
   `).get(settlementId);
 
-  return res.json({ ...settlement, amount: Number(settlement.amount) });
+  return res.json({ ...settlement, amount: Math.round(Number(settlement.amount)) });
 });
 
 router.delete('/:groupId/:settlementId', (req, res) => {

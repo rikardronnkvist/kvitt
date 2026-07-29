@@ -30,7 +30,7 @@ function formatSwishAmount(amount) {
 
 function buildSwishLink({ phone, amount, message }) {
   const swishPhone = normalizeSwishPhone(phone);
-  if (!swishPhone || !Number.isFinite(amount) || amount <= 0) {
+  if (!swishPhone || !Number.isInteger(amount) || amount <= 0) {
     return null;
   }
   const encodedMessage = encodeURIComponent(message.slice(0, 50));
@@ -79,7 +79,7 @@ export default function NewSettlementModal({
     [receiverSwishPhone, parsedAmount, groupName],
   );
   const swishAmountText = useMemo(
-    () => (Number.isFinite(parsedAmount) && parsedAmount > 0 ? formatSwishAmount(parsedAmount) : null),
+    () => (Number.isInteger(parsedAmount) && parsedAmount > 0 ? formatSwishAmount(parsedAmount) : null),
     [parsedAmount],
   );
   const showSwishSection = Boolean(formData.receiver_id && receiverSwishPhone);
@@ -115,8 +115,8 @@ export default function NewSettlementModal({
     event.preventDefault();
     const amount = Number(formData.amount);
 
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setError('Belopp måste vara större än 0.');
+    if (!Number.isInteger(amount) || amount <= 0) {
+      setError('Belopp måste vara ett heltal större än 0.');
       return;
     }
 
@@ -165,7 +165,7 @@ export default function NewSettlementModal({
               ...previous,
               payer_id: String(balance.from.id),
               receiver_id: String(balance.to.id),
-              amount: String(balance.amount.toFixed(2)),
+              amount: String(Math.round(balance.amount)),
             }))}
           />
         </section>
@@ -199,7 +199,7 @@ export default function NewSettlementModal({
           <input
             type="number"
             min="0"
-            step="0.01"
+            step="1"
             value={formData.amount}
             onChange={(event) => handleFieldChange('amount', event.target.value)}
             placeholder="0"

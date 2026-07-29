@@ -2,14 +2,14 @@ const currencyFormatter = new Intl.NumberFormat('sv-SE', {
   style: 'currency',
   currency: 'SEK',
   minimumFractionDigits: 0,
-  maximumFractionDigits: 2,
+  maximumFractionDigits: 0,
 });
 
 const preciseCurrencyFormatter = new Intl.NumberFormat('sv-SE', {
   style: 'currency',
   currency: 'SEK',
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
 });
 
 export function formatCurrency(amount, { precise = false } = {}) {
