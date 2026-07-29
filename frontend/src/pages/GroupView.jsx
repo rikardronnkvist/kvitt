@@ -7,7 +7,7 @@ import NewExpenseModal from '../components/NewExpenseModal.jsx';
 import BalanceList from '../components/BalanceList.jsx';
 import { del, get, post, put } from '../api/client.js';
 
-const tabs = ['Utgifter', 'Saldon', 'Betalningar'];
+const tabs = ['Utgifter', 'Betalningar'];
 
 function getCurrentUserId() {
   const token = localStorage.getItem('token');
@@ -314,8 +314,6 @@ export default function GroupView() {
               )}
             </div>
           ) : null}
-
-          {activeTab === 'Saldon' ? <BalanceList balances={balances} /> : null}
 
           {activeTab === 'Betalningar' ? (
             <div className="stack">
