@@ -112,8 +112,7 @@ router.get('/:id', requireMembership, (req, res) => {
   const groupId = Number(req.params.id);
   const group = db.prepare(`
     SELECT g.id, g.name, g.theme_color, g.mileage_rate, g.created_by, g.created_at, g.archived_at,
-           u.full_name AS created_by_full_name,
-           u.username AS created_by_username
+           u.full_name AS created_by_full_name
     FROM groups g
     JOIN users u ON u.id = g.created_by
     WHERE g.id = ?
@@ -124,11 +123,11 @@ router.get('/:id', requireMembership, (req, res) => {
   }
 
   const members = db.prepare(`
-    SELECT u.id, u.username, u.full_name, u.phone, gm.joined_at
+    SELECT u.id, u.full_name, u.phone, gm.joined_at
     FROM group_members gm
     JOIN users u ON u.id = gm.user_id
     WHERE gm.group_id = ?
-    ORDER BY COALESCE(NULLIF(TRIM(u.full_name), ''), u.username) COLLATE NOCASE
+    ORDER BY COALESCE(NULLIF(TRIM(u.full_name), ''), CAST(u.id AS TEXT)) COLLATE NOCASE
   `).all(groupId);
 
   return res.json({ ...group, members });
@@ -144,7 +143,7 @@ router.get('/:id/member-search', requireMembership, (req, res) => {
   const searchTerm = parsed.data.query.toLowerCase();
   const pattern = `%${searchTerm}%`;
   const candidates = db.prepare(`
-    SELECT u.id, u.username, u.full_name
+    SELECT u.id, u.full_name
     FROM users u
     WHERE u.id NOT IN (
       SELECT gm.user_id
@@ -153,18 +152,16 @@ router.get('/:id/member-search', requireMembership, (req, res) => {
     )
       AND (
         LOWER(COALESCE(u.full_name, '')) LIKE ?
-        OR LOWER(COALESCE(u.username, '')) LIKE ?
       )
     ORDER BY
       CASE
-        WHEN LOWER(COALESCE(u.username, '')) = ? THEN 0
-        WHEN LOWER(COALESCE(u.full_name, '')) = ? THEN 1
-        WHEN LOWER(COALESCE(u.username, '')) LIKE ? THEN 2
-        ELSE 3
+        WHEN LOWER(COALESCE(u.full_name, '')) = ? THEN 0
+        WHEN LOWER(COALESCE(u.full_name, '')) LIKE ? THEN 1
+        ELSE 2
       END,
-      COALESCE(NULLIF(TRIM(u.full_name), ''), u.username) COLLATE NOCASE
+      COALESCE(NULLIF(TRIM(u.full_name), ''), CAST(u.id AS TEXT)) COLLATE NOCASE
     LIMIT 10
-  `).all(groupId, pattern, pattern, searchTerm, searchTerm, `${searchTerm}%`);
+  `).all(groupId, pattern, searchTerm, `${searchTerm}%`);
 
   return res.json(candidates);
 });
@@ -180,7 +177,7 @@ router.post('/:id/members', requireMembership, (req, res) => {
   if (!writable.ok) {
     return res.status(writable.status).json({ error: writable.error });
   }
-  const user = db.prepare('SELECT id, username, full_name FROM users WHERE id = ?').get(parsed.data.user_id);
+  const user = db.prepare('SELECT id, full_name FROM users WHERE id = ?').get(parsed.data.user_id);
   if (!user) {
     return res.status(404).json({ error: 'Användaren hittades inte.' });
   }

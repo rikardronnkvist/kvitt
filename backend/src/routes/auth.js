@@ -26,16 +26,16 @@ router.get('/devbox/users', (_req, res) => {
   }
 
   const users = db.prepare(`
-    SELECT id, username, full_name
+    SELECT id, full_name
     FROM users
-    ORDER BY COALESCE(NULLIF(full_name, ''), NULLIF(username, ''), id) COLLATE NOCASE
+    ORDER BY COALESCE(NULLIF(full_name, ''), id) COLLATE NOCASE
   `).all();
 
   return res.json({
     users: users.map((user) => ({
       id: user.id,
-      name: user.full_name || user.username || `Användare ${user.id}`,
-      subtitle: user.username || null,
+      name: user.full_name || `Användare ${user.id}`,
+      subtitle: null,
     })),
   });
 });

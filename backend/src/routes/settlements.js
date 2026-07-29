@@ -31,9 +31,7 @@ router.get('/:groupId', (req, res) => {
   const settlements = db.prepare(`
     SELECT s.id, s.group_id, s.payer_id, s.receiver_id, s.amount, s.settled_at,
            payer.full_name AS payer_full_name,
-           payer.username AS payer_username,
-           receiver.full_name AS receiver_full_name,
-           receiver.username AS receiver_username
+           receiver.full_name AS receiver_full_name
     FROM settlements s
     JOIN users payer ON payer.id = s.payer_id
     JOIN users receiver ON receiver.id = s.receiver_id
@@ -80,9 +78,7 @@ router.post('/:groupId', (req, res) => {
   const settlement = db.prepare(`
     SELECT s.id, s.group_id, s.payer_id, s.receiver_id, s.amount, s.settled_at,
            payer.full_name AS payer_full_name,
-           payer.username AS payer_username,
-           receiver.full_name AS receiver_full_name,
-           receiver.username AS receiver_username
+           receiver.full_name AS receiver_full_name
     FROM settlements s
     JOIN users payer ON payer.id = s.payer_id
     JOIN users receiver ON receiver.id = s.receiver_id
@@ -133,9 +129,7 @@ router.put('/:groupId/:settlementId', (req, res) => {
   const settlement = db.prepare(`
     SELECT s.id, s.group_id, s.payer_id, s.receiver_id, s.amount, s.settled_at,
            payer.full_name AS payer_full_name,
-           payer.username AS payer_username,
-           receiver.full_name AS receiver_full_name,
-           receiver.username AS receiver_username
+           receiver.full_name AS receiver_full_name
     FROM settlements s
     JOIN users payer ON payer.id = s.payer_id
     JOIN users receiver ON receiver.id = s.receiver_id

@@ -14,7 +14,7 @@ const NUM_PAYMENTS = 15;
 
 // Get group members
 const members = db.prepare(`
-  SELECT u.id, u.username FROM users u
+  SELECT u.id, u.full_name FROM users u
   JOIN group_members gm ON gm.user_id = u.id
   WHERE gm.group_id = ?
 `).all(GROUP_ID);
@@ -24,7 +24,7 @@ if (members.length < 2) {
   process.exit(1);
 }
 
-console.log(`Found ${members.length} members in group ${GROUP_ID}:`, members.map(m => m.username).join(', '));
+console.log(`Found ${members.length} members in group ${GROUP_ID}:`, members.map((m) => m.full_name || `Användare ${m.id}`).join(', '));
 
 // Generate dates over the last 3 months
 function getRandomDateInPast3Months() {
