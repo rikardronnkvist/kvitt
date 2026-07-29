@@ -131,14 +131,7 @@ export default function Login() {
   }, [isRegisterMode]);
 
   const onPasskeySignup = async () => {
-    const initialName = registerForm.full_name.trim();
-    const promptedName = window.prompt('Ange visningsnamn för ditt konto', initialName);
-    if (promptedName === null) {
-      setError('Registreringen avbröts');
-      return;
-    }
-
-    const displayName = promptedName.trim();
+    const displayName = registerForm.full_name.trim();
     if (displayName.length < 3) {
       setError('Ange minst 3 tecken i namnet.');
       return;
@@ -149,7 +142,6 @@ export default function Login() {
       return;
     }
 
-    setRegisterForm((current) => ({ ...current, full_name: displayName }));
     await handlePasskeySignup(displayName, registerForm.phone.trim(), registrationToken);
   };
 
