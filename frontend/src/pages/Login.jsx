@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { post } from '../api/client.js';
+import { get, post } from '../api/client.js';
 import PasskeyButton from '../components/PasskeyButton.jsx';
 import { usePasskeyAuth } from '../hooks/usePasskeyAuth.js';
 
@@ -24,12 +24,62 @@ export default function Login() {
   const [devboxAvailable, setDevboxAvailable] = useState(false);
   const [devboxLoading, setDevboxLoading] = useState(false);
   const [devboxLoginLoading, setDevboxLoginLoading] = useState(false);
+  const [checkingRegistrationToken, setCheckingRegistrationToken] = useState(false);
+  const [registrationTokenChecked, setRegistrationTokenChecked] = useState(false);
+  const [registrationTokenValid, setRegistrationTokenValid] = useState(false);
   const [error, setError] = useState('');
   const isRegisterMode = isRegisterRoute;
   const hasRegistrationToken = registrationToken.trim().length > 0;
+  const hasValidRegistrationToken = hasRegistrationToken && registrationTokenValid;
   const hasValidRegisterName = registerForm.full_name.trim().length >= 3;
   const { passkeyLoading, handlePasskeySignup, handlePasskeyLogin } = usePasskeyAuth({ navigate, setError });
-  const isBusy = passkeyLoading || devboxLoading || devboxLoginLoading;
+  const isBusy = passkeyLoading || devboxLoading || devboxLoginLoading || checkingRegistrationToken;
+
+  useEffect(() => {
+    if (!isRegisterMode) {
+      return;
+    }
+
+    if (!hasRegistrationToken) {
+      setRegistrationTokenChecked(true);
+      setRegistrationTokenValid(false);
+      return;
+    }
+
+    let active = true;
+    setCheckingRegistrationToken(true);
+    setRegistrationTokenChecked(false);
+    setRegistrationTokenValid(false);
+
+    get(`/api/auth/passkey/register-access?token=${encodeURIComponent(registrationToken)}`)
+      .then((data) => {
+        if (!active) return;
+        setRegistrationTokenValid(Boolean(data.allowed));
+      })
+      .catch(() => {
+        if (!active) return;
+        setRegistrationTokenValid(false);
+      })
+      .finally(() => {
+        if (active) {
+          setCheckingRegistrationToken(false);
+          setRegistrationTokenChecked(true);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isRegisterMode, hasRegistrationToken, registrationToken]);
+
+  useEffect(() => {
+    if (!isRegisterMode || checkingRegistrationToken || !registrationTokenChecked) {
+      return;
+    }
+    if (!hasRegistrationToken || !hasValidRegistrationToken) {
+      navigate('/login');
+    }
+  }, [checkingRegistrationToken, hasRegistrationToken, hasValidRegistrationToken, isRegisterMode, navigate, registrationTokenChecked]);
 
   useEffect(() => {
     if (isRegisterMode) {
@@ -94,7 +144,7 @@ export default function Login() {
       return;
     }
 
-    if (!hasRegistrationToken) {
+    if (!hasValidRegistrationToken) {
       setError('Registrering är stängd. Be admin om registreringslänk.');
       return;
     }
@@ -138,7 +188,7 @@ export default function Login() {
               label={isRegisterMode ? 'Skapa konto med Passkey' : 'Logga in med Passkey'}
               loadingLabel="Startar Passkey..."
               loading={passkeyLoading}
-              disabled={isBusy || (isRegisterMode && (!hasRegistrationToken || !hasValidRegisterName))}
+              disabled={isBusy || (isRegisterMode && (!hasValidRegistrationToken || !hasValidRegisterName))}
               onClick={isRegisterMode ? onPasskeySignup : handlePasskeyLogin}
             />
           </div>
@@ -149,6 +199,14 @@ export default function Login() {
                 <p className="m-0 rounded-lg border border-[var(--border-strong)] bg-[var(--app-surface-muted)] px-3 py-2 text-sm text-[var(--text-secondary)]">
                   Registrering är stängd. Be en administratör om registreringslänk.
                 </p>
+              ) : checkingRegistrationToken ? (
+                <p className="m-0 rounded-lg border border-[var(--border-strong)] bg-[var(--app-surface-muted)] px-3 py-2 text-sm text-[var(--text-secondary)]">
+                  Verifierar registreringslänken...
+                </p>
+              ) : !hasValidRegistrationToken ? (
+                <p className="m-0 rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">
+                  Ogiltig registreringslänk. Be en administratör om en ny länk.
+                </p>
               ) : null}
               <label className="field-label">
                 Fullständigt namn
@@ -156,7 +214,7 @@ export default function Login() {
                   name="full_name"
                   value={registerForm.full_name}
                   onChange={(event) => setRegisterForm((previous) => ({ ...previous, full_name: event.target.value }))}
-                  disabled={!hasRegistrationToken}
+                  disabled={!hasValidRegistrationToken}
                   minLength={3}
                 />
               </label>
@@ -167,7 +225,7 @@ export default function Login() {
                   type="tel"
                   value={registerForm.phone}
                   onChange={(event) => setRegisterForm((previous) => ({ ...previous, phone: event.target.value }))}
-                  disabled={!hasRegistrationToken}
+                  disabled={!hasValidRegistrationToken}
                   placeholder="T.ex. +46 70 123 45 67"
                   autoComplete="tel"
                 />
