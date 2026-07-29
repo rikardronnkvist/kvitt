@@ -192,6 +192,10 @@ router.post('/:groupId', (req, res) => {
     return res.status(400).json({ error: 'Gruppen saknar medlemmar.' });
   }
 
+  if (groupMembers.length < 2) {
+    return res.status(400).json({ error: 'Gruppen måste ha minst två medlemmar för att lägga till utgifter.' });
+  }
+
   const memberIds = new Set(groupMembers.map((member) => member.id));
   const { title, amount, currency, paid_by_user_id, notes } = parsed.data;
   const categoryId = validateAndResolveCategoryId(parsed.data.category_id);
