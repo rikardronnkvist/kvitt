@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { put } from '../api/client.js';
+import { del, put } from '../api/client.js';
 
 function buildEqualSplits(amount, splitMembers) {
   if (!splitMembers.length) return [];
@@ -17,7 +17,7 @@ function buildEqualSplits(amount, splitMembers) {
   });
 }
 
-export default function EditExpenseModal({ expense, members, groupId, onClose, onSave }) {
+export default function EditExpenseModal({ expense, members, groupId, onClose, onSave, onDelete }) {
   const [formData, setFormData] = useState({
     title: '',
     amount: '',
@@ -99,6 +99,21 @@ export default function EditExpenseModal({ expense, members, groupId, onClose, o
       setError(submitError.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (window.confirm('Är du säker på att du vill ta bort denna utgift?')) {
+      setSaving(true);
+      try {
+        await del(`/api/expenses/${groupId}/${expense.id}`);
+        onDelete(expense.id);
+        onClose();
+      } catch (deleteError) {
+        setError(deleteError.message);
+      } finally {
+        setSaving(false);
+      }
     }
   };
 
@@ -198,6 +213,10 @@ export default function EditExpenseModal({ expense, members, groupId, onClose, o
           {error ? <p className="error-text">{error}</p> : null}
 
           <div className="form-actions">
+            <button type="button" className="danger" onClick={handleDelete} disabled={saving}>
+              Ta bort
+            </button>
+            <div style={{ flex: 1 }} />
             <button type="button" onClick={onClose} disabled={saving}>
               Avbryt
             </button>
