@@ -20,6 +20,7 @@ const updateUserSchema = z.object({
   username: z.string().trim().min(3).max(30),
   email: z.string().trim().email(),
   is_admin: z.boolean(),
+  full_name: z.string().trim().min(1).max(100),
 });
 
 const updateGroupSchema = z.object({
@@ -28,7 +29,7 @@ const updateGroupSchema = z.object({
 
 router.get('/users', (_req, res) => {
   const users = db.prepare(`
-    SELECT u.id, u.username, u.email, u.is_admin, u.created_at,
+    SELECT u.id, u.username, u.email, u.is_admin, u.full_name, u.created_at,
            COUNT(gm.group_id) AS group_count
     FROM users u
     LEFT JOIN group_members gm ON gm.user_id = u.id
@@ -64,8 +65,8 @@ router.put('/users/:id', (req, res) => {
 
   try {
     db.prepare(
-      'UPDATE users SET username = ?, email = ?, is_admin = ? WHERE id = ?',
-    ).run(parsed.data.username, parsed.data.email.toLowerCase(), parsed.data.is_admin ? 1 : 0, userId);
+      'UPDATE users SET username = ?, email = ?, is_admin = ?, full_name = ? WHERE id = ?',
+    ).run(parsed.data.username, parsed.data.email.toLowerCase(), parsed.data.is_admin ? 1 : 0, parsed.data.full_name, userId);
   } catch (error) {
     if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       return res.status(409).json({ error: 'Användarnamn eller e-post används redan.' });
@@ -74,7 +75,7 @@ router.put('/users/:id', (req, res) => {
   }
 
   const updated = db.prepare(`
-    SELECT u.id, u.username, u.email, u.is_admin, u.created_at,
+    SELECT u.id, u.username, u.email, u.is_admin, u.full_name, u.created_at,
            COUNT(gm.group_id) AS group_count
     FROM users u
     LEFT JOIN group_members gm ON gm.user_id = u.id
