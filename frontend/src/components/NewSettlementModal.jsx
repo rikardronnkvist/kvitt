@@ -151,7 +151,7 @@ export default function NewSettlementModal({
   return (
     <ModalShell
       title="Kvitta skuld"
-      description="Fokusera på en reglering i taget och använd det föreslagna beloppet när det passar."
+      description=""
       onClose={onClose}
     >
       <form onSubmit={handleSubmit} className="space-y-5">
