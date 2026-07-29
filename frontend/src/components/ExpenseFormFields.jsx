@@ -187,6 +187,16 @@ export default function ExpenseFormFields({
         </label>
 
         <label className="field-label md:col-span-2">
+          Datum och tid för utlägget
+          <input
+            type="datetime-local"
+            value={form.occurred_at || ''}
+            onChange={(event) => setForm((previous) => ({ ...previous, occurred_at: event.target.value }))}
+            required
+          />
+        </label>
+
+        <label className="field-label md:col-span-2">
           Anteckningar
           <textarea
             rows="3"

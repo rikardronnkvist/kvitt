@@ -1,6 +1,13 @@
 import { getUserDisplayName } from './users.js';
 import { getDefaultCategoryId } from './expenseCategories.js';
 
+function toLocalDateTimeInputValue(input) {
+  const date = input ? new Date(input) : new Date();
+  const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${safeDate.getFullYear()}-${pad(safeDate.getMonth() + 1)}-${pad(safeDate.getDate())}T${pad(safeDate.getHours())}:${pad(safeDate.getMinutes())}`;
+}
+
 function roundMoney(value) {
   return Math.round(Number(value || 0) * 100) / 100;
 }
@@ -56,6 +63,7 @@ export function createExpenseForm({ members, categories = [], currentUserId, exp
     category_id: String(expense?.category_id ?? getDefaultCategoryId(categories) ?? ''),
     paid_by_user_id: String(expense?.paid_by_user_id || defaultPayerId),
     notes: expense?.notes || '',
+    occurred_at: toLocalDateTimeInputValue(expense?.occurred_at || expense?.created_at),
     distance_mil: '',
     split_type: expense && !hasEqualSplits(expense.amount, expense.splits) ? 'custom' : 'equal',
     included_users: includedUsers,
@@ -125,6 +133,7 @@ export function buildExpensePayload(form, members) {
     category_id: categoryId,
     paid_by_user_id: Number(form.paid_by_user_id),
     notes: form.notes || null,
+    occurred_at: form.occurred_at,
     splits,
   };
 }
