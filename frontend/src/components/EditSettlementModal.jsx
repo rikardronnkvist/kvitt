@@ -3,6 +3,10 @@ import { del, put } from '../api/client.js';
 import ModalShell from './ModalShell.jsx';
 import { getUserDisplayName } from '../lib/users.js';
 
+function sanitizeIntegerInput(value) {
+  return String(value ?? '').replace(/\D/g, '');
+}
+
 export default function EditSettlementModal({ settlement, members, groupId, onClose, onSave, onDelete }) {
   const [formData, setFormData] = useState({
     payer_id: '',
@@ -132,11 +136,11 @@ export default function EditSettlementModal({ settlement, members, groupId, onCl
         <label className="field-label">
           Belopp
           <input
-            type="number"
-            min="0"
-            step="1"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={formData.amount}
-            onChange={(event) => setFormData((previous) => ({ ...previous, amount: event.target.value }))}
+            onChange={(event) => setFormData((previous) => ({ ...previous, amount: sanitizeIntegerInput(event.target.value) }))}
             required
           />
         </label>

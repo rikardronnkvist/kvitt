@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { Archive, CheckCircle2, Coins, Settings, UserPlus } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Archive, CheckCircle2, Coins, RotateCcw, Settings, Trash2, UserPlus } from 'lucide-react';
 import ExpenseItem from '../components/ExpenseItem.jsx';
 import EditExpenseModal from '../components/EditExpenseModal.jsx';
 import NewExpenseModal from '../components/NewExpenseModal.jsx';
@@ -15,6 +15,10 @@ import { formatCurrency, formatDateTime } from '../lib/format.js';
 import { getCurrentUserId } from '../lib/session.js';
 import { getUserDisplayName, getUserSearchLabel } from '../lib/users.js';
 import { GROUP_THEMES, getThemeForGroup } from '../lib/groupTheme.js';
+
+function sanitizeIntegerInput(value) {
+  return String(value ?? '').replace(/\D/g, '');
+}
 
 function GroupSkeleton() {
   return (
@@ -87,6 +91,7 @@ function SettlementItem({ settlement, onEdit, readOnly = false }) {
 }
 
 export default function GroupView() {
+  const navigate = useNavigate();
   const { id } = useParams();
   const currentUserId = useMemo(() => getCurrentUserId(), []);
   const [group, setGroup] = useState(null);
@@ -103,6 +108,7 @@ export default function GroupView() {
   const [editingSettlementId, setEditingSettlementId] = useState(null);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [isAddingSettlement, setIsAddingSettlement] = useState(false);
+  const [groupActionSaving, setGroupActionSaving] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -344,6 +350,44 @@ export default function GroupView() {
     }
   };
 
+  const handleUnarchiveGroup = async () => {
+    if (!isGroupOwner || !isArchived || groupActionSaving) {
+      return;
+    }
+    if (!window.confirm('Är du säker på att du vill återaktivera gruppen?')) {
+      return;
+    }
+
+    setGroupActionSaving(true);
+    try {
+      const updated = await post(`/api/groups/${id}/unarchive`, {});
+      setGroup((previous) => ({ ...previous, ...updated }));
+      setError('');
+    } catch (unarchiveError) {
+      setError(unarchiveError.message);
+    } finally {
+      setGroupActionSaving(false);
+    }
+  };
+
+  const handleDeleteGroup = async () => {
+    if (!isGroupOwner || groupActionSaving) {
+      return;
+    }
+    if (!window.confirm('Är du säker på att du vill radera gruppen permanent? Detta kan inte ångras.')) {
+      return;
+    }
+
+    setGroupActionSaving(true);
+    try {
+      await del(`/api/groups/${id}`);
+      navigate('/');
+    } catch (deleteError) {
+      setError(deleteError.message);
+      setGroupActionSaving(false);
+    }
+  };
+
   if (loading) {
     return <GroupSkeleton />;
   }
@@ -362,16 +406,32 @@ export default function GroupView() {
                 <h1 className="page-title">{group?.name}</h1>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row">
-                <button type="button" className="btn-primary" style={{ background: theme.base, borderColor: theme.base }} onClick={() => setIsAddingExpense(true)} disabled={members.length < 2 || isArchived}>
-                  Lägg till utgift
-                </button>
-                <button type="button" className="btn-secondary" onClick={() => setIsAddingSettlement(true)} disabled={isArchived}>
-                  Kvitta skuld
-                </button>
-                {isGroupOwner ? (
+                {!isArchived ? (
+                  <button type="button" className="btn-primary" style={{ background: theme.base, borderColor: theme.base }} onClick={() => setIsAddingExpense(true)} disabled={members.length < 2}>
+                    Lägg till utgift
+                  </button>
+                ) : null}
+                {!isArchived ? (
+                  <button type="button" className="btn-secondary" onClick={() => setIsAddingSettlement(true)}>
+                    Kvitta skuld
+                  </button>
+                ) : null}
+                {isGroupOwner && !isArchived ? (
                   <button type="button" className="btn-secondary" onClick={() => setIsSettingsOpen(true)}>
                     <Settings className="h-4 w-4" />
                     Inställningar
+                  </button>
+                ) : null}
+                {isGroupOwner && isArchived ? (
+                  <button type="button" className="btn-secondary" onClick={handleUnarchiveGroup} disabled={groupActionSaving}>
+                    <RotateCcw className="h-4 w-4" />
+                    Återaktivera
+                  </button>
+                ) : null}
+                {isGroupOwner && isArchived ? (
+                  <button type="button" className="btn-danger" onClick={handleDeleteGroup} disabled={groupActionSaving}>
+                    <Trash2 className="h-4 w-4" />
+                    Radera grupp
                   </button>
                 ) : null}
               </div>
@@ -500,11 +560,11 @@ export default function GroupView() {
                 <label className="field-label">
                   Milkostnad för Bilresa (kr/mil)
                   <input
-                    type="number"
-                    min="0.1"
-                    step="0.1"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={mileageRateDraft}
-                    onChange={(event) => setMileageRateDraft(event.target.value)}
+                    onChange={(event) => setMileageRateDraft(sanitizeIntegerInput(event.target.value))}
                     disabled={isArchived}
                   />
                 </label>

@@ -21,6 +21,10 @@ function SplitTypeButton({ active, children, onClick }) {
   );
 }
 
+function sanitizeIntegerInput(value) {
+  return String(value ?? '').replace(/\D/g, '');
+}
+
 export default function ExpenseFormFields({
   form,
   setForm,
@@ -123,12 +127,12 @@ export default function ExpenseFormFields({
         <label className="field-label">
           Belopp
           <input
-            type="number"
-            min="0"
-            step="1"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={form.amount}
             onChange={(event) => {
-              const amountValue = event.target.value;
+              const amountValue = sanitizeIntegerInput(event.target.value);
               const numericAmount = Number(amountValue);
               const derivedDistance = Number.isFinite(numericAmount) && numericAmount >= 0 && mileageRate > 0
                 ? String(Math.round(numericAmount / mileageRate))
@@ -149,12 +153,12 @@ export default function ExpenseFormFields({
           <label className="field-label">
             <span>Antal mil <span className="text-[var(--text-muted)] font-normal">({mileageRate} kr/mil)</span></span>
             <input
-              type="number"
-              min="0"
-              step="1"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               value={form.distance_mil || ''}
               onChange={(event) => {
-                const distanceMil = event.target.value;
+                const distanceMil = sanitizeIntegerInput(event.target.value);
                 const numericDistance = Number(distanceMil);
                 const calculatedAmount = Number.isFinite(numericDistance) && numericDistance >= 0
                   ? String(Math.round(numericDistance * mileageRate))
@@ -302,15 +306,15 @@ export default function ExpenseFormFields({
                 <label key={member.id} className="field-label">
                   {getUserDisplayName(member)}
                   <input
-                    type="number"
-                    min="0"
-                    step="1"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={form.custom_amounts[member.id] || ''}
                     onChange={(event) => setForm((previous) => ({
                       ...previous,
                       custom_amounts: {
                         ...previous.custom_amounts,
-                        [member.id]: event.target.value,
+                        [member.id]: sanitizeIntegerInput(event.target.value),
                       },
                     }))}
                     placeholder="0"

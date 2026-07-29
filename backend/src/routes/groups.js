@@ -268,4 +268,35 @@ router.post('/:id/archive', requireMembership, (req, res) => {
   return res.json(archivedGroup);
 });
 
+router.post('/:id/unarchive', requireMembership, (req, res) => {
+  const groupId = Number(req.params.id);
+  const group = getGroupState(groupId);
+  if (!group) {
+    return res.status(404).json({ error: 'Gruppen hittades inte.' });
+  }
+  if (Number(group.created_by) !== Number(req.user.id)) {
+    return res.status(403).json({ error: 'Endast gruppens skapare kan återaktivera gruppen.' });
+  }
+  if (group.archived_at) {
+    db.prepare('UPDATE groups SET archived_at = NULL WHERE id = ?').run(groupId);
+  }
+
+  const unarchivedGroup = db.prepare('SELECT id, name, theme_color, mileage_rate, created_by, created_at, archived_at FROM groups WHERE id = ?').get(groupId);
+  return res.json(unarchivedGroup);
+});
+
+router.delete('/:id', requireMembership, (req, res) => {
+  const groupId = Number(req.params.id);
+  const group = getGroupState(groupId);
+  if (!group) {
+    return res.status(404).json({ error: 'Gruppen hittades inte.' });
+  }
+  if (Number(group.created_by) !== Number(req.user.id)) {
+    return res.status(403).json({ error: 'Endast gruppens skapare kan radera gruppen.' });
+  }
+
+  db.prepare('DELETE FROM groups WHERE id = ?').run(groupId);
+  return res.status(204).end();
+});
+
 export default router;

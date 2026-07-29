@@ -28,6 +28,10 @@ function formatSwishAmount(amount) {
   return String(Math.round(amount));
 }
 
+function sanitizeIntegerInput(value) {
+  return String(value ?? '').replace(/\D/g, '');
+}
+
 function buildSwishLink({ phone, amount, message }) {
   const swishPhone = normalizeSwishPhone(phone);
   if (!swishPhone || !Number.isInteger(amount) || amount <= 0) {
@@ -107,7 +111,10 @@ export default function NewSettlementModal({
   }, [availableReceivers, formData.receiver_id]);
 
   const handleFieldChange = (field, value) => {
-    setFormData((previous) => ({ ...previous, [field]: value }));
+    setFormData((previous) => ({
+      ...previous,
+      [field]: field === 'amount' ? sanitizeIntegerInput(value) : value,
+    }));
     setError('');
   };
 
@@ -197,9 +204,9 @@ export default function NewSettlementModal({
         <label className="field-label">
           Belopp
           <input
-            type="number"
-            min="0"
-            step="1"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={formData.amount}
             onChange={(event) => handleFieldChange('amount', event.target.value)}
             placeholder="0"
