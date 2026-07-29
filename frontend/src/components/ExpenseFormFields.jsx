@@ -62,11 +62,17 @@ export default function ExpenseFormFields({
                 key={category.id}
                 type="button"
                 title={category.name}
-                onClick={() => setForm((previous) => ({
-                  ...previous,
-                  category_id: String(category.id),
-                  title: previous.title.trim() ? previous.title : category.name,
-                }))}
+                onClick={() => setForm((previous) => {
+                  const previousCategory = categories.find((item) => String(item.id) === String(previous.category_id));
+                  const trimmedTitle = previous.title.trim();
+                  const shouldSyncTitle = !trimmedTitle || (previousCategory && trimmedTitle === previousCategory.name);
+
+                  return {
+                    ...previous,
+                    category_id: String(category.id),
+                    title: shouldSyncTitle ? category.name : previous.title,
+                  };
+                })}
                 className={[
                   'inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition',
                   isActive
