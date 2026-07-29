@@ -17,7 +17,7 @@ export function getUserSearchLabel(user) {
 }
 
 export function getUserInitials(user) {
-  if (user?.initials?.trim()) {
+  if (user?.initials?.trim().length === 2) {
     return user.initials.trim().toUpperCase();
   }
   const name = user?.full_name?.trim() || user?.email || '';
@@ -25,5 +25,5 @@ export function getUserInitials(user) {
   if (parts.length >= 2) {
     return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
   }
-  return name.slice(0, 2).toUpperCase();
+  return (name.slice(0, 2) || '??').toUpperCase();
 }

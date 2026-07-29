@@ -23,7 +23,7 @@ const loginSchema = z.object({
 const updateProfileSchema = z.object({
   full_name: z.string().trim().min(1).max(100),
   email: z.string().trim().email(),
-  initials: z.string().trim().max(3).optional(),
+  initials: z.string().trim().length(2).optional().or(z.literal('')),
   current_password: z.string().optional(),
   new_password: z.string().min(8).max(100).optional(),
 }).refine((data) => !data.new_password || data.current_password, {
@@ -102,7 +102,7 @@ router.put('/profile', requireAuth, async (req, res) => {
 
   const { full_name, email, initials, current_password, new_password } = parsed.data;
   const normalizedEmail = email.toLowerCase();
-  const normalizedInitials = initials ? initials.toUpperCase() : null;
+  const normalizedInitials = initials && initials.trim().length === 2 ? initials.trim().toUpperCase() : null;
   const currentUser = db.prepare('SELECT id, email, password_hash, is_admin FROM users WHERE id = ?').get(req.user.id);
 
   if (!currentUser) {
