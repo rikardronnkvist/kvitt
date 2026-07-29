@@ -65,11 +65,6 @@ export default function Dashboard() {
               icon={FolderPlus}
               title="Du har inga grupper ännu"
               description="Skapa din första grupp för att börja dela kostnader, följa saldon och registrera betalningar."
-              action={(
-                <button type="button" className="btn-primary" onClick={() => document.querySelector('input')?.focus()}>
-                  Skapa din första grupp
-                </button>
-              )}
             />
           )}
         </>
