@@ -46,6 +46,10 @@ export default function NewSettlementModal({ groupId, members, balances, current
   });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const availableReceivers = useMemo(
+    () => members.filter((member) => String(member.id) !== String(formData.payer_id)),
+    [members, formData.payer_id],
+  );
 
   const suggestedAmount = useMemo(() => {
     if (!formData.payer_id || !formData.receiver_id || !balances) return '';
@@ -86,6 +90,16 @@ export default function NewSettlementModal({ groupId, members, balances, current
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
   }, [onClose]);
+
+  useEffect(() => {
+    if (!formData.receiver_id) {
+      return;
+    }
+    const receiverStillAvailable = availableReceivers.some((member) => String(member.id) === String(formData.receiver_id));
+    if (!receiverStillAvailable) {
+      setFormData((previous) => ({ ...previous, receiver_id: '' }));
+    }
+  }, [availableReceivers, formData.receiver_id]);
 
   const handleFieldChange = (field, value) => {
     setFormData((previous) => ({ ...previous, [field]: value }));
@@ -151,7 +165,7 @@ export default function NewSettlementModal({ groupId, members, balances, current
           Mottagare
           <select value={formData.receiver_id} onChange={(event) => handleFieldChange('receiver_id', event.target.value)} required>
             <option value="">Välj mottagare</option>
-            {members.map((member) => (
+            {availableReceivers.map((member) => (
               <option key={member.id} value={member.id}>
                 {getUserDisplayName(member)}
               </option>

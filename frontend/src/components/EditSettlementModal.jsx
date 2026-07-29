@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { del, put } from '../api/client.js';
 import ModalShell from './ModalShell.jsx';
 import { getUserDisplayName } from '../lib/users.js';
@@ -11,6 +11,10 @@ export default function EditSettlementModal({ settlement, members, groupId, onCl
   });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const availableReceivers = useMemo(
+    () => members.filter((member) => String(member.id) !== String(formData.payer_id)),
+    [members, formData.payer_id],
+  );
 
   useEffect(() => {
     if (settlement) {
@@ -32,6 +36,16 @@ export default function EditSettlementModal({ settlement, members, groupId, onCl
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
   }, [onClose]);
+
+  useEffect(() => {
+    if (!formData.receiver_id) {
+      return;
+    }
+    const receiverStillAvailable = availableReceivers.some((member) => String(member.id) === String(formData.receiver_id));
+    if (!receiverStillAvailable) {
+      setFormData((previous) => ({ ...previous, receiver_id: '' }));
+    }
+  }, [availableReceivers, formData.receiver_id]);
 
   if (!settlement) return null;
 
@@ -107,7 +121,7 @@ export default function EditSettlementModal({ settlement, members, groupId, onCl
           Mottagare
           <select value={formData.receiver_id} onChange={(event) => setFormData((previous) => ({ ...previous, receiver_id: event.target.value }))} required>
             <option value="">Välj mottagare</option>
-            {members.map((member) => (
+            {availableReceivers.map((member) => (
               <option key={member.id} value={member.id}>
                 {getUserDisplayName(member)}
               </option>
