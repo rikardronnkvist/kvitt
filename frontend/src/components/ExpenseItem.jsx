@@ -23,32 +23,22 @@ export default function ExpenseItem({ expense, onEdit }) {
 
   return (
     <article
-      className="flex cursor-pointer flex-col gap-4 border-b border-[var(--border-subtle)] px-5 py-5 transition hover:bg-[var(--app-surface-muted)] focus:outline-none focus-visible:bg-[var(--app-surface-muted)] last:border-b-0 sm:flex-row sm:items-start"
+      className="flex cursor-pointer flex-col gap-4 border-b border-[var(--border-subtle)] px-5 py-5 transition hover:bg-[var(--app-surface-muted)] focus:outline-none focus-visible:bg-[var(--app-surface-muted)] last:border-b-0 sm:flex-row sm:items-center sm:justify-between"
       role="button"
       tabIndex={0}
       onClick={() => onEdit(expense.id)}
       onKeyDown={handleKeyDown}
     >
-      <div title={getUserDisplayName(payer)} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[var(--app-surface-muted)] text-sm font-semibold text-[var(--text-primary)]">
-        {getUserInitials(payer)}
-      </div>
-      <div className="min-w-0 flex-1 space-y-2">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 overflow-hidden">
-              <CategoryIcon className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
-              <h3 className="m-0 text-base font-semibold truncate">{expense.title}</h3>
-            </div>
-          </div>
-          <div className="grid grid-cols-[9.5rem_6.5rem] items-center gap-4 self-start text-right sm:shrink-0 sm:self-center">
-            <p className="m-0 whitespace-nowrap text-xs tabular-nums text-[var(--text-muted)]">{formatDateTime(expense.occurred_at || expense.created_at)}</p>
-            <p className="m-0 text-lg font-semibold tabular-nums amount-neutral">{formatCurrency(expense.amount, { precise: true })}</p>
-          </div>
+      <div className="flex items-center gap-3">
+        <div title={getUserDisplayName(payer)} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[var(--app-surface-muted)] text-sm font-semibold text-[var(--text-primary)]">
+          {getUserInitials(payer)}
         </div>
-
-        {expense.notes ? <p className="m-0 whitespace-pre-wrap text-sm text-[var(--text-secondary)]">{expense.notes}</p> : null}
-
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <CategoryIcon className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
+            <h3 className="m-0 text-base font-semibold truncate">{expense.title}</h3>
+          </div>
+          {expense.notes ? <p className="m-0 whitespace-pre-wrap text-sm text-[var(--text-secondary)]">{expense.notes}</p> : null}
           <div className="flex flex-wrap items-center gap-2">
             {uniqueParticipants.map((participant) => (
               <span
@@ -63,6 +53,10 @@ export default function ExpenseItem({ expense, onEdit }) {
             ))}
           </div>
         </div>
+      </div>
+      <div className="grid shrink-0 grid-cols-[9.5rem_6.5rem] items-center gap-4 self-center text-right">
+        <p className="m-0 whitespace-nowrap text-xs tabular-nums text-[var(--text-muted)]">{formatDateTime(expense.occurred_at || expense.created_at)}</p>
+        <p className="m-0 text-lg font-semibold tabular-nums amount-neutral">{formatCurrency(expense.amount, { precise: true })}</p>
       </div>
     </article>
   );
