@@ -262,12 +262,6 @@ export default function GroupView() {
           <div className="space-y-6 px-6 pb-6 sm:px-7 sm:pb-7">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="space-y-2">
-                <span
-                  className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
-                  style={{ background: theme.bgSoft, color: theme.textStrong, border: `1px solid ${theme.borderSoft}` }}
-                >
-                  Grupp
-                </span>
                 <h1 className="page-title">{group?.name}</h1>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row">
