@@ -212,6 +212,14 @@ export default function GroupView() {
 
   const editingExpense = expenses.find((expense) => expense.id === editingExpenseId);
 
+  const sortedTimeline = useMemo(() => {
+    const combined = [
+      ...expenses.map((e) => ({ ...e, type: 'expense', date: new Date(e.created_at) })),
+      ...settlements.map((s) => ({ ...s, type: 'settlement', date: new Date(s.settled_at) })),
+    ];
+    return combined.sort((a, b) => b.date - a.date);
+  }, [expenses, settlements]);
+
   const handleSettlement = async (event) => {
     event.preventDefault();
 
@@ -288,25 +296,26 @@ export default function GroupView() {
                     <p>Ingen aktivitet ännu.</p>
                   ) : (
                     <>
-                      {expenses.map((expense) => (
-                        <ExpenseItem key={`expense-${expense.id}`} expense={expense} onDelete={handleDeleteExpense} onEdit={handleEditExpense} />
-                      ))}
-                      {settlements.map((settlement) => (
-                        <article key={`settlement-${settlement.id}`} className="settlement-row">
-                          <div className="settlement-avatar">✓</div>
-                          <div className="settlement-details">
-                            <div className="settlement-title-row">
-                              <h3>{settlement.payer_username} → {settlement.receiver_username}</h3>
+                      {sortedTimeline.map((item) => 
+                        item.type === 'expense' ? (
+                          <ExpenseItem key={`expense-${item.id}`} expense={item} onDelete={handleDeleteExpense} onEdit={handleEditExpense} />
+                        ) : (
+                          <article key={`settlement-${item.id}`} className="settlement-row">
+                            <div className="settlement-avatar">✓</div>
+                            <div className="settlement-details">
+                              <div className="settlement-title-row">
+                                <h3>{item.payer_username} → {item.receiver_username}</h3>
+                              </div>
+                              <p className="settlement-description">Payment settled</p>
+                              <p className="settlement-date">{new Date(item.settled_at).toLocaleString('sv-SE', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
                             </div>
-                            <p className="settlement-description">Payment settled</p>
-                            <p className="settlement-date">{new Date(settlement.settled_at).toLocaleString('sv-SE', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
-                          </div>
-                          <div className="settlement-amount-display">
-                            <span className="amount-value">{settlement.amount.toFixed(0)} SEK</span>
-                          </div>
-                          <div className="settlement-participants" />
-                        </article>
-                      ))}
+                            <div className="settlement-amount-display">
+                              <span className="amount-value">{item.amount.toFixed(0)} SEK</span>
+                            </div>
+                            <div className="settlement-participants" />
+                          </article>
+                        )
+                      )}
                     </>
                   )}
                 </div>
