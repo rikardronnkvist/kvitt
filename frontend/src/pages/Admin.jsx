@@ -5,18 +5,13 @@ import { getUserDisplayName } from '../lib/users.js';
 
 function AdminSkeleton() {
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      {[1, 2].map((column) => (
-        <section key={column} className="surface-card space-y-5 p-6">
-          <div className="skeleton h-5 w-32 rounded-md" />
-          {[1, 2, 3].map((item) => (
-            <div key={item} className="space-y-3 rounded-lg border border-[var(--border-subtle)] p-4">
-              <div className="skeleton h-11 rounded-lg" />
-              <div className="skeleton h-11 rounded-lg" />
-              <div className="skeleton h-11 rounded-lg" />
-            </div>
-          ))}
-        </section>
+    <div className="space-y-4">
+      {[1, 2, 3].map((item) => (
+        <div key={item} className="space-y-3 rounded-lg border border-[var(--border-subtle)] p-4">
+          <div className="skeleton h-11 rounded-lg" />
+          <div className="skeleton h-11 rounded-lg" />
+          <div className="skeleton h-11 rounded-lg" />
+        </div>
       ))}
     </div>
   );
@@ -31,6 +26,7 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [savingUserId, setSavingUserId] = useState(null);
   const [savingGroupId, setSavingGroupId] = useState(null);
+  const [activeTab, setActiveTab] = useState('users');
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -62,27 +58,20 @@ export default function Admin() {
   const handleUserDraftChange = (userId, key, value) => {
     setUserDrafts((previous) => ({
       ...previous,
-      [userId]: {
-        ...previous[userId],
-        [key]: value,
-      },
+      [userId]: { ...previous[userId], [key]: value },
     }));
   };
 
   const handleGroupDraftChange = (groupId, value) => {
     setGroupDrafts((previous) => ({
       ...previous,
-      [groupId]: {
-        ...previous[groupId],
-        name: value,
-      },
+      [groupId]: { ...previous[groupId], name: value },
     }));
   };
 
   const handleSaveUser = async (userId) => {
     const draft = userDrafts[userId];
     if (!draft) return;
-
     setSavingUserId(userId);
     setError('');
     try {
@@ -94,11 +83,7 @@ export default function Admin() {
       setUsers((previous) => previous.map((user) => (user.id === userId ? updated : user)));
       setUserDrafts((previous) => ({
         ...previous,
-        [userId]: {
-          email: updated.email,
-          is_admin: Boolean(updated.is_admin),
-          full_name: updated.full_name,
-        },
+        [userId]: { email: updated.email, is_admin: Boolean(updated.is_admin), full_name: updated.full_name },
       }));
     } catch (saveError) {
       setError(saveError.message);
@@ -110,13 +95,10 @@ export default function Admin() {
   const handleSaveGroup = async (groupId) => {
     const draft = groupDrafts[groupId];
     if (!draft) return;
-
     setSavingGroupId(groupId);
     setError('');
     try {
-      const updated = await put(`/api/admin/groups/${groupId}`, {
-        name: draft.name,
-      });
+      const updated = await put(`/api/admin/groups/${groupId}`, { name: draft.name });
       setGroups((previous) => previous.map((group) => (group.id === groupId ? updated : group)));
       setGroupDrafts((previous) => ({
         ...previous,
@@ -128,6 +110,11 @@ export default function Admin() {
       setSavingGroupId(null);
     }
   };
+
+  const tabs = [
+    { id: 'users', label: 'Användare', icon: Users, count: users.length },
+    { id: 'groups', label: 'Grupper', icon: UsersRound, count: groups.length },
+  ];
 
   return (
     <div className="space-y-8">
@@ -145,15 +132,40 @@ export default function Admin() {
 
       {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
 
-      {loading ? <AdminSkeleton /> : null}
+      <div className="surface-card overflow-hidden">
+        <div className="flex border-b border-[var(--border-subtle)]">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={[
+                'flex items-center gap-2 px-5 py-3.5 text-sm font-medium transition border-b-2 -mb-px',
+                activeTab === tab.id
+                  ? 'border-[var(--accent)] text-[var(--accent)]'
+                  : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]',
+              ].join(' ')}
+            >
+              <tab.icon className="h-4 w-4" />
+              {tab.label}
+              {!loading ? (
+                <span className={[
+                  'rounded-full px-2 py-0.5 text-xs font-semibold',
+                  activeTab === tab.id
+                    ? 'bg-[color:color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--accent)]'
+                    : 'bg-[var(--app-surface-muted)] text-[var(--text-muted)]',
+                ].join(' ')}>
+                  {tab.count}
+                </span>
+              ) : null}
+            </button>
+          ))}
+        </div>
 
-      {!loading ? (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <section className="surface-card space-y-5 p-6">
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-[var(--text-secondary)]" />
-              <h2 className="m-0 text-lg font-semibold">Användare</h2>
-            </div>
+        <div className="p-6">
+          {loading ? <AdminSkeleton /> : null}
+
+          {!loading && activeTab === 'users' ? (
             <div className="space-y-4">
               {users.map((user) => {
                 const draft = userDrafts[user.id] || { email: '', is_admin: false, full_name: '' };
@@ -164,7 +176,7 @@ export default function Admin() {
                       <label className="field-label">
                         Fullständigt namn
                         <input
-                          value={draft.full_name}
+                          value={draft.full_name || ''}
                           onChange={(event) => handleUserDraftChange(user.id, 'full_name', event.target.value)}
                         />
                       </label>
@@ -193,13 +205,9 @@ export default function Admin() {
                 );
               })}
             </div>
-          </section>
+          ) : null}
 
-          <section className="surface-card space-y-5 p-6">
-            <div className="flex items-center gap-2">
-              <UsersRound className="h-4 w-4 text-[var(--text-secondary)]" />
-              <h2 className="m-0 text-lg font-semibold">Grupper</h2>
-            </div>
+          {!loading && activeTab === 'groups' ? (
             <div className="space-y-4">
               {groups.map((group) => {
                 const draft = groupDrafts[group.id] || { name: '' };
@@ -225,9 +233,9 @@ export default function Admin() {
                 );
               })}
             </div>
-          </section>
+          ) : null}
         </div>
-      ) : null}
+      </div>
     </div>
   );
 }
