@@ -302,7 +302,7 @@ export default function GroupView() {
                 <h1 className="page-title">{group?.name}</h1>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row">
-                <button type="button" className="btn-primary" style={{ background: theme.base, borderColor: theme.base }} onClick={() => setIsAddingExpense(true)}>
+                <button type="button" className="btn-primary" style={{ background: theme.base, borderColor: theme.base }} onClick={() => setIsAddingExpense(true)} disabled={members.length < 2}>
                   Lägg till utgift
                 </button>
                 <button type="button" className="btn-secondary" onClick={() => setIsAddingSettlement(true)}>
