@@ -256,17 +256,17 @@ export default function AppShell() {
                   />
                 </label>
                 <label className="field-label">
-                  Telefonnummer
+                  Telefonnummer (för enklare Swish'ar)
                   <input
                     type="tel"
                     value={profileForm.phone}
                     onChange={(e) => setProfileForm((f) => ({ ...f, phone: e.target.value }))}
-                    placeholder="T.ex. +46 70 123 45 67"
+                    placeholder="T.ex. 070 123 45 67"
                     autoComplete="tel"
                   />
                 </label>
                 <label className="field-label">
-                  <span>Initialer <span className="text-[var(--text-muted)] font-normal">(valfritt, exakt 2 tecken)</span></span>
+                  <span>Initialer <span className="text-[var(--text-muted)] font-normal">(valfritt, 2 tecken)</span></span>
                   <input
                     type="text"
                     value={profileForm.initials}
