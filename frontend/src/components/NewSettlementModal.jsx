@@ -155,6 +155,23 @@ export default function NewSettlementModal({
       onClose={onClose}
     >
       <form onSubmit={handleSubmit} className="space-y-5">
+        <section className="space-y-3">
+          <div className="flex items-center gap-2">
+            <ArrowRight className="h-4 w-4 text-[var(--text-secondary)]" />
+            <h3 className="m-0 text-base font-semibold">Föreslagna regleringar</h3>
+          </div>
+          <BalanceList
+            balances={balances}
+            nested
+            onSelect={(balance) => setFormData((previous) => ({
+              ...previous,
+              payer_id: String(balance.from.id),
+              receiver_id: String(balance.to.id),
+              amount: String(balance.amount.toFixed(2)),
+            }))}
+          />
+        </section>
+
         <label className="field-label">
           Betalare
           <select value={formData.payer_id} onChange={(event) => handleFieldChange('payer_id', event.target.value)} required>
@@ -215,23 +232,6 @@ export default function NewSettlementModal({
             ) : null}
           </div>
         ) : null}
-
-        <section className="space-y-3">
-          <div className="flex items-center gap-2">
-            <ArrowRight className="h-4 w-4 text-[var(--text-secondary)]" />
-            <h3 className="m-0 text-base font-semibold">Föreslagna regleringar</h3>
-          </div>
-          <BalanceList
-            balances={balances}
-            nested
-            onSelect={(balance) => setFormData((previous) => ({
-              ...previous,
-              payer_id: String(balance.from.id),
-              receiver_id: String(balance.to.id),
-              amount: String(balance.amount.toFixed(2)),
-            }))}
-          />
-        </section>
 
         {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
 
