@@ -294,6 +294,8 @@ router.put('/:groupId/:expenseId', (req, res) => {
 
   return res.json(parseExpenseRows(rows)[0]);
 });
+
+router.delete('/:groupId/:expenseId', (req, res) => {
   const groupId = Number(req.params.groupId);
   const expenseId = Number(req.params.expenseId);
   if (!requireMembership(groupId, req.user.id)) {
