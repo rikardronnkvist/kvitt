@@ -20,6 +20,29 @@ function sanitizeIntegerInput(value) {
   return String(value ?? '').replace(/\D/g, '');
 }
 
+function toTimestamp(value, { assumeUtcNaive = false } = {}) {
+  if (!value) return Number.NaN;
+  const input = String(value).trim();
+  const naiveMatch = input.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (naiveMatch) {
+    const [, yearText, monthText, dayText, hourText, minuteText, secondText = '0'] = naiveMatch;
+    const year = Number(yearText);
+    const month = Number(monthText) - 1;
+    const day = Number(dayText);
+    const hour = Number(hourText);
+    const minute = Number(minuteText);
+    const second = Number(secondText);
+    if (assumeUtcNaive) {
+      return Date.UTC(year, month, day, hour, minute, second, 0);
+    }
+    const localDate = new Date(year, month, day, hour, minute, second, 0);
+    return Number.isNaN(localDate.getTime()) ? Number.NaN : localDate.getTime();
+  }
+
+  const parsed = new Date(input);
+  return Number.isNaN(parsed.getTime()) ? Number.NaN : parsed.getTime();
+}
+
 function GroupSkeleton() {
   return (
     <div className="space-y-6">
@@ -195,15 +218,41 @@ export default function GroupView() {
 
   const timeline = useMemo(() => {
     return [
-      ...expenses.map((expense) => ({ ...expense, kind: 'expense', activityDate: expense.occurred_at || expense.created_at })),
+      ...expenses.map((expense) => ({
+        ...expense,
+        kind: 'expense',
+        activityDate: expense.occurred_at || expense.created_at,
+        activityTimestamp: toTimestamp(expense.occurred_at || expense.created_at),
+        tieBreakerTimestamp: toTimestamp(expense.created_at || expense.occurred_at, { assumeUtcNaive: true }),
+      })),
       ...settlements.map((settlement) => ({
         ...settlement,
         kind: 'settlement',
         activityDate: settlement.settled_at,
+        activityTimestamp: toTimestamp(settlement.settled_at),
+        tieBreakerTimestamp: toTimestamp(settlement.settled_at),
         payer_display_name: getUserDisplayName({ full_name: settlement.payer_full_name }),
         receiver_display_name: getUserDisplayName({ full_name: settlement.receiver_full_name }),
       })),
-    ].sort((a, b) => new Date(b.activityDate) - new Date(a.activityDate));
+    ].sort((a, b) => {
+      const activityMinuteA = Math.floor(a.activityTimestamp / 60000);
+      const activityMinuteB = Math.floor(b.activityTimestamp / 60000);
+      if (
+        Number.isFinite(activityMinuteA)
+        && Number.isFinite(activityMinuteB)
+        && activityMinuteB !== activityMinuteA
+      ) {
+        return activityMinuteB - activityMinuteA;
+      }
+
+      const tieBreakerA = a.tieBreakerTimestamp;
+      const tieBreakerB = b.tieBreakerTimestamp;
+      if (Number.isFinite(tieBreakerA) && Number.isFinite(tieBreakerB) && tieBreakerB !== tieBreakerA) {
+        return tieBreakerB - tieBreakerA;
+      }
+
+      return Number(b.id) - Number(a.id);
+    });
   }, [expenses, settlements]);
 
   const memberBalances = useMemo(
