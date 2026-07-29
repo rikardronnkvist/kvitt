@@ -15,7 +15,7 @@ export default function AppShell() {
   const [newGroupTheme, setNewGroupTheme] = useState(GROUP_THEMES[0].id);
   const [groupError, setGroupError] = useState('');
   const [groupSaving, setGroupSaving] = useState(false);
-  const [profileForm, setProfileForm] = useState({ full_name: '', email: '', initials: '', current_password: '', new_password: '' });
+  const [profileForm, setProfileForm] = useState({ full_name: '', initials: '', current_password: '', new_password: '' });
   const [profileError, setProfileError] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
   const [user, setUser] = useState(() => parseUser());
@@ -38,7 +38,7 @@ export default function AppShell() {
   };
 
   const openEditProfile = () => {
-    setProfileForm({ full_name: user?.full_name || '', email: user?.email || '', initials: user?.initials || '', current_password: '', new_password: '' });
+    setProfileForm({ full_name: user?.full_name || '', initials: user?.initials || '', current_password: '', new_password: '' });
     setProfileError('');
     setDropdownOpen(false);
     setEditingProfile(true);
@@ -58,7 +58,7 @@ export default function AppShell() {
     setProfileSaving(true);
     try {
       const trimmedInitials = profileForm.initials.trim();
-      const body = { full_name: profileForm.full_name, email: profileForm.email, initials: trimmedInitials.length === 2 ? trimmedInitials : '' };
+      const body = { full_name: profileForm.full_name, initials: trimmedInitials.length === 2 ? trimmedInitials : '' };
       if (profileForm.new_password) {
         body.current_password = profileForm.current_password;
         body.new_password = profileForm.new_password;
@@ -131,7 +131,6 @@ export default function AppShell() {
                 <span className="text-sm font-medium md:hidden">Profil</span>
                 <div className="hidden leading-tight md:block">
                   <p className="m-0 text-sm font-medium">{user ? getUserDisplayName(user) : 'Konto'}</p>
-                  <p className="m-0 text-xs text-[var(--text-muted)]">{user?.email || ''}</p>
                 </div>
                 <ChevronDown className={`h-4 w-4 text-[var(--text-muted)] transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
               </button>
@@ -265,16 +264,6 @@ export default function AppShell() {
                     placeholder="Lämna tomt för automatiska initialer"
                     autoComplete="off"
                     maxLength={2}
-                  />
-                </label>
-                <label className="field-label">
-                  E-post
-                  <input
-                    type="email"
-                    value={profileForm.email}
-                    onChange={(e) => setProfileForm((f) => ({ ...f, email: e.target.value }))}
-                    required
-                    autoComplete="email"
                   />
                 </label>
                 <label className="field-label">

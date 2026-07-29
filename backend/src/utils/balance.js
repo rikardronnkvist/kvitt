@@ -11,11 +11,11 @@ export function calculateMemberBalances(groupId) {
   }
 
   const members = db.prepare(`
-    SELECT u.id, u.full_name, u.email
+    SELECT u.id, u.full_name, u.username
     FROM group_members gm
     JOIN users u ON u.id = gm.user_id
     WHERE gm.group_id = ?
-    ORDER BY COALESCE(NULLIF(TRIM(u.full_name), ''), u.email) COLLATE NOCASE
+    ORDER BY COALESCE(NULLIF(TRIM(u.full_name), ''), u.username) COLLATE NOCASE
   `).all(groupId);
 
   const balanceMap = new Map(members.map((member) => [member.id, 0]));
@@ -99,8 +99,8 @@ export function calculateBalances(groupId) {
 
     if (roundedAmount > EPSILON) {
       transactions.push({
-        from: { id: debtor.id, full_name: debtor.full_name, email: debtor.email },
-        to: { id: creditor.id, full_name: creditor.full_name, email: creditor.email },
+        from: { id: debtor.id, full_name: debtor.full_name, username: debtor.username },
+        to: { id: creditor.id, full_name: creditor.full_name, username: creditor.username },
         amount: roundedAmount,
       });
     }

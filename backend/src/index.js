@@ -4,6 +4,7 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { initializeDatabase } from './db/database.js';
 import { getRegistrationAccessToken } from './utils/settings.js';
+import { getFrontendPublicOrigin } from './utils/public-origin.js';
 import authRoutes from './routes/auth.js';
 import groupRoutes from './routes/groups.js';
 import expenseRoutes from './routes/expenses.js';
@@ -15,34 +16,23 @@ initializeDatabase();
 const app = express();
 const port = Number(process.env.PORT) || 3000;
 
-function getPublicOrigin() {
-  if (process.env.PASSKEY_ORIGIN) {
-    const origins = process.env.PASSKEY_ORIGIN
-      .split(',')
-      .map((origin) => origin.trim())
-      .filter(Boolean);
-    if (origins.length > 0) {
-      return origins[0];
-    }
-  }
-
-  const frontendPort = Number(process.env.FRONTEND_PORT) || 5173;
-  return `http://localhost:${frontendPort}`;
-}
-
 function getRegistrationUrl() {
   const token = getRegistrationAccessToken();
   if (!token) {
     return null;
   }
 
-  return `${getPublicOrigin()}/register?${encodeURIComponent(token)}`;
+  return `${getFrontendPublicOrigin()}/register?${encodeURIComponent(token)}`;
 }
 const authRateLimit = rateLimit({
   windowMs: 60_000,
   limit: 10,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
+  skip: (req) => req.method === 'GET' && (
+    req.originalUrl.startsWith('/api/auth/devbox/users')
+    || req.originalUrl.startsWith('/api/auth/passkey/available')
+  ),
   message: { error: 'För många inloggnings- eller registreringsförsök. Försök igen om en minut.' },
 });
 const apiRateLimit = rateLimit({
@@ -58,6 +48,10 @@ app.use(express.json());
 
 app.get('/healthz', (_req, res) => {
   res.json({ status: 'ok' });
+});
+
+app.get(['/register', '/register/*'], (req, res) => {
+  return res.redirect(302, `${getFrontendPublicOrigin()}${req.originalUrl}`);
 });
 
 app.use('/api/auth', authRateLimit, authRoutes);

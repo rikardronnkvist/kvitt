@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "start": "DEVBOX=true node src/index.js",
+    "dev": "DEVBOX=true node --watch src/index.js"
   },
   "dependencies": {
     "@simplewebauthn/server": "^11.0.0",

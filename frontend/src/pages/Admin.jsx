@@ -51,7 +51,6 @@ export default function Admin() {
       setGroups(groupsData);
       setCategories(categoriesData);
       setUserDrafts(Object.fromEntries(usersData.map((user) => [user.id, {
-        email: user.email,
         is_admin: Boolean(user.is_admin),
         full_name: user.full_name,
       }])));
@@ -112,14 +111,13 @@ export default function Admin() {
     setError('');
     try {
       const updated = await put(`/api/admin/users/${userId}`, {
-        email: draft.email,
         is_admin: Boolean(draft.is_admin),
         full_name: draft.full_name,
       });
       setUsers((previous) => previous.map((user) => (user.id === userId ? updated : user)));
       setUserDrafts((previous) => ({
         ...previous,
-        [userId]: { email: updated.email, is_admin: Boolean(updated.is_admin), full_name: updated.full_name },
+        [userId]: { is_admin: Boolean(updated.is_admin), full_name: updated.full_name },
       }));
     } catch (saveError) {
       setError(saveError.message);
@@ -319,7 +317,7 @@ export default function Admin() {
           {!loading && activeTab === 'users' ? (
             <div className="space-y-4">
               {users.map((user) => {
-                const draft = userDrafts[user.id] || { email: '', is_admin: false, full_name: '' };
+                const draft = userDrafts[user.id] || { is_admin: false, full_name: '' };
                 return (
                   <article key={user.id} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
                     <div className="grid gap-4">
@@ -329,14 +327,6 @@ export default function Admin() {
                         <input
                           value={draft.full_name || ''}
                           onChange={(event) => handleUserDraftChange(user.id, 'full_name', event.target.value)}
-                        />
-                      </label>
-                      <label className="field-label">
-                        E-post
-                        <input
-                          type="email"
-                          value={draft.email}
-                          onChange={(event) => handleUserDraftChange(user.id, 'email', event.target.value)}
                         />
                       </label>
                       <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-3 py-3 text-sm font-medium text-[var(--text-secondary)]">
@@ -444,7 +434,7 @@ export default function Admin() {
                   </div>
 
                   <div className="space-y-1 text-sm text-[var(--text-secondary)]">
-                    <p className="m-0">Skapad av: {getUserDisplayName({ full_name: selectedGroup.created_by_full_name, email: selectedGroup.created_by_email })}</p>
+                    <p className="m-0">Skapad av: {getUserDisplayName({ full_name: selectedGroup.created_by_full_name, username: selectedGroup.created_by_username })}</p>
                     <p className="m-0">Antal medlemmar: {selectedGroup.member_count}</p>
                   </div>
 

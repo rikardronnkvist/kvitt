@@ -7,6 +7,7 @@ import {
   resetRegistrationAccessToken,
   setRegistrationAccessToken,
 } from '../utils/settings.js';
+import { getFrontendPublicOrigin } from '../utils/public-origin.js';
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -22,7 +23,6 @@ function requireAdmin(req, res, next) {
 router.use(requireAdmin);
 
 const updateUserSchema = z.object({
-  email: z.string().trim().email(),
   is_admin: z.boolean(),
   full_name: z.string().trim().min(1).max(100),
 });
@@ -43,17 +43,15 @@ const updateRegistrationTokenSchema = z.object({
   token: z.string().trim().min(16).max(200),
 });
 
-function buildRegistrationUrl(req, token) {
-  const proto = req.headers['x-forwarded-proto'] || req.protocol;
-  const host = req.headers['x-forwarded-host'] || req.get('host');
-  return `${proto}://${host}/register?${encodeURIComponent(token)}`;
+function buildRegistrationUrl(token) {
+  return `${getFrontendPublicOrigin()}/register?${encodeURIComponent(token)}`;
 }
 
 router.get('/registration-access', (req, res) => {
   const token = getRegistrationAccessToken();
   return res.json({
     token,
-    registration_url: buildRegistrationUrl(req, token),
+    registration_url: buildRegistrationUrl(token),
   });
 });
 
@@ -66,21 +64,21 @@ router.put('/registration-access', (req, res) => {
   setRegistrationAccessToken(parsed.data.token);
   return res.json({
     token: parsed.data.token,
-    registration_url: buildRegistrationUrl(req, parsed.data.token),
+    registration_url: buildRegistrationUrl(parsed.data.token),
   });
 });
 
-router.post('/registration-access/reset', (req, res) => {
+router.post('/registration-access/reset', (_req, res) => {
   const token = resetRegistrationAccessToken();
   return res.json({
     token,
-    registration_url: buildRegistrationUrl(req, token),
+    registration_url: buildRegistrationUrl(token),
   });
 });
 
 router.get('/users', (_req, res) => {
   const users = db.prepare(`
-    SELECT u.id, u.email, u.is_admin, u.full_name, u.created_at,
+    SELECT u.id, u.username, u.is_admin, u.full_name, u.created_at,
            COUNT(gm.group_id) AS group_count
     FROM users u
     LEFT JOIN group_members gm ON gm.user_id = u.id
@@ -114,19 +112,12 @@ router.put('/users/:id', (req, res) => {
     }
   }
 
-  try {
-    db.prepare(
-      'UPDATE users SET email = ?, is_admin = ?, full_name = ? WHERE id = ?',
-    ).run(parsed.data.email.toLowerCase(), parsed.data.is_admin ? 1 : 0, parsed.data.full_name, userId);
-  } catch (error) {
-    if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-      return res.status(409).json({ error: 'E-postadressen används redan.' });
-    }
-    throw error;
-  }
+  db.prepare(
+    'UPDATE users SET is_admin = ?, full_name = ? WHERE id = ?',
+  ).run(parsed.data.is_admin ? 1 : 0, parsed.data.full_name, userId);
 
   const updated = db.prepare(`
-    SELECT u.id, u.email, u.is_admin, u.full_name, u.created_at,
+    SELECT u.id, u.username, u.is_admin, u.full_name, u.created_at,
            COUNT(gm.group_id) AS group_count
     FROM users u
     LEFT JOIN group_members gm ON gm.user_id = u.id
@@ -145,7 +136,7 @@ router.get('/groups', (_req, res) => {
   const groups = db.prepare(`
     SELECT g.id, g.name, g.theme_color, g.mileage_rate, g.created_at, g.created_by,
            u.full_name AS created_by_full_name,
-           u.email AS created_by_email,
+           u.username AS created_by_username,
            COUNT(gm.user_id) AS member_count
     FROM groups g
     JOIN users u ON u.id = g.created_by
@@ -184,7 +175,7 @@ router.put('/groups/:id', (req, res) => {
   const updated = db.prepare(`
     SELECT g.id, g.name, g.theme_color, g.mileage_rate, g.created_at, g.created_by,
            u.full_name AS created_by_full_name,
-           u.email AS created_by_email,
+           u.username AS created_by_username,
            COUNT(gm.user_id) AS member_count
     FROM groups g
     JOIN users u ON u.id = g.created_by

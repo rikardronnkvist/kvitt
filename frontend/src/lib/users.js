@@ -4,23 +4,23 @@ export function getUserDisplayName(user) {
     return fullName;
   }
 
-  return user?.email || 'Okänd användare';
+  const username = user?.username?.trim();
+  if (username) {
+    return username;
+  }
+
+  return user?.id ? `Användare ${user.id}` : 'Okänd användare';
 }
 
 export function getUserSearchLabel(user) {
-  const displayName = getUserDisplayName(user);
-  if (user?.full_name?.trim() && user?.email) {
-    return `${displayName} · ${user.email}`;
-  }
-
-  return displayName;
+  return getUserDisplayName(user);
 }
 
 export function getUserInitials(user) {
   if (user?.initials?.trim().length === 2) {
     return user.initials.trim().toUpperCase();
   }
-  const name = user?.full_name?.trim() || user?.email || '';
+  const name = user?.full_name?.trim() || user?.username?.trim() || '';
   const parts = name.split(/\s+/).filter(Boolean);
   if (parts.length >= 2) {
     return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();

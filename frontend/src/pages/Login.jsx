@@ -27,6 +27,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const isRegisterMode = isRegisterRoute;
   const hasRegistrationToken = registrationToken.trim().length > 0;
+  const hasValidRegisterName = registerForm.full_name.trim().length >= 3;
   const { passkeyLoading, handlePasskeySignup, handlePasskeyLogin } = usePasskeyAuth({ navigate, setError });
   const isBusy = passkeyLoading || devboxLoading || devboxLoginLoading;
 
@@ -88,8 +89,8 @@ export default function Login() {
     }
 
     const displayName = promptedName.trim();
-    if (!displayName) {
-      setError('Registreringen avbröts');
+    if (displayName.length < 3) {
+      setError('Ange minst 3 tecken i namnet.');
       return;
     }
 
@@ -137,7 +138,7 @@ export default function Login() {
               label={isRegisterMode ? 'Skapa konto med Passkey' : 'Logga in med Passkey'}
               loadingLabel="Startar Passkey..."
               loading={passkeyLoading}
-              disabled={isBusy || (isRegisterMode && !hasRegistrationToken)}
+              disabled={isBusy || (isRegisterMode && (!hasRegistrationToken || !hasValidRegisterName))}
               onClick={isRegisterMode ? onPasskeySignup : handlePasskeyLogin}
             />
           </div>
@@ -156,6 +157,7 @@ export default function Login() {
                   value={registerForm.full_name}
                   onChange={(event) => setRegisterForm((previous) => ({ ...previous, full_name: event.target.value }))}
                   disabled={!hasRegistrationToken}
+                  minLength={3}
                 />
               </label>
             </>
