@@ -211,24 +211,122 @@ textarea {
   margin: 0;
 }
 
-.expense-item {
+.expense-row {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background-color 0.2s;
 }
 
-.expense-header {
+.expense-row:hover {
+  background-color: #fafafa;
+}
+
+.expense-row:hover .expense-actions {
+  opacity: 1 !important;
+}
+
+.expense-avatar {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0f62fe, #4f46e5);
+  color: white;
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-  width: 100%;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.expense-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.expense-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.expense-title-row h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.expense-description {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin: 0.25rem 0 0 0;
+}
+
+.expense-date {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin: 0.25rem 0 0 0;
+}
+
+.expense-notes {
+  font-size: 0.875rem;
+  color: #94a3b8;
+  margin: 0.5rem 0 0 0;
+  font-style: italic;
+}
+
+.expense-amount {
+  flex-shrink: 0;
+  text-align: right;
+  min-width: 100px;
+}
+
+.amount-value {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #ef4444;
+}
+
+.expense-participants {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: -0.5rem;
+}
+
+.participant-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e5e7eb;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.75rem;
+  border: 2px solid white;
+  margin-left: -0.5rem;
+}
+
+.participant-avatar:first-child {
+  margin-left: 0;
+}
+
+.participant-overflow {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-left: 0.5rem;
 }
 
 .expense-actions {
+  flex-shrink: 0;
   display: flex;
   gap: 0.5rem;
+  transition: opacity 0.2s;
 }
 
 .expense-actions button {
@@ -277,4 +375,49 @@ textarea {
 
 .split-row input {
   flex: 0 0 100px;
+}
+
+.expenses-section {
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+}
+
+.month-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid #f0f0f0;
+  background: white;
+}
+
+.month-summary h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  text-transform: capitalize;
+  color: #14213d;
+}
+
+.summary-stats {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.total-amount {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #ef4444;
+}
+
+.total-count {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.expenses-list {
+  background: white;
 }
