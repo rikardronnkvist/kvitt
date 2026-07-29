@@ -1,25 +1,18 @@
 import { Receipt } from 'lucide-react';
 import { formatCurrency, formatDateTime } from '../lib/format.js';
-import { getUserDisplayName } from '../lib/users.js';
-
-function getInitials(name) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) {
-    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-  }
-  return name.slice(0, 2).toUpperCase();
-}
+import { getUserDisplayName, getUserInitials } from '../lib/users.js';
 
 export default function ExpenseItem({ expense, onEdit }) {
   const uniqueParticipants = Array.from(
     new Map(
-      [{ user_id: expense.paid_by_user_id, full_name: expense.paid_by_full_name, email: expense.paid_by_email }, ...expense.splits].map((item) => [
+      [{ user_id: expense.paid_by_user_id, full_name: expense.paid_by_full_name, email: expense.paid_by_email, initials: expense.paid_by_initials }, ...expense.splits].map((item) => [
         item.user_id,
         item,
       ]),
     ).values(),
   );
-  const payerDisplayName = getUserDisplayName({ full_name: expense.paid_by_full_name, email: expense.paid_by_email });
+  const payer = { full_name: expense.paid_by_full_name, email: expense.paid_by_email, initials: expense.paid_by_initials };
+  const payerDisplayName = getUserDisplayName(payer);
 
   const handleKeyDown = (event) => {
     if (event.key === 'Enter' || event.key === ' ') {
@@ -37,7 +30,7 @@ export default function ExpenseItem({ expense, onEdit }) {
       onKeyDown={handleKeyDown}
     >
       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[var(--app-surface-muted)] text-sm font-semibold text-[var(--text-primary)]">
-        {getInitials(payerDisplayName)}
+        {getUserInitials(payer)}
       </div>
       <div className="min-w-0 flex-1 space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -66,7 +59,7 @@ export default function ExpenseItem({ expense, onEdit }) {
                 className="inline-flex items-center gap-2 rounded-md border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-2.5 py-1 text-xs font-medium text-[var(--text-secondary)]"
               >
                 <span className="flex h-5 w-5 items-center justify-center rounded-md bg-[var(--app-surface-strong)] text-[10px] font-semibold text-[var(--text-primary)]">
-                  {getInitials(getUserDisplayName(participant))}
+                  {getUserInitials(participant)}
                 </span>
                 {getUserDisplayName(participant)}
               </span>

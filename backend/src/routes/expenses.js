@@ -37,6 +37,7 @@ function parseExpenseRows(rows) {
         paid_by_user_id: row.paid_by_user_id,
         paid_by_full_name: row.paid_by_full_name,
         paid_by_email: row.paid_by_email,
+        paid_by_initials: row.paid_by_initials || null,
         notes: row.notes,
         created_at: row.created_at,
         splits: [],
@@ -48,6 +49,7 @@ function parseExpenseRows(rows) {
         user_id: row.split_user_id,
         full_name: row.split_full_name,
         email: row.split_email,
+        initials: row.split_initials || null,
         amount_owed: Number(row.amount_owed),
       });
     }
@@ -107,9 +109,11 @@ router.get('/:groupId', (req, res) => {
     SELECT e.id, e.group_id, e.title, e.amount, e.currency, e.paid_by_user_id, e.notes, e.created_at,
            payer.full_name AS paid_by_full_name,
            payer.email AS paid_by_email,
+           payer.initials AS paid_by_initials,
            es.id AS split_id, es.user_id AS split_user_id, es.amount_owed,
            split_user.full_name AS split_full_name,
-           split_user.email AS split_email
+           split_user.email AS split_email,
+           split_user.initials AS split_initials
     FROM expenses e
     JOIN users payer ON payer.id = e.paid_by_user_id
     LEFT JOIN expense_splits es ON es.expense_id = e.id
@@ -198,9 +202,11 @@ router.post('/:groupId', (req, res) => {
     SELECT e.id, e.group_id, e.title, e.amount, e.currency, e.paid_by_user_id, e.notes, e.created_at,
            payer.full_name AS paid_by_full_name,
            payer.email AS paid_by_email,
+           payer.initials AS paid_by_initials,
            es.id AS split_id, es.user_id AS split_user_id, es.amount_owed,
            split_user.full_name AS split_full_name,
-           split_user.email AS split_email
+           split_user.email AS split_email,
+           split_user.initials AS split_initials
     FROM expenses e
     JOIN users payer ON payer.id = e.paid_by_user_id
     LEFT JOIN expense_splits es ON es.expense_id = e.id
@@ -289,9 +295,11 @@ router.put('/:groupId/:expenseId', (req, res) => {
     SELECT e.id, e.group_id, e.title, e.amount, e.currency, e.paid_by_user_id, e.notes, e.created_at,
            payer.full_name AS paid_by_full_name,
            payer.email AS paid_by_email,
+           payer.initials AS paid_by_initials,
            es.id AS split_id, es.user_id AS split_user_id, es.amount_owed,
            split_user.full_name AS split_full_name,
-           split_user.email AS split_email
+           split_user.email AS split_email,
+           split_user.initials AS split_initials
     FROM expenses e
     JOIN users payer ON payer.id = e.paid_by_user_id
     LEFT JOIN expense_splits es ON es.expense_id = e.id
