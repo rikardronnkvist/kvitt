@@ -8,12 +8,12 @@ router.use(authMiddleware);
 
 const splitSchema = z.object({
   user_id: z.number().int().positive(),
-  amount_owed: z.number().positive(),
+  amount_owed: z.number().int().positive(),
 });
 
 const expenseSchema = z.object({
   title: z.string().trim().min(1).max(200),
-  amount: z.number().positive(),
+  amount: z.number().int().positive(),
   currency: z.string().trim().min(1).max(10).default('SEK'),
   category_id: z.number().int().positive().optional(),
   occurred_at: z.string().trim().optional(),
@@ -56,7 +56,7 @@ function parseExpenseRows(rows) {
         id: row.id,
         group_id: row.group_id,
         title: row.title,
-        amount: Number(row.amount),
+        amount: Math.round(Number(row.amount)),
         currency: row.currency,
         paid_by_user_id: row.paid_by_user_id,
         paid_by_full_name: row.paid_by_full_name,
@@ -78,7 +78,7 @@ function parseExpenseRows(rows) {
         full_name: row.split_full_name,
         username: row.split_username,
         initials: row.split_initials || null,
-        amount_owed: Number(row.amount_owed),
+        amount_owed: Math.round(Number(row.amount_owed)),
       });
     }
   }
@@ -95,7 +95,7 @@ router.get('/:groupId/export', (req, res) => {
     SELECT e.id, e.title, e.amount, e.currency, e.notes, e.occurred_at, e.created_at,
            c.name AS category_name,
            COALESCE(NULLIF(TRIM(payer.full_name), ''), payer.username) AS paid_by_display_name,
-           GROUP_CONCAT(COALESCE(NULLIF(TRIM(split_user.full_name), ''), split_user.username) || ':' || printf('%.2f', es.amount_owed), '; ') AS split_summary
+           GROUP_CONCAT(COALESCE(NULLIF(TRIM(split_user.full_name), ''), split_user.username) || ':' || CAST(ROUND(es.amount_owed) AS INTEGER), '; ') AS split_summary
     FROM expenses e
     LEFT JOIN expense_categories c ON c.id = e.category_id
     JOIN users payer ON payer.id = e.paid_by_user_id
@@ -116,7 +116,7 @@ router.get('/:groupId/export', (req, res) => {
       row.id,
       row.title,
       row.category_name || '',
-      Number(row.amount).toFixed(2),
+      String(Math.round(Number(row.amount))),
       row.currency,
       row.paid_by_display_name,
       row.notes || '',
@@ -213,14 +213,14 @@ router.post('/:groupId', (req, res) => {
 
   let splits = parsed.data.splits;
   if (!splits || splits.length === 0) {
-    const base = Math.floor((amount / groupMembers.length) * 100) / 100;
-    let remainder = Math.round((amount - base * groupMembers.length) * 100);
+    const base = Math.floor(amount / groupMembers.length);
+    let remainder = amount - (base * groupMembers.length);
     splits = groupMembers.map((member) => {
-      const extra = remainder > 0 ? 0.01 : 0;
-      remainder -= extra > 0 ? 1 : 0;
+      const extra = remainder > 0 ? 1 : 0;
+      remainder -= extra;
       return {
         user_id: member.id,
-        amount_owed: Math.round((base + extra) * 100) / 100,
+        amount_owed: base + extra,
       };
     });
   }
@@ -230,9 +230,8 @@ router.post('/:groupId', (req, res) => {
     return res.status(400).json({ error: 'Alla splits måste tillhöra gruppmedlemmar.' });
   }
 
-  const splitTotal = Math.round(splits.reduce((sum, split) => sum + Number(split.amount_owed), 0) * 100) / 100;
-  const roundedAmount = Math.round(amount * 100) / 100;
-  if (Math.abs(splitTotal - roundedAmount) > 0.01) {
+  const splitTotal = splits.reduce((sum, split) => sum + Number(split.amount_owed), 0);
+  if (splitTotal !== amount) {
     return res.status(400).json({ error: 'Summan av splits måste motsvara utgiftens belopp.' });
   }
 
@@ -319,14 +318,14 @@ router.put('/:groupId/:expenseId', (req, res) => {
 
   let splits = parsed.data.splits;
   if (!splits || splits.length === 0) {
-    const base = Math.floor((amount / groupMembers.length) * 100) / 100;
-    let remainder = Math.round((amount - base * groupMembers.length) * 100);
+    const base = Math.floor(amount / groupMembers.length);
+    let remainder = amount - (base * groupMembers.length);
     splits = groupMembers.map((member) => {
-      const extra = remainder > 0 ? 0.01 : 0;
-      remainder -= extra > 0 ? 1 : 0;
+      const extra = remainder > 0 ? 1 : 0;
+      remainder -= extra;
       return {
         user_id: member.id,
-        amount_owed: Math.round((base + extra) * 100) / 100,
+        amount_owed: base + extra,
       };
     });
   }
@@ -336,9 +335,8 @@ router.put('/:groupId/:expenseId', (req, res) => {
     return res.status(400).json({ error: 'Alla splits måste tillhöra gruppmedlemmar.' });
   }
 
-  const splitTotal = Math.round(splits.reduce((sum, split) => sum + Number(split.amount_owed), 0) * 100) / 100;
-  const roundedAmount = Math.round(amount * 100) / 100;
-  if (Math.abs(splitTotal - roundedAmount) > 0.01) {
+  const splitTotal = splits.reduce((sum, split) => sum + Number(split.amount_owed), 0);
+  if (splitTotal !== amount) {
     return res.status(400).json({ error: 'Summan av splits måste motsvara utgiftens belopp.' });
   }
 

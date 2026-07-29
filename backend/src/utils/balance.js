@@ -1,7 +1,5 @@
 import { db } from '../db/database.js';
 
-const EPSILON = 0.01;
-
 export function calculateMemberBalances(groupId) {
   const group = db.prepare('SELECT id FROM groups WHERE id = ?').get(groupId);
   if (!group) {
@@ -55,33 +53,33 @@ export function calculateMemberBalances(groupId) {
   const debtors = [];
 
   for (const [userId, balance] of balanceMap.entries()) {
-    const rounded = Math.round(balance * 100) / 100;
+    const rounded = Math.round(balance);
     const member = memberMap.get(userId);
     if (!member) {
       continue;
     }
     member.balance = rounded;
 
-    if (rounded > EPSILON) {
+    if (rounded > 0) {
       creditors.push({ ...member, balance: rounded });
-    } else if (rounded < -EPSILON) {
+    } else if (rounded < 0) {
       debtors.push({ ...member, balance: Math.abs(rounded) });
     }
   }
 
   return Array.from(memberMap.values()).map((member) => ({
     ...member,
-    balance: Math.round((member.balance || 0) * 100) / 100,
+    balance: Math.round(member.balance || 0),
   }));
 }
 
 export function calculateBalances(groupId) {
   const members = calculateMemberBalances(groupId);
   const creditors = members
-    .filter((member) => member.balance > EPSILON)
+    .filter((member) => member.balance > 0)
     .map((member) => ({ ...member, balance: member.balance }));
   const debtors = members
-    .filter((member) => member.balance < -EPSILON)
+    .filter((member) => member.balance < 0)
     .map((member) => ({ ...member, balance: Math.abs(member.balance) }));
 
   creditors.sort((a, b) => b.balance - a.balance);
@@ -95,9 +93,9 @@ export function calculateBalances(groupId) {
     const creditor = creditors[creditorIndex];
     const debtor = debtors[debtorIndex];
     const amount = Math.min(creditor.balance, debtor.balance);
-    const roundedAmount = Math.round(amount * 100) / 100;
+    const roundedAmount = Math.round(amount);
 
-    if (roundedAmount > EPSILON) {
+    if (roundedAmount > 0) {
       transactions.push({
         from: {
           id: debtor.id,
@@ -115,13 +113,13 @@ export function calculateBalances(groupId) {
       });
     }
 
-    creditor.balance = Math.round((creditor.balance - roundedAmount) * 100) / 100;
-    debtor.balance = Math.round((debtor.balance - roundedAmount) * 100) / 100;
+    creditor.balance = Math.round(creditor.balance - roundedAmount);
+    debtor.balance = Math.round(debtor.balance - roundedAmount);
 
-    if (creditor.balance <= EPSILON) {
+    if (creditor.balance <= 0) {
       creditorIndex += 1;
     }
-    if (debtor.balance <= EPSILON) {
+    if (debtor.balance <= 0) {
       debtorIndex += 1;
     }
   }

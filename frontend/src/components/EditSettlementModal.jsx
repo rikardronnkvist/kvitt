@@ -21,7 +21,7 @@ export default function EditSettlementModal({ settlement, members, groupId, onCl
       setFormData({
         payer_id: String(settlement.payer_id),
         receiver_id: String(settlement.receiver_id),
-        amount: String(settlement.amount),
+        amount: String(Math.round(settlement.amount)),
       });
     }
   }, [settlement]);
@@ -53,8 +53,8 @@ export default function EditSettlementModal({ settlement, members, groupId, onCl
     event.preventDefault();
     const amount = Number(formData.amount);
 
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setError('Belopp måste vara större än 0.');
+    if (!Number.isInteger(amount) || amount <= 0) {
+      setError('Belopp måste vara ett heltal större än 0.');
       return;
     }
 
@@ -134,7 +134,7 @@ export default function EditSettlementModal({ settlement, members, groupId, onCl
           <input
             type="number"
             min="0"
-            step="0.01"
+            step="1"
             value={formData.amount}
             onChange={(event) => setFormData((previous) => ({ ...previous, amount: event.target.value }))}
             required
