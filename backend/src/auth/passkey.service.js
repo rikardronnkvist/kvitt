@@ -59,19 +59,21 @@ function createPasskeyUser(displayName, phone, userHandle) {
   return Number(result.lastInsertRowid);
 }
 
-function savePasskey({ userId, credentialID, publicKey, counter, deviceType, backedUp, transports }) {
-  db.prepare(`
-    INSERT INTO passkeys (user_id, credential_id, public_key, counter, device_type, backed_up, transports, last_used_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+function savePasskey({ userId, credentialID, name, publicKey, counter, deviceType, backedUp, transports }) {
+  const result = db.prepare(`
+    INSERT INTO passkeys (user_id, credential_id, name, public_key, counter, device_type, backed_up, transports, last_used_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
   `).run(
     userId,
     credentialID,
+    name ?? null,
     serializePublicKey(publicKey),
     counter,
     deviceType,
     backedUp ? 1 : 0,
     safeTransports(transports),
   );
+  return Number(result.lastInsertRowid);
 }
 
 function getPasskeyByCredentialId(credentialID) {
@@ -88,6 +90,14 @@ function getPasskeyByCredentialId(credentialID) {
     FROM passkeys p
     WHERE p.credential_id = ?
   `).get(credentialID);
+}
+
+function getUserPasskeyById(userId, passkeyId) {
+  return db.prepare(`
+    SELECT id, user_id, name
+    FROM passkeys
+    WHERE id = ? AND user_id = ?
+  `).get(passkeyId, userId);
 }
 
 function updatePasskeyCounter(passkeyId, newCounter) {
@@ -108,13 +118,14 @@ function getUserForPasskeyEnrollment(userId) {
 
 function getPasskeysForUser(userId) {
   return db.prepare(`
-    SELECT id, credential_id, device_type, backed_up, transports, created_at, last_used_at
+    SELECT id, credential_id, name, device_type, backed_up, transports, created_at, last_used_at
     FROM passkeys
     WHERE user_id = ?
     ORDER BY created_at DESC, id DESC
   `).all(userId).map((passkey) => ({
     id: passkey.id,
     credential_id: passkey.credential_id,
+    name: passkey.name || `Passkey ${passkey.id}`,
     device_type: passkey.device_type,
     backed_up: Boolean(passkey.backed_up),
     transports: parseStoredTransports(passkey.transports) || [],
@@ -190,25 +201,26 @@ export async function verifyRegistration({ requestId, response }) {
     throw createHttpError(409, 'Den här Passkeyn finns redan registrerad.');
   }
 
-  const userId = db.transaction(() => {
+  const registrationResult = db.transaction(() => {
     const existingUser = db.prepare('SELECT id FROM users WHERE user_handle = ?').get(challengeEntry.userHandle);
     const resolvedUserId = existingUser
       ? Number(existingUser.id)
       : createPasskeyUser(challengeEntry.displayName, challengeEntry.phone ?? null, challengeEntry.userHandle);
-    savePasskey({
+    const passkeyId = savePasskey({
       userId: resolvedUserId,
       credentialID: credential.id,
+      name: 'Primär Passkey',
       publicKey: credential.publicKey,
       counter: credential.counter,
       deviceType: credentialDeviceType,
       backedUp: credentialBackedUp,
       transports: credential.transports,
     });
-    return resolvedUserId;
+    return { resolvedUserId, passkeyId };
   })();
 
-  const user = getAuthUserById(userId);
-  return { token: signToken(user), user };
+  const user = getAuthUserById(registrationResult.resolvedUserId);
+  return { token: signToken(user, { currentPasskeyId: registrationResult.passkeyId }), user };
 }
 
 export function listUserPasskeys(userId) {
@@ -292,9 +304,10 @@ export async function verifyUserPasskeyRegistration({ requestId, response, userI
     throw createHttpError(409, 'Den här Passkeyn finns redan registrerad.');
   }
 
-  savePasskey({
+  const passkeyId = savePasskey({
     userId,
     credentialID: credential.id,
+    name: 'Extra Passkey',
     publicKey: credential.publicKey,
     counter: credential.counter,
     deviceType: credentialDeviceType,
@@ -303,7 +316,34 @@ export async function verifyUserPasskeyRegistration({ requestId, response, userI
   });
 
   const user = getAuthUserById(userId);
-  return { token: signToken(user), user };
+  return { token: signToken(user, { currentPasskeyId: passkeyId }), user };
+}
+
+export function updateUserPasskeyName(userId, passkeyId, name) {
+  const passkey = getUserPasskeyById(userId, passkeyId);
+  if (!passkey) {
+    throw createHttpError(404, 'Passkeyn hittades inte.');
+  }
+
+  db.prepare('UPDATE passkeys SET name = ? WHERE id = ?').run(name, passkeyId);
+  return getPasskeysForUser(userId).find((row) => Number(row.id) === Number(passkeyId)) || null;
+}
+
+export function deleteUserPasskey(userId, passkeyId, currentPasskeyId) {
+  const passkey = getUserPasskeyById(userId, passkeyId);
+  if (!passkey) {
+    throw createHttpError(404, 'Passkeyn hittades inte.');
+  }
+
+  if (!currentPasskeyId) {
+    throw createHttpError(400, 'Logga in igen med passkey innan du tar bort en passkey.');
+  }
+
+  if (currentPasskeyId && Number(currentPasskeyId) === Number(passkeyId)) {
+    throw createHttpError(400, 'Du kan inte ta bort passkeyn som används i den här sessionen.');
+  }
+
+  db.prepare('DELETE FROM passkeys WHERE id = ? AND user_id = ?').run(passkeyId, userId);
 }
 
 export async function createAuthenticationOptions() {
@@ -368,7 +408,7 @@ export async function verifyAuthentication({ requestId, response }) {
     throw createHttpError(404, 'Användaren hittades inte.');
   }
 
-  return { token: signToken(user), user };
+  return { token: signToken(user, { currentPasskeyId: passkey.id }), user };
 }
 
 export function getPasskeyAvailability() {

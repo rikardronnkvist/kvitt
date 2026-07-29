@@ -3,7 +3,7 @@ import { db } from '../db/database.js';
 
 const jwtSecret = process.env.JWT_SECRET || process.env.SESSION_SECRET || 'changeme-use-a-strong-secret';
 
-export function signToken(user) {
+export function signToken(user, { currentPasskeyId = null } = {}) {
   return jwt.sign(
     {
       id: user.id,
@@ -13,6 +13,7 @@ export function signToken(user) {
       initials: user.initials ?? null,
       username: user.username ?? null,
       user_handle: user.user_handle,
+      current_passkey_id: currentPasskeyId ? Number(currentPasskeyId) : null,
     },
     jwtSecret,
     { expiresIn: '7d' },

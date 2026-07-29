@@ -1,5 +1,5 @@
 import { browserSupportsWebAuthn, startAuthentication, startRegistration } from '@simplewebauthn/browser';
-import { get, post } from '../api/client.js';
+import { del, get, post, put } from '../api/client.js';
 
 function isCancelError(error) {
   return error?.name === 'AbortError'
@@ -64,6 +64,14 @@ export async function addPasskeyToAccount() {
     requestId: optionsResponse.requestId,
     response,
   });
+}
+
+export async function renameMyPasskey(passkeyId, name) {
+  return put(`/api/auth/passkey/mine/${passkeyId}`, { name });
+}
+
+export async function deleteMyPasskey(passkeyId) {
+  await del(`/api/auth/passkey/mine/${passkeyId}`);
 }
 
 export async function loginWithPasskey() {

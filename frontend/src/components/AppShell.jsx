@@ -5,7 +5,13 @@ import { parseUser } from '../lib/session.js';
 import { getUserDisplayName } from '../lib/users.js';
 import { post, put } from '../api/client.js';
 import { GROUP_THEMES } from '../lib/groupTheme.js';
-import { addPasskeyToAccount, getPasskeyErrorMessage, listMyPasskeys } from '../auth/passkey.js';
+import {
+  addPasskeyToAccount,
+  deleteMyPasskey,
+  getPasskeyErrorMessage,
+  listMyPasskeys,
+  renameMyPasskey,
+} from '../auth/passkey.js';
 import { formatDateTime } from '../lib/format.js';
 
 export default function AppShell() {
@@ -24,6 +30,7 @@ export default function AppShell() {
   const [passkeys, setPasskeys] = useState([]);
   const [passkeysLoading, setPasskeysLoading] = useState(false);
   const [passkeysSaving, setPasskeysSaving] = useState(false);
+  const [passkeysActionId, setPasskeysActionId] = useState(null);
   const [passkeysError, setPasskeysError] = useState('');
   const [user, setUser] = useState(() => parseUser());
   const dropdownRef = useRef(null);
@@ -59,14 +66,18 @@ export default function AppShell() {
     setCreatingGroup(true);
   };
 
+  const refreshPasskeys = async () => {
+    const data = await listMyPasskeys();
+    setPasskeys(data);
+  };
+
   const openPasskeys = async () => {
     setDropdownOpen(false);
     setPasskeysError('');
     setPasskeysLoading(true);
     setManagingPasskeys(true);
     try {
-      const data = await listMyPasskeys();
-      setPasskeys(data);
+      await refreshPasskeys();
     } catch (err) {
       setPasskeysError(err.message || 'Kunde inte ladda passkeys.');
       setPasskeys([]);
@@ -82,12 +93,40 @@ export default function AppShell() {
       const data = await addPasskeyToAccount();
       localStorage.setItem('token', data.token);
       setUser(parseUser());
-      const updatedPasskeys = await listMyPasskeys();
-      setPasskeys(updatedPasskeys);
+      await refreshPasskeys();
     } catch (err) {
       setPasskeysError(getPasskeyErrorMessage(err, 'register'));
     } finally {
       setPasskeysSaving(false);
+    }
+  };
+
+  const handleRenamePasskey = async (passkeyId, name) => {
+    setPasskeysError('');
+    setPasskeysActionId(passkeyId);
+    try {
+      await renameMyPasskey(passkeyId, name.trim());
+      await refreshPasskeys();
+    } catch (err) {
+      setPasskeysError(err.message || 'Kunde inte byta namn på passkey.');
+    } finally {
+      setPasskeysActionId(null);
+    }
+  };
+
+  const handleDeletePasskey = async (passkeyId) => {
+    if (!window.confirm('Är du säker på att du vill ta bort den här passkeyn?')) {
+      return;
+    }
+    setPasskeysError('');
+    setPasskeysActionId(passkeyId);
+    try {
+      await deleteMyPasskey(passkeyId);
+      await refreshPasskeys();
+    } catch (err) {
+      setPasskeysError(err.message || 'Kunde inte ta bort passkey.');
+    } finally {
+      setPasskeysActionId(null);
     }
   };
 
@@ -355,15 +394,40 @@ export default function AppShell() {
                 <div className="space-y-2">
                   {passkeys.map((passkey) => (
                     <div key={passkey.id} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-3 py-2.5">
-                      <p className="m-0 text-sm font-semibold">
-                        Passkey {passkey.id}
-                      </p>
+                      <input
+                        type="text"
+                        className="w-full rounded-md border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-2 py-1 text-sm font-semibold"
+                        value={passkey.name || ''}
+                        onChange={(event) => setPasskeys((previous) => previous.map((row) => (row.id === passkey.id ? { ...row, name: event.target.value } : row)))}
+                      />
                       <p className="m-0 text-xs text-[var(--text-secondary)]">
                         Skapad: {formatDateTime(passkey.created_at)}
                       </p>
                       <p className="m-0 text-xs text-[var(--text-secondary)]">
                         Senast använd: {passkey.last_used_at ? formatDateTime(passkey.last_used_at) : 'Aldrig'}
                       </p>
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          type="button"
+                          className="btn-secondary flex-1"
+                          onClick={() => handleRenamePasskey(passkey.id, passkey.name || '')}
+                          disabled={passkeysLoading || passkeysSaving || passkeysActionId === passkey.id || !(passkey.name || '').trim()}
+                        >
+                          {passkeysActionId === passkey.id ? 'Sparar...' : 'Spara namn'}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-danger flex-1"
+                          onClick={() => handleDeletePasskey(passkey.id)}
+                          disabled={passkeysLoading || passkeysSaving || passkeysActionId === passkey.id || Number(user?.current_passkey_id) === Number(passkey.id)}
+                          title={Number(user?.current_passkey_id) === Number(passkey.id) ? 'Kan inte ta bort passkeyn för aktuell session.' : undefined}
+                        >
+                          Ta bort
+                        </button>
+                      </div>
+                      {Number(user?.current_passkey_id) === Number(passkey.id) ? (
+                        <p className="mt-1 m-0 text-xs text-[var(--text-secondary)]">Aktiv i denna session och kan inte tas bort.</p>
+                      ) : null}
                     </div>
                   ))}
                 </div>

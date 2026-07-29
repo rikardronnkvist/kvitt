@@ -6,8 +6,10 @@ import {
   createAuthenticationOptions,
   createRegistrationOptions,
   createUserPasskeyOptions,
+  deleteUserPasskey,
   getPasskeyAvailability,
   listUserPasskeys,
+  updateUserPasskeyName,
   verifyAuthentication,
   verifyRegistration,
   verifyUserPasskeyRegistration,
@@ -29,6 +31,10 @@ const verifyRegistrationSchema = z.object({
 const verifyLoginSchema = z.object({
   requestId: z.string().uuid(),
   response: z.record(z.unknown()),
+});
+
+const updatePasskeyNameSchema = z.object({
+  name: z.string().trim().min(1).max(100),
 });
 
 router.get('/register-access', (req, res) => {
@@ -97,6 +103,42 @@ router.post('/mine/verify', requireAuth, async (req, res, next) => {
   try {
     const data = await verifyUserPasskeyRegistration({ ...parsed.data, userId: req.user.id });
     return res.status(201).json(data);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.put('/mine/:passkeyId', requireAuth, (req, res, next) => {
+  const passkeyId = Number(req.params.passkeyId);
+  if (!Number.isInteger(passkeyId) || passkeyId <= 0) {
+    return res.status(400).json({ error: 'Ogiltig passkey.' });
+  }
+
+  const parsed = updatePasskeyNameSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Ogiltigt passkey-namn.', details: parsed.error.flatten() });
+  }
+
+  try {
+    const updated = updateUserPasskeyName(req.user.id, passkeyId, parsed.data.name);
+    if (!updated) {
+      return res.status(404).json({ error: 'Passkeyn hittades inte.' });
+    }
+    return res.json(updated);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.delete('/mine/:passkeyId', requireAuth, (req, res, next) => {
+  const passkeyId = Number(req.params.passkeyId);
+  if (!Number.isInteger(passkeyId) || passkeyId <= 0) {
+    return res.status(400).json({ error: 'Ogiltig passkey.' });
+  }
+
+  try {
+    deleteUserPasskey(req.user.id, passkeyId, req.user.current_passkey_id);
+    return res.status(204).send();
   } catch (error) {
     return next(error);
   }
