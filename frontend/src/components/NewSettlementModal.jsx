@@ -86,8 +86,9 @@ export default function NewSettlementModal({
     () => (Number.isInteger(parsedAmount) && parsedAmount > 0 ? formatSwishAmount(parsedAmount) : null),
     [parsedAmount],
   );
+  const isReceiverCurrentUser = String(selectedReceiver?.id ?? '') === String(currentUserId ?? '');
   const showSwishSection = Boolean(formData.receiver_id && receiverSwishPhone);
-  const canSwish = Boolean(swishLink && formData.payer_id && formData.receiver_id);
+  const canSwish = Boolean(swishLink && formData.payer_id && formData.receiver_id && !isReceiverCurrentUser);
 
   useEffect(() => {
     const handleEscape = (event) => {
@@ -233,7 +234,9 @@ export default function NewSettlementModal({
               </button>
             )}
             {!canSwish ? (
-              <p className="m-0 text-xs text-[var(--text-muted)]">Fyll i belopp för att starta Swish.</p>
+              <p className="m-0 text-xs text-[var(--text-muted)]">
+                {isReceiverCurrentUser ? 'Du kan inte Swisha till dig själv.' : 'Fyll i belopp för att starta Swish.'}
+              </p>
             ) : null}
           </div>
         ) : null}
