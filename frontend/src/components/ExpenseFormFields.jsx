@@ -100,13 +100,13 @@ export default function ExpenseFormFields({
           <input
             type="number"
             min="0"
-            step="0.01"
+            step="1"
             value={form.amount}
             onChange={(event) => {
               const amountValue = event.target.value;
               const numericAmount = Number(amountValue);
               const derivedDistance = Number.isFinite(numericAmount) && numericAmount >= 0 && mileageRate > 0
-                ? String((numericAmount / mileageRate).toFixed(2))
+                ? String(Math.round(numericAmount / mileageRate))
                 : '';
               setForm((previous) => ({
                 ...previous,
@@ -125,13 +125,13 @@ export default function ExpenseFormFields({
             <input
               type="number"
               min="0"
-              step="0.1"
+              step="1"
               value={form.distance_mil || ''}
               onChange={(event) => {
                 const distanceMil = event.target.value;
                 const numericDistance = Number(distanceMil);
                 const calculatedAmount = Number.isFinite(numericDistance) && numericDistance >= 0
-                  ? String((numericDistance * mileageRate).toFixed(2))
+                  ? String(Math.round(numericDistance * mileageRate))
                   : '';
                 setForm((previous) => ({
                   ...previous,
