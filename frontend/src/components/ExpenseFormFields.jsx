@@ -102,7 +102,18 @@ export default function ExpenseFormFields({
             min="0"
             step="0.01"
             value={form.amount}
-            onChange={(event) => setForm((previous) => ({ ...previous, amount: event.target.value }))}
+            onChange={(event) => {
+              const amountValue = event.target.value;
+              const numericAmount = Number(amountValue);
+              const derivedDistance = Number.isFinite(numericAmount) && numericAmount >= 0 && mileageRate > 0
+                ? String((numericAmount / mileageRate).toFixed(2))
+                : '';
+              setForm((previous) => ({
+                ...previous,
+                amount: amountValue,
+                distance_mil: isCarTripCategory ? derivedDistance : previous.distance_mil,
+              }));
+            }}
             placeholder="0"
             required
           />
