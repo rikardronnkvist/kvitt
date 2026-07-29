@@ -384,6 +384,13 @@ textarea {
   overflow: hidden;
 }
 
+.timeline-section {
+  background: white;
+  border-radius: 1rem;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+}
+
 .month-summary {
   display: flex;
   justify-content: space-between;
@@ -420,6 +427,85 @@ textarea {
 
 .expenses-list {
   background: white;
+}
+
+.timeline-list {
+  background: white;
+}
+
+.settlement-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background-color 0.2s;
+}
+
+.settlement-row:hover {
+  background-color: #fafafa;
+}
+
+.settlement-avatar {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 1.25rem;
+}
+
+.settlement-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.settlement-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.settlement-title-row h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.settlement-description {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin: 0.25rem 0 0 0;
+}
+
+.settlement-date {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin: 0.25rem 0 0 0;
+}
+
+.settlement-amount-display {
+  flex-shrink: 0;
+  text-align: right;
+  min-width: 100px;
+}
+
+.settlement-amount-display .amount-value {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #10b981;
+}
+
+.settlement-participants {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: -0.5rem;
 }
 
 .group-overview {
