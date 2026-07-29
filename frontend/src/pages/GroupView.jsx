@@ -5,7 +5,7 @@ import ExpenseItem from '../components/ExpenseItem.jsx';
 import EditExpenseModal from '../components/EditExpenseModal.jsx';
 import NewExpenseModal from '../components/NewExpenseModal.jsx';
 import BalanceList from '../components/BalanceList.jsx';
-import { del, get, getBlob, post, put } from '../api/client.js';
+import { del, get, post, put } from '../api/client.js';
 
 const tabs = ['Utgifter', 'Saldon', 'Betalningar'];
 
@@ -196,20 +196,6 @@ export default function GroupView() {
     setExpenses((previous) => previous.map((expense) => (expense.id === updated.id ? updated : expense)));
   };
 
-  const handleExport = async () => {
-    try {
-      const blob = await getBlob(`/api/expenses/${id}/export`);
-      const link = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      link.href = url;
-      link.download = `kvitt-grupp-${id}.csv`;
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch (downloadError) {
-      setError(downloadError.message);
-    }
-  };
-
   const editingExpense = expenses.find((expense) => expense.id === editingExpenseId);
 
   const sortedTimeline = useMemo(() => {
@@ -261,7 +247,6 @@ export default function GroupView() {
           </div>
           <div className="button-row">
             <button type="button" onClick={() => setIsAddingExpense(true)}>Lägg till utgift</button>
-            <button type="button" className="secondary" onClick={handleExport}>Exportera CSV</button>
             <button type="button" className="secondary" onClick={() => setIsSettingsOpen(true)}>Gruppinställningar</button>
           </div>
         </section>
