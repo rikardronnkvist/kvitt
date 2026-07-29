@@ -1,9 +1,27 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { ArrowRight, LockKeyhole, UserRound } from 'lucide-react';
 import { post } from '../api/client.js';
 
 const loginInitialState = { identifier: '', password: '' };
 const registerInitialState = { username: '', email: '', password: '', full_name: '' };
+
+function AuthModeButton({ active, onClick, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        'min-h-11 rounded-lg border px-4 text-sm font-semibold transition',
+        active
+          ? 'border-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_8%,transparent)] text-[var(--text-primary)]'
+          : 'border-[var(--border-subtle)] bg-transparent text-[var(--text-secondary)] hover:bg-[var(--app-surface-muted)]',
+      ].join(' ')}
+    >
+      {children}
+    </button>
+  );
+}
 
 export default function Login() {
   const navigate = useNavigate();
@@ -18,6 +36,11 @@ export default function Login() {
   useEffect(() => {
     setMode(isRegisterRoute ? 'register' : 'login');
   }, [isRegisterRoute]);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = localStorage.getItem('theme-preference')
+      || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  }, []);
 
   const handleChange = (setter) => (event) => {
     const { name, value } = event.target;
@@ -42,32 +65,45 @@ export default function Login() {
   };
 
   return (
-    <main className="auth-page">
-      <section className="card auth-card">
-        <div className="auth-switcher">
-          <button type="button" className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>
-            Logga in
-          </button>
-          <button type="button" className={mode === 'register' ? 'active' : ''} onClick={() => setMode('register')}>
-            Registrera dig
-          </button>
+    <main className="flex min-h-screen items-center justify-center bg-[var(--app-bg)] px-4 py-12">
+      <section className="surface-card w-full max-w-[420px] space-y-8 p-7 sm:p-8">
+        <div className="space-y-4">
+          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[var(--app-surface-muted)]">
+            <span className="text-base font-semibold text-[var(--text-primary)]">K</span>
+          </div>
+          <div className="space-y-2">
+            <p className="section-eyebrow">Välkommen</p>
+            <h1 className="page-title">Logga in på Kvitt</h1>
+            <p className="page-copy">En lugn, tydlig plats för delade utgifter och saldon.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <AuthModeButton active={mode === 'login'} onClick={() => setMode('login')}>
+              Logga in
+            </AuthModeButton>
+            <AuthModeButton active={mode === 'register'} onClick={() => setMode('register')}>
+              Skapa konto
+            </AuthModeButton>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="form-grid">
+        <form onSubmit={handleSubmit} className="space-y-4">
           {mode === 'register' ? (
             <>
-              <label>
+              <label className="field-label">
                 Användarnamn
-                <input name="username" value={registerForm.username} onChange={handleChange(setRegisterForm)} required />
+                <div className="relative">
+                  <UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
+                  <input className="pl-10" name="username" value={registerForm.username} onChange={handleChange(setRegisterForm)} required />
+                </div>
               </label>
-              <label>
+              <label className="field-label">
                 Fullständigt namn
                 <input name="full_name" value={registerForm.full_name} onChange={handleChange(setRegisterForm)} required />
               </label>
             </>
           ) : null}
 
-          <label>
+          <label className="field-label">
             {mode === 'login' ? 'Användarnamn eller e-post' : 'E-post'}
             <input
               name={mode === 'login' ? 'identifier' : 'email'}
@@ -78,20 +114,38 @@ export default function Login() {
             />
           </label>
 
-          <label>
+          <label className="field-label">
             Lösenord
-            <input name="password" type="password" value={mode === 'login' ? loginForm.password : registerForm.password} onChange={mode === 'login' ? handleChange(setLoginForm) : handleChange(setRegisterForm)} required />
+            <div className="relative">
+              <LockKeyhole className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
+              <input
+                className="pl-10"
+                name="password"
+                type="password"
+                value={mode === 'login' ? loginForm.password : registerForm.password}
+                onChange={mode === 'login' ? handleChange(setLoginForm) : handleChange(setRegisterForm)}
+                required
+              />
+            </div>
           </label>
 
-          {error ? <p className="error-text">{error}</p> : null}
-          <button type="submit" disabled={loading}>{loading ? 'Sparar...' : mode === 'login' ? 'Logga in' : 'Registrera'}</button>
+          {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
+
+          <button type="submit" className="btn-primary w-full" disabled={loading}>
+            {loading ? 'Sparar...' : mode === 'login' ? 'Fortsätt' : 'Skapa konto'}
+            {!loading ? <ArrowRight className="h-4 w-4" /> : null}
+          </button>
         </form>
 
-        <p>
+        <p className="m-0 text-sm text-[var(--text-secondary)]">
           {mode === 'login' ? (
-            <>Har du inget konto? <Link to="/register">Registrera dig</Link></>
+            <>
+              Har du inget konto? <Link to="/register">Registrera dig</Link>
+            </>
           ) : (
-            <>Har du redan ett konto? <Link to="/login">Logga in</Link></>
+            <>
+              Har du redan ett konto? <Link to="/login">Logga in</Link>
+            </>
           )}
         </p>
       </section>

@@ -2,7 +2,7 @@ import { db } from '../db/database.js';
 
 const EPSILON = 0.01;
 
-export function calculateBalances(groupId) {
+export function calculateMemberBalances(groupId) {
   const group = db.prepare('SELECT id FROM groups WHERE id = ?').get(groupId);
   if (!group) {
     const error = new Error('Gruppen hittades inte.');
@@ -56,12 +56,33 @@ export function calculateBalances(groupId) {
 
   for (const [userId, balance] of balanceMap.entries()) {
     const rounded = Math.round(balance * 100) / 100;
+    const member = memberMap.get(userId);
+    if (!member) {
+      continue;
+    }
+    member.balance = rounded;
+
     if (rounded > EPSILON) {
-      creditors.push({ ...memberMap.get(userId), balance: rounded });
+      creditors.push({ ...member, balance: rounded });
     } else if (rounded < -EPSILON) {
-      debtors.push({ ...memberMap.get(userId), balance: Math.abs(rounded) });
+      debtors.push({ ...member, balance: Math.abs(rounded) });
     }
   }
+
+  return Array.from(memberMap.values()).map((member) => ({
+    ...member,
+    balance: Math.round((member.balance || 0) * 100) / 100,
+  }));
+}
+
+export function calculateBalances(groupId) {
+  const members = calculateMemberBalances(groupId);
+  const creditors = members
+    .filter((member) => member.balance > EPSILON)
+    .map((member) => ({ ...member, balance: member.balance }));
+  const debtors = members
+    .filter((member) => member.balance < -EPSILON)
+    .map((member) => ({ ...member, balance: Math.abs(member.balance) }));
 
   creditors.sort((a, b) => b.balance - a.balance);
   debtors.sort((a, b) => b.balance - a.balance);

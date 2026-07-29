@@ -80,6 +80,71 @@ router.post('/:groupId', (req, res) => {
   return res.status(201).json({ ...settlement, amount: Number(settlement.amount) });
 });
 
+router.put('/:groupId/:settlementId', (req, res) => {
+  const groupId = Number(req.params.groupId);
+  const settlementId = Number(req.params.settlementId);
+
+  if (!requireMembership(groupId, req.user.id)) {
+    return res.status(403).json({ error: 'Du har inte åtkomst till den här gruppen.' });
+  }
+
+  const parsed = settlementSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Ogiltig betalningsdata.', details: parsed.error.flatten() });
+  }
+
+  const { payer_id, receiver_id, amount } = parsed.data;
+  if (payer_id === receiver_id) {
+    return res.status(400).json({ error: 'Betalare och mottagare måste vara olika personer.' });
+  }
+
+  const members = db.prepare('SELECT user_id FROM group_members WHERE group_id = ?').all(groupId).map((row) => row.user_id);
+  const memberIds = new Set(members);
+  if (!memberIds.has(payer_id) || !memberIds.has(receiver_id)) {
+    return res.status(400).json({ error: 'Båda användarna måste vara medlemmar i gruppen.' });
+  }
+
+  const existing = db.prepare('SELECT id FROM settlements WHERE id = ? AND group_id = ?').get(settlementId, groupId);
+  if (!existing) {
+    return res.status(404).json({ error: 'Betalningen hittades inte.' });
+  }
+
+  db.prepare(`
+    UPDATE settlements
+    SET payer_id = ?, receiver_id = ?, amount = ?
+    WHERE id = ?
+  `).run(payer_id, receiver_id, amount, settlementId);
+
+  const settlement = db.prepare(`
+    SELECT s.id, s.group_id, s.payer_id, s.receiver_id, s.amount, s.settled_at,
+           payer.username AS payer_username,
+           receiver.username AS receiver_username
+    FROM settlements s
+    JOIN users payer ON payer.id = s.payer_id
+    JOIN users receiver ON receiver.id = s.receiver_id
+    WHERE s.id = ?
+  `).get(settlementId);
+
+  return res.json({ ...settlement, amount: Number(settlement.amount) });
+});
+
+router.delete('/:groupId/:settlementId', (req, res) => {
+  const groupId = Number(req.params.groupId);
+  const settlementId = Number(req.params.settlementId);
+
+  if (!requireMembership(groupId, req.user.id)) {
+    return res.status(403).json({ error: 'Du har inte åtkomst till den här gruppen.' });
+  }
+
+  const existing = db.prepare('SELECT id FROM settlements WHERE id = ? AND group_id = ?').get(settlementId, groupId);
+  if (!existing) {
+    return res.status(404).json({ error: 'Betalningen hittades inte.' });
+  }
+
+  db.prepare('DELETE FROM settlements WHERE id = ?').run(settlementId);
+  return res.status(204).end();
+});
+
 router.get('/:groupId/balances', (req, res) => {
   const groupId = Number(req.params.groupId);
   if (!requireMembership(groupId, req.user.id)) {

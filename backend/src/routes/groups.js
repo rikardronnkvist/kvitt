@@ -2,6 +2,7 @@ import express from 'express';
 import { z } from 'zod';
 import authMiddleware from '../middleware/auth.js';
 import { db } from '../db/database.js';
+import { calculateMemberBalances } from '../utils/balance.js';
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -39,10 +40,15 @@ router.get('/', (req, res) => {
     ORDER BY g.created_at DESC
   `).all(req.user.id);
 
-  return res.json(groups.map((group) => ({
-    ...group,
-    member_count: Number(group.member_count),
-  })));
+  return res.json(groups.map((group) => {
+    const currentMember = calculateMemberBalances(group.id).find((member) => member.id === req.user.id);
+
+    return {
+      ...group,
+      member_count: Number(group.member_count),
+      current_user_balance: Number(currentMember?.balance || 0),
+    };
+  }));
 });
 
 router.post('/', (req, res) => {

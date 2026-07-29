@@ -1,0 +1,235 @@
+import { useEffect, useMemo, useState } from 'react';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { FolderKanban, LayoutGrid, LogOut, Moon, PlusCircle, Settings, Sun, UserCircle2 } from 'lucide-react';
+import { getCurrentUserId, parseUser } from '../lib/session.js';
+
+function getInitialTheme() {
+  if (typeof window === 'undefined') return 'light';
+  const stored = window.localStorage.getItem('theme-preference');
+  if (stored === 'light' || stored === 'dark') return stored;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function NavItem({ icon: Icon, label, to, active, onClick }) {
+  const content = (
+    <>
+      <Icon className="h-4 w-4" />
+      <span>{label}</span>
+    </>
+  );
+
+  if (to) {
+    return (
+      <NavLink
+        to={to}
+        className={({ isActive }) => [
+          'flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition',
+          isActive || active
+            ? 'bg-[var(--app-surface-muted)] text-[var(--text-primary)]'
+            : 'text-[var(--text-secondary)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--text-primary)]',
+        ].join(' ')}
+      >
+        {content}
+      </NavLink>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        'flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium transition',
+        active
+          ? 'bg-[var(--app-surface-muted)] text-[var(--text-primary)]'
+          : 'text-[var(--text-secondary)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--text-primary)]',
+      ].join(' ')}
+    >
+      {content}
+    </button>
+  );
+}
+
+export default function AppShell() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [theme, setTheme] = useState(getInitialTheme);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const user = useMemo(() => parseUser(), []);
+  const routeGroupId = location.pathname.match(/^\/groups\/(\d+)/)?.[1] ?? null;
+  const [lastGroupId, setLastGroupId] = useState(() => localStorage.getItem('last-group-id'));
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem('theme-preference', theme);
+  }, [theme]);
+
+  useEffect(() => {
+    if (!routeGroupId) return;
+    localStorage.setItem('last-group-id', routeGroupId);
+    setLastGroupId(routeGroupId);
+  }, [routeGroupId]);
+
+  const currentGroupId = routeGroupId || lastGroupId;
+  const addExpenseHref = currentGroupId ? `/groups/${currentGroupId}/expenses/new` : '/';
+  const isAddExpenseActive = location.pathname === addExpenseHref;
+  const currentUserId = getCurrentUserId();
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('last-group-id');
+    navigate('/login');
+  };
+
+  return (
+    <div className="min-h-screen bg-[var(--app-bg)] text-[var(--text-primary)]">
+      <header className="sticky top-0 z-50 border-b border-[var(--border-subtle)] bg-[color:var(--app-surface)/88%] backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-[1280px] items-center justify-between gap-4 px-4 sm:px-6">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="flex items-center gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-3 py-2 text-left shadow-[var(--shadow-soft)]"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--app-surface-muted)]">
+                <span className="text-sm font-semibold text-[var(--text-primary)]">K</span>
+              </div>
+              <div>
+                <p className="m-0 text-sm font-semibold">Kvitt</p>
+                <p className="m-0 text-xs text-[var(--text-muted)]">Smartare delade utgifter</p>
+              </div>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {user?.is_admin ? (
+              <NavLink
+                to="/admin"
+                className="hidden min-h-11 items-center gap-2 rounded-lg border border-[var(--border-subtle)] px-3 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--app-surface-muted)] hover:text-[var(--text-primary)] md:inline-flex"
+              >
+                <Settings className="h-4 w-4" />
+                Admin
+              </NavLink>
+            ) : null}
+            <button
+              type="button"
+              className="icon-button"
+              onClick={() => setTheme((previous) => (previous === 'dark' ? 'light' : 'dark'))}
+              aria-label={theme === 'dark' ? 'Växla till ljust läge' : 'Växla till mörkt läge'}
+            >
+              {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+            <button
+              type="button"
+              className="hidden min-h-11 items-center gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-3 text-left md:inline-flex"
+              onClick={() => setAccountOpen((previous) => !previous)}
+            >
+              <UserCircle2 className="h-5 w-5 text-[var(--text-secondary)]" />
+              <div className="leading-tight">
+                <p className="m-0 text-sm font-medium">{user?.full_name || user?.username || 'Konto'}</p>
+                <p className="m-0 text-xs text-[var(--text-muted)]">{user?.email || user?.username}</p>
+              </div>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="mx-auto flex max-w-[1280px] gap-8 px-4 pb-24 pt-6 sm:px-6 lg:pb-10">
+        <aside className="hidden w-64 shrink-0 lg:block">
+          <div className="surface-card sticky top-24 space-y-6 p-4">
+            <div className="space-y-1">
+              <p className="section-eyebrow">Navigation</p>
+              <nav className="space-y-1">
+                <NavItem icon={LayoutGrid} label="Dashboard" to="/" />
+                <NavItem icon={FolderKanban} label="Grupper" to="/" />
+                <NavItem icon={PlusCircle} label="Ny utgift" to={addExpenseHref} active={isAddExpenseActive} />
+                {user?.is_admin ? <NavItem icon={Settings} label="Admin" to="/admin" /> : null}
+              </nav>
+            </div>
+
+            <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
+              <p className="m-0 text-sm font-semibold">{user?.full_name || user?.username}</p>
+              <p className="mt-1 text-sm text-[var(--text-secondary)]">{user?.email || 'Inloggad användare'}</p>
+              <div className="mt-4 flex gap-2">
+                <button type="button" className="btn-secondary flex-1" onClick={() => setAccountOpen(true)}>
+                  Profil
+                </button>
+                <button type="button" className="btn-secondary flex-1" onClick={handleLogout}>
+                  Logga ut
+                </button>
+              </div>
+            </div>
+
+            {currentUserId ? (
+              <p className="m-0 text-xs text-[var(--text-muted)]">Användar-ID {currentUserId}</p>
+            ) : null}
+          </div>
+        </aside>
+
+        <div className="min-w-0 flex-1">
+          <div className="mx-auto max-w-[960px]">
+            <Outlet />
+          </div>
+        </div>
+      </div>
+
+      <nav className="mobile-bottom-nav lg:hidden" aria-label="Primär navigering">
+        <div className="mobile-bottom-nav-grid">
+          <NavLink to="/" className={({ isActive }) => `mobile-bottom-nav-item ${isActive ? 'active' : ''}`}>
+            <LayoutGrid className="h-4 w-4" />
+            <span>Dashboard</span>
+          </NavLink>
+          <NavLink to="/" className={({ isActive }) => `mobile-bottom-nav-item ${isActive ? 'active' : ''}`}>
+            <FolderKanban className="h-4 w-4" />
+            <span>Groups</span>
+          </NavLink>
+          <NavLink to={addExpenseHref} className={`mobile-bottom-nav-item ${isAddExpenseActive ? 'active' : ''}`}>
+            <PlusCircle className="h-4 w-4" />
+            <span>Add Expense</span>
+          </NavLink>
+          <button type="button" className="mobile-bottom-nav-item" onClick={() => setAccountOpen(true)}>
+            <UserCircle2 className="h-4 w-4" />
+            <span>Profile</span>
+          </button>
+        </div>
+      </nav>
+
+      {accountOpen ? (
+        <div className="modal-backdrop" onClick={() => setAccountOpen(false)}>
+          <div className="modal-sheet md:w-[420px]" onClick={(event) => event.stopPropagation()}>
+            <section className="space-y-5">
+              <div className="space-y-1">
+                <p className="section-eyebrow">Profil</p>
+                <h2 className="m-0 text-xl font-semibold">{user?.full_name || user?.username}</h2>
+                <p className="m-0 text-sm text-[var(--text-secondary)]">{user?.email || 'Ingen e-post tillgänglig'}</p>
+              </div>
+              <div className="space-y-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <span className="text-sm font-medium">Tema</span>
+                  <button type="button" className="btn-secondary" onClick={() => setTheme((previous) => (previous === 'dark' ? 'light' : 'dark'))}>
+                    {theme === 'dark' ? 'Mörkt läge' : 'Ljust läge'}
+                  </button>
+                </div>
+                {user?.is_admin ? (
+                  <button type="button" className="btn-secondary w-full justify-start" onClick={() => { setAccountOpen(false); navigate('/admin'); }}>
+                    <Settings className="h-4 w-4" />
+                    Adminpanel
+                  </button>
+                ) : null}
+              </div>
+              <div className="flex gap-3">
+                <button type="button" className="btn-secondary flex-1" onClick={() => setAccountOpen(false)}>
+                  Stäng
+                </button>
+                <button type="button" className="btn-primary flex-1" onClick={handleLogout}>
+                  <LogOut className="h-4 w-4" />
+                  Logga ut
+                </button>
+              </div>
+            </section>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
