@@ -178,7 +178,7 @@ export default function AppShell() {
       {editingProfile ? (
         <div className="modal-backdrop" onClick={() => setEditingProfile(false)}>
           <div className="modal-sheet md:w-[420px]" onClick={(event) => event.stopPropagation()}>
-            <form className="space-y-5" onSubmit={handleSaveProfile}>
+            <form className="space-y-5 p-5 sm:p-6" onSubmit={handleSaveProfile}>
               <div className="space-y-1">
                 <p className="section-eyebrow">Profil</p>
                 <h2 className="m-0 text-xl font-semibold">Redigera profil</h2>
