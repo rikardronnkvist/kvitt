@@ -14,6 +14,33 @@ import {
 } from '../auth/passkey.js';
 import { formatDateTime } from '../lib/format.js';
 
+function sanitizePhoneInput(value) {
+  return String(value ?? '').replace(/[^\d+\-\s]/g, '');
+}
+
+function formatSwedishPhone(value) {
+  const raw = sanitizePhoneInput(value).trim();
+  if (!raw) return '';
+
+  let digits = raw.replace(/\D/g, '');
+  if (!digits) return '';
+
+  if (digits.startsWith('0046')) {
+    digits = digits.slice(2);
+  }
+  if (digits.startsWith('46')) {
+    digits = digits.slice(2);
+  } else if (digits.startsWith('0')) {
+    digits = digits.slice(1);
+  }
+
+  if (digits.length !== 9) {
+    return raw;
+  }
+
+  return `+46-${digits.slice(0, 2)}-${digits.slice(2, 5)} ${digits.slice(5, 7)} ${digits.slice(7, 9)}`;
+}
+
 export default function AppShell() {
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -52,7 +79,7 @@ export default function AppShell() {
   };
 
   const openEditProfile = () => {
-    setProfileForm({ full_name: user?.full_name || '', phone: user?.phone || '', initials: user?.initials || '' });
+    setProfileForm({ full_name: user?.full_name || '', phone: formatSwedishPhone(user?.phone || ''), initials: user?.initials || '' });
     setProfileError('');
     setDropdownOpen(false);
     setEditingProfile(true);
@@ -138,7 +165,7 @@ export default function AppShell() {
       const trimmedInitials = profileForm.initials.trim();
       const body = {
         full_name: profileForm.full_name,
-        phone: profileForm.phone.trim(),
+        phone: formatSwedishPhone(profileForm.phone),
         initials: trimmedInitials.length === 2 ? trimmedInitials : '',
       };
       const data = await put('/api/auth/profile', body);
@@ -346,9 +373,11 @@ export default function AppShell() {
                   <input
                     type="tel"
                     value={profileForm.phone}
-                    onChange={(e) => setProfileForm((f) => ({ ...f, phone: e.target.value }))}
-                    placeholder="T.ex. 070 123 45 67"
+                    onChange={(e) => setProfileForm((f) => ({ ...f, phone: sanitizePhoneInput(e.target.value) }))}
+                    onBlur={(e) => setProfileForm((f) => ({ ...f, phone: formatSwedishPhone(e.target.value) }))}
+                    placeholder="T.ex. +46-70-123 45 67"
                     autoComplete="tel"
+                    pattern="[\d+\-\s]*"
                   />
                 </label>
                 <label className="field-label">
