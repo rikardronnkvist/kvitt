@@ -7,18 +7,46 @@ import { del, get, getBlob, post } from '../api/client.js';
 
 const tabs = ['Utgifter', 'Saldon', 'Betalningar'];
 
+function getCurrentUserId() {
+  const token = localStorage.getItem('token');
+  if (!token) return null;
+
+  try {
+    const [, payload] = token.split('.');
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=');
+    const data = JSON.parse(atob(padded));
+    return data?.id ? String(data.id) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function GroupView() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const currentUserId = useMemo(() => getCurrentUserId(), []);
   const [activeTab, setActiveTab] = useState('Utgifter');
   const [group, setGroup] = useState(null);
   const [expenses, setExpenses] = useState([]);
   const [balances, setBalances] = useState([]);
   const [settlements, setSettlements] = useState([]);
   const [memberUsername, setMemberUsername] = useState('');
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settlementForm, setSettlementForm] = useState({ payer_id: '', receiver_id: '', amount: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+
+  const getSuggestedSettlementAmount = useCallback((payerId, receiverId, balanceRows) => {
+    const payer = Number(payerId);
+    const receiver = Number(receiverId);
+    if (!payer || !receiver || payer === receiver) return '';
+
+    const match = balanceRows.find(
+      (row) => row.from?.id === payer && row.to?.id === receiver,
+    );
+    return match ? String(match.amount.toFixed(2)) : '';
+  }, []);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -33,10 +61,19 @@ export default function GroupView() {
       setExpenses(expensesData);
       setBalances(balancesData);
       setSettlements(settlementsData);
+      const members = groupData.members || [];
+      const isCurrentUserInGroup = currentUserId && members.some((member) => String(member.id) === currentUserId);
+      const fallbackPayerId = String(balancesData[0]?.from?.id || members[0]?.id || '');
+      const defaultPayerId = isCurrentUserInGroup ? currentUserId : fallbackPayerId;
+      const fallbackReceiverId = String(balancesData[0]?.to?.id || members.find((member) => String(member.id) !== defaultPayerId)?.id || '');
       setSettlementForm((previous) => ({
-        payer_id: previous.payer_id || String(groupData.members[0]?.id || ''),
-        receiver_id: previous.receiver_id || String(groupData.members[1]?.id || groupData.members[0]?.id || ''),
-        amount: previous.amount,
+        payer_id: previous.payer_id || defaultPayerId,
+        receiver_id: previous.receiver_id || fallbackReceiverId,
+        amount: previous.amount || getSuggestedSettlementAmount(
+          previous.payer_id || defaultPayerId,
+          previous.receiver_id || fallbackReceiverId,
+          balancesData,
+        ),
       }));
       setError('');
     } catch (loadError) {
@@ -44,7 +81,7 @@ export default function GroupView() {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [currentUserId, getSuggestedSettlementAmount, id]);
 
   useEffect(() => {
     loadData();
@@ -52,6 +89,71 @@ export default function GroupView() {
 
   const members = group?.members ?? [];
   const memberOptions = useMemo(() => members.map((member) => ({ value: String(member.id), label: member.username })), [members]);
+  const payerOptions = useMemo(
+    () => memberOptions.filter((option) => option.value !== settlementForm.receiver_id),
+    [memberOptions, settlementForm.receiver_id],
+  );
+  const receiverOptions = useMemo(
+    () => memberOptions.filter((option) => option.value !== settlementForm.payer_id),
+    [memberOptions, settlementForm.payer_id],
+  );
+
+  useEffect(() => {
+    if (!memberOptions.length) return;
+
+    setSettlementForm((previous) => {
+      let payerId = previous.payer_id;
+      let receiverId = previous.receiver_id;
+
+      if (!payerId || !memberOptions.some((option) => option.value === payerId)) {
+        payerId = memberOptions.find((option) => option.value === currentUserId)?.value || memberOptions[0]?.value || '';
+      }
+
+      if (!receiverId || receiverId === payerId || !memberOptions.some((option) => option.value === receiverId)) {
+        receiverId = memberOptions.find((option) => option.value !== payerId)?.value || '';
+      }
+
+      const suggestedAmount = getSuggestedSettlementAmount(payerId, receiverId, balances);
+      if (payerId === previous.payer_id && receiverId === previous.receiver_id && suggestedAmount === previous.amount) {
+        return previous;
+      }
+
+      return {
+        ...previous,
+        payer_id: payerId,
+        receiver_id: receiverId,
+        amount: suggestedAmount,
+      };
+    });
+  }, [balances, currentUserId, getSuggestedSettlementAmount, memberOptions]);
+
+  const handlePayerChange = (value) => {
+    setSettlementForm((previous) => {
+      const nextReceiverId = previous.receiver_id === value
+        ? memberOptions.find((option) => option.value !== value)?.value || ''
+        : previous.receiver_id;
+      return {
+        ...previous,
+        payer_id: value,
+        receiver_id: nextReceiverId,
+        amount: getSuggestedSettlementAmount(value, nextReceiverId, balances),
+      };
+    });
+  };
+
+  const handleReceiverChange = (value) => {
+    setSettlementForm((previous) => {
+      const nextPayerId = previous.payer_id === value
+        ? memberOptions.find((option) => option.value !== value)?.value || ''
+        : previous.payer_id;
+      return {
+        ...previous,
+        payer_id: nextPayerId,
+        receiver_id: value,
+        amount: getSuggestedSettlementAmount(nextPayerId, value, balances),
+      };
+    });
+  };
 
   const handleAddMember = async (event) => {
     event.preventDefault();
@@ -98,6 +200,12 @@ export default function GroupView() {
 
   const handleSettlement = async (event) => {
     event.preventDefault();
+
+    if (!settlementForm.payer_id || !settlementForm.receiver_id || settlementForm.payer_id === settlementForm.receiver_id) {
+      setError('Betalare och mottagare måste vara olika personer.');
+      return;
+    }
+
     try {
       await post(`/api/settlements/${id}`, {
         payer_id: Number(settlementForm.payer_id),
@@ -132,25 +240,11 @@ export default function GroupView() {
           <div className="button-row">
             <button type="button" onClick={() => navigate(`/groups/${id}/expenses/new`)}>Lägg till utgift</button>
             <button type="button" className="secondary" onClick={handleExport}>Exportera CSV</button>
+            <button type="button" className="secondary" onClick={() => setIsSettingsOpen(true)}>Gruppinställningar</button>
           </div>
         </section>
 
-        <section className="card">
-          <h3>Lägg till medlem</h3>
-          <form onSubmit={handleAddMember} className="form-inline">
-            <input value={memberUsername} onChange={(event) => setMemberUsername(event.target.value)} placeholder="Användarnamn" required />
-            <button type="submit">Spara</button>
-          </form>
-          <ul>
-            {members.map((member) => (
-              <li key={member.id} className="member-row">
-                <span>{member.username} ({member.email})</span>
-                <button type="button" className="danger" onClick={() => handleRemoveMember(member.id)}>Ta bort</button>
-              </li>
-            ))}
-          </ul>
-          {error ? <p className="error-text">{error}</p> : null}
-        </section>
+        {error ? <p className="error-text">{error}</p> : null}
 
         <section>
           <div className="tab-row">
@@ -178,14 +272,14 @@ export default function GroupView() {
                 <h3>Markera som betald</h3>
                 <label>
                   Betalare
-                  <select value={settlementForm.payer_id} onChange={(event) => setSettlementForm((previous) => ({ ...previous, payer_id: event.target.value }))}>
-                    {memberOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  <select value={settlementForm.payer_id} onChange={(event) => handlePayerChange(event.target.value)}>
+                    {payerOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                   </select>
                 </label>
                 <label>
                   Mottagare
-                  <select value={settlementForm.receiver_id} onChange={(event) => setSettlementForm((previous) => ({ ...previous, receiver_id: event.target.value }))}>
-                    {memberOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  <select value={settlementForm.receiver_id} onChange={(event) => handleReceiverChange(event.target.value)}>
+                    {receiverOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                   </select>
                 </label>
                 <label>
@@ -209,6 +303,36 @@ export default function GroupView() {
             </div>
           ) : null}
         </section>
+
+        {isSettingsOpen ? (
+          <div className="modal-backdrop" role="presentation" onClick={() => setIsSettingsOpen(false)}>
+            <section
+              className="card modal-card"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Gruppinställningar"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="modal-header">
+                <h3>Gruppinställningar</h3>
+                <button type="button" className="secondary" onClick={() => setIsSettingsOpen(false)}>Stäng</button>
+              </div>
+              <h4>Lägg till medlem</h4>
+              <form onSubmit={handleAddMember} className="form-inline">
+                <input value={memberUsername} onChange={(event) => setMemberUsername(event.target.value)} placeholder="Användarnamn" required />
+                <button type="submit">Spara</button>
+              </form>
+              <ul>
+                {members.map((member) => (
+                  <li key={member.id} className="member-row">
+                    <span>{member.username} ({member.email})</span>
+                    <button type="button" className="danger" onClick={() => handleRemoveMember(member.id)}>Ta bort</button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>
+        ) : null}
       </main>
     </>
   );

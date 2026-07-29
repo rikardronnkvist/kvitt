@@ -29,6 +29,7 @@ export default function Header() {
         <h1>Kvitt</h1>
         <nav>
           <Link to="/">Hem</Link>
+          {user?.is_admin ? <Link to="/admin">Admin</Link> : null}
         </nav>
       </div>
       <div className="header-actions">

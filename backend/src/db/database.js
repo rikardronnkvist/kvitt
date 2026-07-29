@@ -28,6 +28,7 @@ export function initializeDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE NOT NULL,
       email TEXT UNIQUE NOT NULL,
+      is_admin INTEGER NOT NULL DEFAULT 0,
       password_hash TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
@@ -78,4 +79,18 @@ export function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_expense_splits_expense_id ON expense_splits(expense_id);
     CREATE INDEX IF NOT EXISTS idx_settlements_group_id ON settlements(group_id);
   `);
+
+  const userColumns = db.prepare('PRAGMA table_info(users)').all();
+  const hasIsAdminColumn = userColumns.some((column) => column.name === 'is_admin');
+  if (!hasIsAdminColumn) {
+    db.exec('ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0');
+  }
+
+  const adminCount = db.prepare('SELECT COUNT(*) AS count FROM users WHERE is_admin = 1').get();
+  if (Number(adminCount.count) === 0) {
+    const firstUser = db.prepare('SELECT id FROM users ORDER BY created_at ASC, id ASC LIMIT 1').get();
+    if (firstUser) {
+      db.prepare('UPDATE users SET is_admin = 1 WHERE id = ?').run(firstUser.id);
+    }
+  }
 }
