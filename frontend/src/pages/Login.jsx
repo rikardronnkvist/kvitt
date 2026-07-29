@@ -63,13 +63,11 @@ export default function Login() {
     <main className="flex min-h-screen items-center justify-center bg-[var(--app-bg)] px-4 py-12">
       <section className="surface-card w-full max-w-[420px] space-y-8 p-7 sm:p-8">
         <div className="space-y-4">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[var(--app-surface-muted)]">
-            <span className="text-base font-semibold text-[var(--text-primary)]">K</span>
+          <div className="flex h-[88px] w-[88px] items-center justify-center overflow-hidden rounded-lg bg-[var(--app-surface-muted)]">
+            <img src="/kvitt.png" alt="Kvitt logo" className="h-16 w-16 object-contain" />
           </div>
           <div className="space-y-2">
-            <p className="section-eyebrow">Välkommen</p>
             <h1 className="page-title">Logga in på Kvitt</h1>
-            <p className="page-copy">En lugn, tydlig plats för delade utgifter och saldon.</p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <AuthModeButton active={mode === 'login'} onClick={() => setMode('login')}>
@@ -124,18 +122,6 @@ export default function Login() {
             {!loading ? <ArrowRight className="h-4 w-4" /> : null}
           </button>
         </form>
-
-        <p className="m-0 text-sm text-[var(--text-secondary)]">
-          {mode === 'login' ? (
-            <>
-              Har du inget konto? <Link to="/register">Registrera dig</Link>
-            </>
-          ) : (
-            <>
-              Har du redan ett konto? <Link to="/login">Logga in</Link>
-            </>
-          )}
-        </p>
       </section>
     </main>
   );
