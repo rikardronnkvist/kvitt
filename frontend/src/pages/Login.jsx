@@ -71,6 +71,14 @@ export default function Login() {
     setError('Passkey-registrering kommer snart.');
   };
 
+  const handlePasskeyLogin = async () => {
+    setError('');
+    setPasskeyLoading(true);
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    setPasskeyLoading(false);
+    setError('Passkey-inloggning kommer snart.');
+  };
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-[var(--app-bg)] px-4 py-12">
       <section className="surface-card w-full max-w-[420px] space-y-8 p-7 sm:p-8">
@@ -95,24 +103,25 @@ export default function Login() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-4">
+            <button
+              type="button"
+              onClick={isRegisterMode ? handlePasskeySignup : handlePasskeyLogin}
+              className="btn-secondary w-full justify-start border-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_10%,white)] text-[var(--text-primary)] hover:bg-[color:color-mix(in_srgb,var(--accent)_16%,white)]"
+              disabled={passkeyLoading || loading}
+            >
+              <KeyRound className="h-4 w-4 text-[var(--accent)]" />
+              {passkeyLoading ? 'Startar Passkey...' : isRegisterMode ? 'Skapa konto med Passkey' : 'Logga in med Passkey'}
+            </button>
+            <div className="flex items-center gap-3">
+              <span className="h-px flex-1 bg-[var(--border-subtle)]" />
+              <span className="text-xs text-[var(--text-muted)]">eller fortsätt med e-post</span>
+              <span className="h-px flex-1 bg-[var(--border-subtle)]" />
+            </div>
+          </div>
+
           {isRegisterMode ? (
             <>
-              <div className="space-y-4">
-                <button
-                  type="button"
-                  onClick={handlePasskeySignup}
-                  className="btn-secondary w-full justify-start border-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_10%,white)] text-[var(--text-primary)] hover:bg-[color:color-mix(in_srgb,var(--accent)_16%,white)]"
-                  disabled={passkeyLoading || loading}
-                >
-                  <KeyRound className="h-4 w-4 text-[var(--accent)]" />
-                  {passkeyLoading ? 'Startar Passkey...' : 'Skapa konto med Passkey'}
-                </button>
-                <div className="flex items-center gap-3">
-                  <span className="h-px flex-1 bg-[var(--border-subtle)]" />
-                  <span className="text-xs text-[var(--text-muted)]">eller fortsätt med e-post</span>
-                  <span className="h-px flex-1 bg-[var(--border-subtle)]" />
-                </div>
-              </div>
               <label className="field-label">
                 Fullständigt namn
                 <input name="full_name" value={registerForm.full_name} onChange={handleChange(setRegisterForm)} required />
