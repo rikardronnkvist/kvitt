@@ -158,7 +158,7 @@ export default function NewSettlementModal({
         <section className="space-y-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
           <div className="flex items-center gap-2">
             <ArrowRight className="h-4 w-4 text-[var(--text-secondary)]" />
-            <h3 className="m-0 text-base font-semibold">Föreslagna regleringar</h3>
+            <h3 className="m-0 text-base font-semibold">Förslag för att bli kvitt</h3>
           </div>
           <BalanceList
             balances={balances}
