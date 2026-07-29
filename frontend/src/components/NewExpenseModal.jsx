@@ -5,7 +5,7 @@ import ModalShell from './ModalShell.jsx';
 import { createExpenseForm } from '../lib/expenseForm.js';
 import { getCurrentUserId } from '../lib/session.js';
 
-export default function NewExpenseModal({ groupId, members, categories, onClose, onSuccess }) {
+export default function NewExpenseModal({ groupId, members, categories, mileageRate, onClose, onSuccess }) {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(() => createExpenseForm({ members, categories, currentUserId: getCurrentUserId() }));
@@ -51,6 +51,7 @@ export default function NewExpenseModal({ groupId, members, categories, onClose,
         setForm={setForm}
         members={members}
         categories={categories}
+        mileageRate={mileageRate}
         error={error}
         saving={saving}
         onCancel={onClose}

@@ -95,6 +95,7 @@ export default function GroupView() {
   const [memberSearchResults, setMemberSearchResults] = useState([]);
   const [searchingMembers, setSearchingMembers] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [mileageRateDraft, setMileageRateDraft] = useState('20');
   const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [editingSettlementId, setEditingSettlementId] = useState(null);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
@@ -129,8 +130,14 @@ export default function GroupView() {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    if (!group) return;
+    setMileageRateDraft(String(Number(group.mileage_rate) > 0 ? Number(group.mileage_rate) : 20));
+  }, [group]);
+
   const members = group?.members ?? [];
   const theme = getThemeForGroup(group);
+  const mileageRate = Number(group?.mileage_rate) > 0 ? Number(group.mileage_rate) : 20;
   const editingExpense = expenses.find((expense) => expense.id === editingExpenseId);
   const editingSettlement = settlements.find((settlement) => settlement.id === editingSettlementId);
 
@@ -221,6 +228,22 @@ export default function GroupView() {
     try {
       const updated = await patch(`/api/groups/${id}`, { theme_color: themeId });
       setGroup((previous) => ({ ...previous, ...updated }));
+    } catch (updateError) {
+      setError(updateError.message);
+    }
+  };
+
+  const handleUpdateMileageRate = async () => {
+    const parsed = Number(mileageRateDraft);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      setError('Milkostnad måste vara större än 0.');
+      return;
+    }
+    try {
+      const updated = await patch(`/api/groups/${id}`, { mileage_rate: parsed });
+      setGroup((previous) => ({ ...previous, ...updated }));
+      setMileageRateDraft(String(parsed));
+      setError('');
     } catch (updateError) {
       setError(updateError.message);
     }
@@ -375,6 +398,22 @@ export default function GroupView() {
                   );
                 })}
               </div>
+
+              <div className="space-y-3">
+                <label className="field-label">
+                  Milkostnad för Bilresa (kr/mil)
+                  <input
+                    type="number"
+                    min="0.1"
+                    step="0.1"
+                    value={mileageRateDraft}
+                    onChange={(event) => setMileageRateDraft(event.target.value)}
+                  />
+                </label>
+                <button type="button" className="btn-secondary" onClick={handleUpdateMileageRate}>
+                  Spara milkostnad
+                </button>
+              </div>
             </div>
 
             <div className="space-y-3">
@@ -432,6 +471,7 @@ export default function GroupView() {
           expense={editingExpense}
           members={members}
           categories={expenseCategories}
+          mileageRate={mileageRate}
           groupId={id}
           onClose={() => setEditingExpenseId(null)}
           onSave={handleSaveExpense}
@@ -455,6 +495,7 @@ export default function GroupView() {
           groupId={id}
           members={members}
           categories={expenseCategories}
+          mileageRate={mileageRate}
           onClose={() => setIsAddingExpense(false)}
           onSuccess={loadData}
         />

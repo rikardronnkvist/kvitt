@@ -25,6 +25,7 @@ const updateUserSchema = z.object({
 const updateGroupSchema = z.object({
   name: z.string().trim().min(1).max(100),
   theme_color: z.string().trim().min(1).max(50).optional().nullable(),
+  mileage_rate: z.number().positive().max(1000).optional(),
 });
 
 const updateCategorySchema = z.object({
@@ -98,7 +99,7 @@ router.put('/users/:id', (req, res) => {
 
 router.get('/groups', (_req, res) => {
   const groups = db.prepare(`
-    SELECT g.id, g.name, g.theme_color, g.created_at, g.created_by,
+    SELECT g.id, g.name, g.theme_color, g.mileage_rate, g.created_at, g.created_by,
            u.full_name AS created_by_full_name,
            u.email AS created_by_email,
            COUNT(gm.user_id) AS member_count
@@ -130,11 +131,14 @@ router.put('/groups/:id', (req, res) => {
   db.prepare('UPDATE groups SET name = ?, theme_color = ? WHERE id = ?').run(
     parsed.data.name,
     parsed.data.theme_color ?? null,
-    groupId,
+    groupId
   );
+  if (parsed.data.mileage_rate !== undefined) {
+    db.prepare('UPDATE groups SET mileage_rate = ? WHERE id = ?').run(parsed.data.mileage_rate, groupId);
+  }
 
   const updated = db.prepare(`
-    SELECT g.id, g.name, g.theme_color, g.created_at, g.created_by,
+    SELECT g.id, g.name, g.theme_color, g.mileage_rate, g.created_at, g.created_by,
            u.full_name AS created_by_full_name,
            u.email AS created_by_email,
            COUNT(gm.user_id) AS member_count

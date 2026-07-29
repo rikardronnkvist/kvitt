@@ -10,18 +10,23 @@ export default function AddExpense() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [group, setGroup] = useState(null);
+  const [categories, setCategories] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState(() => createExpenseForm({ members: [], currentUserId: getCurrentUserId() }));
+  const [form, setForm] = useState(() => createExpenseForm({ members: [], categories: [], currentUserId: getCurrentUserId() }));
 
   useEffect(() => {
     const loadGroup = async () => {
       setLoading(true);
       try {
-        const data = await get(`/api/groups/${id}`);
-        setGroup(data);
-        setForm(createExpenseForm({ members: data.members || [], currentUserId: getCurrentUserId() }));
+        const [groupData, categoriesData] = await Promise.all([
+          get(`/api/groups/${id}`),
+          get('/api/expenses/categories'),
+        ]);
+        setGroup(groupData);
+        setCategories(categoriesData);
+        setForm(createExpenseForm({ members: groupData.members || [], categories: categoriesData, currentUserId: getCurrentUserId() }));
         setError('');
       } catch (loadError) {
         setError(loadError.message);
@@ -85,6 +90,8 @@ export default function AddExpense() {
           form={form}
           setForm={setForm}
           members={group?.members || []}
+          categories={categories}
+          mileageRate={Number(group?.mileage_rate) > 0 ? Number(group.mileage_rate) : 20}
           error={error}
           saving={saving}
           onCancel={() => navigate(`/groups/${id}`)}

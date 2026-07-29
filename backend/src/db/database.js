@@ -41,6 +41,7 @@ export function initializeDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       theme_color TEXT,
+      mileage_rate REAL NOT NULL DEFAULT 20,
       created_by INTEGER NOT NULL REFERENCES users(id),
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
@@ -122,6 +123,10 @@ export function initializeDatabase() {
   if (!groupColumns.some((c) => c.name === 'theme_color')) {
     db.exec('ALTER TABLE groups ADD COLUMN theme_color TEXT');
   }
+  if (!groupColumns.some((c) => c.name === 'mileage_rate')) {
+    db.exec('ALTER TABLE groups ADD COLUMN mileage_rate REAL NOT NULL DEFAULT 20');
+  }
+  db.exec('UPDATE groups SET mileage_rate = 20 WHERE mileage_rate IS NULL OR mileage_rate <= 0');
 
   const expenseColumns = db.prepare('PRAGMA table_info(expenses)').all();
   if (!expenseColumns.some((column) => column.name === 'category_id')) {
