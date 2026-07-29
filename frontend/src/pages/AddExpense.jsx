@@ -15,6 +15,7 @@ export default function AddExpense() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState(() => createExpenseForm({ members: [], categories: [], currentUserId: getCurrentUserId() }));
+  const isArchived = Boolean(group?.archived_at);
 
   useEffect(() => {
     const loadGroup = async () => {
@@ -86,19 +87,25 @@ export default function AddExpense() {
       </div>
 
       <section className="surface-card p-6 sm:p-7">
-        <ExpenseFormFields
-          form={form}
-          setForm={setForm}
-          members={group?.members || []}
-          categories={categories}
-          mileageRate={Number(group?.mileage_rate) > 0 ? Number(group.mileage_rate) : 20}
-          error={error}
-          saving={saving}
-          onCancel={() => navigate(`/groups/${id}`)}
-          onError={setError}
-          onSubmit={handleSubmit}
-          submitLabel="Spara utgift"
-        />
+        {isArchived ? (
+          <p className="m-0 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-4 py-3 text-sm text-[var(--text-secondary)]">
+            Gruppen är arkiverad och skrivskyddad. Nya utgifter kan inte läggas till.
+          </p>
+        ) : (
+          <ExpenseFormFields
+            form={form}
+            setForm={setForm}
+            members={group?.members || []}
+            categories={categories}
+            mileageRate={Number(group?.mileage_rate) > 0 ? Number(group.mileage_rate) : 20}
+            error={error}
+            saving={saving}
+            onCancel={() => navigate(`/groups/${id}`)}
+            onError={setError}
+            onSubmit={handleSubmit}
+            submitLabel="Spara utgift"
+          />
+        )}
       </section>
     </div>
   );

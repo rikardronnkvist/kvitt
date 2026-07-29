@@ -134,7 +134,7 @@ router.put('/users/:id', (req, res) => {
 
 router.get('/groups', (_req, res) => {
   const groups = db.prepare(`
-    SELECT g.id, g.name, g.theme_color, g.mileage_rate, g.created_at, g.created_by,
+    SELECT g.id, g.name, g.theme_color, g.mileage_rate, g.created_at, g.created_by, g.archived_at,
            u.full_name AS created_by_full_name,
            u.username AS created_by_username,
            COUNT(gm.user_id) AS member_count
@@ -158,9 +158,12 @@ router.put('/groups/:id', (req, res) => {
     return res.status(400).json({ error: 'Ogiltig gruppdata.', details: parsed.error.flatten() });
   }
 
-  const group = db.prepare('SELECT id FROM groups WHERE id = ?').get(groupId);
+  const group = db.prepare('SELECT id, archived_at FROM groups WHERE id = ?').get(groupId);
   if (!group) {
     return res.status(404).json({ error: 'Gruppen hittades inte.' });
+  }
+  if (group.archived_at) {
+    return res.status(409).json({ error: 'Gruppen är arkiverad och skrivskyddad.' });
   }
 
   db.prepare('UPDATE groups SET name = ?, theme_color = ? WHERE id = ?').run(
@@ -173,7 +176,7 @@ router.put('/groups/:id', (req, res) => {
   }
 
   const updated = db.prepare(`
-    SELECT g.id, g.name, g.theme_color, g.mileage_rate, g.created_at, g.created_by,
+    SELECT g.id, g.name, g.theme_color, g.mileage_rate, g.created_at, g.created_by, g.archived_at,
            u.full_name AS created_by_full_name,
            u.username AS created_by_username,
            COUNT(gm.user_id) AS member_count

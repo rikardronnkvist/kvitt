@@ -140,6 +140,7 @@ export function initializeDatabase() {
       theme_color TEXT,
       mileage_rate REAL NOT NULL DEFAULT 20,
       created_by INTEGER NOT NULL REFERENCES users(id),
+      archived_at DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -257,6 +258,9 @@ export function initializeDatabase() {
   }
   if (!groupColumns.some((c) => c.name === 'mileage_rate')) {
     db.exec('ALTER TABLE groups ADD COLUMN mileage_rate REAL NOT NULL DEFAULT 20');
+  }
+  if (!groupColumns.some((c) => c.name === 'archived_at')) {
+    db.exec('ALTER TABLE groups ADD COLUMN archived_at DATETIME');
   }
   db.exec('UPDATE groups SET mileage_rate = 20 WHERE mileage_rate IS NULL OR mileage_rate <= 0');
 
