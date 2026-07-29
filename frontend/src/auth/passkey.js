@@ -39,8 +39,11 @@ export async function checkPasskeyAvailability() {
   return Boolean(serverAvailability.available);
 }
 
-export async function registerWithPasskey(displayName) {
-  const optionsResponse = await post('/api/auth/passkey/register/options', { displayName });
+export async function registerWithPasskey(displayName, registrationToken) {
+  const optionsResponse = await post('/api/auth/passkey/register/options', {
+    displayName,
+    registration_token: registrationToken,
+  });
   const response = await startRegistrationCompat(optionsResponse.options);
   return post('/api/auth/passkey/register/verify', {
     requestId: optionsResponse.requestId,

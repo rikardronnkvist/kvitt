@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { ensureRegistrationAccessToken } from '../utils/settings.js';
 
 function resolveDbPath() {
   const preferredPath = process.env.DB_PATH || '/app/data/kvitt.db';
@@ -195,6 +196,12 @@ export function initializeDatabase() {
       last_used_at DATETIME
     );
 
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE INDEX IF NOT EXISTS idx_group_members_user_id ON group_members(user_id);
     CREATE INDEX IF NOT EXISTS idx_expenses_group_id ON expenses(group_id);
     CREATE INDEX IF NOT EXISTS idx_expense_splits_expense_id ON expense_splits(expense_id);
@@ -280,4 +287,6 @@ export function initializeDatabase() {
     });
     tx();
   }
+
+  ensureRegistrationAccessToken();
 }

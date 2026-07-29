@@ -1,50 +1,34 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
 import { post } from '../api/client.js';
 import PasskeyButton from '../components/PasskeyButton.jsx';
 import { usePasskeyAuth } from '../hooks/usePasskeyAuth.js';
 
-const registerInitialState = { email: '', password: '', full_name: '' };
-
-function AuthModeButton({ active, onClick, disabled, children }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={[
-        'min-h-11 rounded-lg border px-4 text-sm font-semibold transition',
-        active
-          ? 'border-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_8%,transparent)] text-[var(--text-primary)]'
-          : 'border-[var(--border-subtle)] bg-transparent text-[var(--text-secondary)] hover:bg-[var(--app-surface-muted)]',
-        disabled ? 'cursor-not-allowed opacity-60' : '',
-      ].join(' ')}
-    >
-      {children}
-    </button>
-  );
-}
+const registerInitialState = { full_name: '' };
 
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const isRegisterRoute = useMemo(() => location.pathname === '/register', [location.pathname]);
-  const [mode, setMode] = useState(isRegisterRoute ? 'register' : 'login');
+  const registrationToken = useMemo(() => {
+    const raw = location.search.startsWith('?') ? location.search.slice(1) : '';
+    if (!raw) return '';
+    if (!raw.includes('=')) {
+      return decodeURIComponent(raw);
+    }
+    const params = new URLSearchParams(location.search);
+    return params.get('token') || params.get('invite') || params.get('key') || '';
+  }, [location.search]);
   const [registerForm, setRegisterForm] = useState(registerInitialState);
   const [devboxUsers, setDevboxUsers] = useState([]);
   const [devboxAvailable, setDevboxAvailable] = useState(false);
   const [devboxLoading, setDevboxLoading] = useState(false);
   const [devboxLoginLoading, setDevboxLoginLoading] = useState(false);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const isRegisterMode = mode === 'register';
+  const isRegisterMode = isRegisterRoute;
+  const hasRegistrationToken = registrationToken.trim().length > 0;
   const { passkeyLoading, handlePasskeySignup, handlePasskeyLogin } = usePasskeyAuth({ navigate, setError });
-  const isBusy = loading || passkeyLoading || devboxLoading || devboxLoginLoading;
-
-  useEffect(() => {
-    setMode(isRegisterRoute ? 'register' : 'login');
-  }, [isRegisterRoute]);
+  const isBusy = passkeyLoading || devboxLoading || devboxLoginLoading;
 
   useEffect(() => {
     if (isRegisterMode) {
@@ -95,29 +79,6 @@ export default function Login() {
     };
   }, [isRegisterMode]);
 
-  const handleChange = (setter) => (event) => {
-    const { name, value } = event.target;
-    setter((previous) => ({ ...previous, [name]: value }));
-  };
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    if (!isRegisterMode) {
-      return;
-    }
-    setError('');
-    setLoading(true);
-    try {
-      const response = await post('/api/auth/register', registerForm);
-      localStorage.setItem('token', response.token);
-      navigate('/');
-    } catch (submitError) {
-      setError(submitError.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const onPasskeySignup = async () => {
     const initialName = registerForm.full_name.trim();
     const promptedName = window.prompt('Ange visningsnamn för ditt konto', initialName);
@@ -132,8 +93,13 @@ export default function Login() {
       return;
     }
 
+    if (!hasRegistrationToken) {
+      setError('Registrering är stängd. Be admin om registreringslänk.');
+      return;
+    }
+
     setRegisterForm((current) => ({ ...current, full_name: displayName }));
-    await handlePasskeySignup(displayName);
+    await handlePasskeySignup(displayName, registrationToken);
   };
 
   const handleDevboxUserLogin = async (userId) => {
@@ -163,58 +129,33 @@ export default function Login() {
               <p className="m-0 text-sm text-[var(--text-secondary)]">#teambail on tour</p>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <AuthModeButton active={mode === 'login'} onClick={() => setMode('login')} disabled={isBusy}>
-              Logga in
-            </AuthModeButton>
-            <AuthModeButton active={mode === 'register'} onClick={() => setMode('register')} disabled={isBusy}>
-              Skapa konto
-            </AuthModeButton>
-          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form className="space-y-4" onSubmit={(event) => event.preventDefault()}>
           <div className="space-y-4">
             <PasskeyButton
               label={isRegisterMode ? 'Skapa konto med Passkey' : 'Logga in med Passkey'}
               loadingLabel="Startar Passkey..."
               loading={passkeyLoading}
-              disabled={isBusy}
+              disabled={isBusy || (isRegisterMode && !hasRegistrationToken)}
               onClick={isRegisterMode ? onPasskeySignup : handlePasskeyLogin}
             />
-            {isRegisterMode ? (
-              <div className="flex items-center gap-3">
-                <span className="h-px flex-1 bg-[var(--border-subtle)]" />
-                <span className="text-xs text-[var(--text-muted)]">eller fortsätt med e-post</span>
-                <span className="h-px flex-1 bg-[var(--border-subtle)]" />
-              </div>
-            ) : null}
           </div>
 
           {isRegisterMode ? (
             <>
+              {!hasRegistrationToken ? (
+                <p className="m-0 rounded-lg border border-[var(--border-strong)] bg-[var(--app-surface-muted)] px-3 py-2 text-sm text-[var(--text-secondary)]">
+                  Registrering är stängd. Be en administratör om registreringslänk.
+                </p>
+              ) : null}
               <label className="field-label">
                 Fullständigt namn
-                <input name="full_name" value={registerForm.full_name} onChange={handleChange(setRegisterForm)} required />
-              </label>
-              <label className="field-label">
-                E-post
                 <input
-                  name="email"
-                  type="email"
-                  value={registerForm.email}
-                  onChange={handleChange(setRegisterForm)}
-                  required
-                />
-              </label>
-              <label className="field-label">
-                Lösenord
-                <input
-                  name="password"
-                  type="password"
-                  value={registerForm.password}
-                  onChange={handleChange(setRegisterForm)}
-                  required
+                  name="full_name"
+                  value={registerForm.full_name}
+                  onChange={(event) => setRegisterForm((previous) => ({ ...previous, full_name: event.target.value }))}
+                  disabled={!hasRegistrationToken}
                 />
               </label>
             </>
@@ -246,18 +187,13 @@ export default function Login() {
 
           {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
 
-          {isRegisterMode ? (
-            <button type="submit" className="btn-primary w-full" disabled={isBusy}>
-              {loading ? 'Sparar...' : 'Skapa konto'}
-              {!loading ? <ArrowRight className="h-4 w-4" /> : null}
-            </button>
-          ) : null}
-
           <p className="m-0 text-sm text-[var(--text-secondary)]">
-            {mode === 'login' ? (
-              <>
-                Har du inget konto? <Link to="/register">Registrera dig</Link>
-              </>
+            {!isRegisterMode ? (
+              hasRegistrationToken ? (
+                <>
+                  Har du inget konto? <Link to={`/register?${encodeURIComponent(registrationToken)}`}>Registrera dig</Link>
+                </>
+              ) : 'Registrering kräver en inbjudningslänk från admin.'
             ) : (
               <>
                 Har du redan ett konto? <Link to="/login">Logga in</Link>

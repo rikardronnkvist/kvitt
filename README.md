@@ -39,6 +39,10 @@ The frontend is available on `http://localhost:8080` by default and proxies API 
 - **Production**: set `PASSKEY_RP_ID` to your real domain and `PASSKEY_ORIGIN` to your HTTPS app origin (for example `https://kvitt.example.com`).
 - WebAuthn verification will fail if RP ID or origin does not match the browser context.
 
+### Registration access control
+- New account registration requires an admin-managed invite URL (`/register?<token>`).
+- Admins can view, rotate, and copy the active registration link in the admin panel.
+
 ### Database backup
 The SQLite database is stored in the named Docker volume `kvitt_data`.
 
@@ -122,6 +126,10 @@ Frontend finns som standard på `http://localhost:8080` och proxar API-anrop til
 - **Lokal utveckling**: använd `PASSKEY_RP_ID=localhost` och `PASSKEY_ORIGIN=http://localhost:5173`.
 - **Produktion**: sätt `PASSKEY_RP_ID` till din riktiga domän och `PASSKEY_ORIGIN` till appens HTTPS-origin (t.ex. `https://kvitt.example.com`).
 - WebAuthn-verifiering misslyckas om RP-ID eller origin inte matchar webbläsarkontexten.
+
+### Registreringskontroll
+- Nya konton kräver en adminstyrd inbjudningslänk (`/register?<token>`).
+- Administratörer kan visa, återställa och kopiera aktiv registreringslänk i adminpanelen.
 
 ### Säkerhetskopiera databasen
 SQLite-databasen ligger i Docker-volymen `kvitt_data`.

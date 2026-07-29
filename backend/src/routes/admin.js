@@ -2,6 +2,11 @@ import express from 'express';
 import { z } from 'zod';
 import authMiddleware from '../middleware/auth.js';
 import { db } from '../db/database.js';
+import {
+  getRegistrationAccessToken,
+  resetRegistrationAccessToken,
+  setRegistrationAccessToken,
+} from '../utils/settings.js';
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -32,6 +37,45 @@ const updateCategorySchema = z.object({
   name: z.string().trim().min(1).max(100),
   icon: z.string().trim().min(1).max(50),
   sort_order: z.number().int().min(0).optional(),
+});
+
+const updateRegistrationTokenSchema = z.object({
+  token: z.string().trim().min(16).max(200),
+});
+
+function buildRegistrationUrl(req, token) {
+  const proto = req.headers['x-forwarded-proto'] || req.protocol;
+  const host = req.headers['x-forwarded-host'] || req.get('host');
+  return `${proto}://${host}/register?${encodeURIComponent(token)}`;
+}
+
+router.get('/registration-access', (req, res) => {
+  const token = getRegistrationAccessToken();
+  return res.json({
+    token,
+    registration_url: buildRegistrationUrl(req, token),
+  });
+});
+
+router.put('/registration-access', (req, res) => {
+  const parsed = updateRegistrationTokenSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Ogiltig registreringsnyckel.', details: parsed.error.flatten() });
+  }
+
+  setRegistrationAccessToken(parsed.data.token);
+  return res.json({
+    token: parsed.data.token,
+    registration_url: buildRegistrationUrl(req, parsed.data.token),
+  });
+});
+
+router.post('/registration-access/reset', (req, res) => {
+  const token = resetRegistrationAccessToken();
+  return res.json({
+    token,
+    registration_url: buildRegistrationUrl(req, token),
+  });
 });
 
 router.get('/users', (_req, res) => {
