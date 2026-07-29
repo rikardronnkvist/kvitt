@@ -38,6 +38,8 @@ export default function ExpenseFormFields({
   const { selectedMembers, equalSplits, customTotal, customDifference, hasValidAmount } = getSplitSummary(form, members);
   const selectedCategory = categories.find((category) => String(category.id) === String(form.category_id));
   const isCarTripCategory = selectedCategory?.icon === 'car';
+  const isCarTripTitle = (title) => /^Bilresa(?:\s+\d+\s+mil)?$/u.test(title.trim());
+  const getCarTripTitle = (distanceMil) => `Bilresa ${distanceMil} mil`;
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -65,12 +67,27 @@ export default function ExpenseFormFields({
                 onClick={() => setForm((previous) => {
                   const previousCategory = categories.find((item) => String(item.id) === String(previous.category_id));
                   const trimmedTitle = previous.title.trim();
-                  const shouldSyncTitle = !trimmedTitle || (previousCategory && trimmedTitle === previousCategory.name);
+                  const shouldSyncTitle = !trimmedTitle
+                    || (previousCategory && trimmedTitle === previousCategory.name)
+                    || isCarTripTitle(trimmedTitle);
+                  const selectingCarTrip = category.icon === 'car';
+                  const fallbackDistance = Number(previous.distance_mil);
+                  const fallbackFromAmount = Number(previous.amount);
+                  const derivedDistance = Number.isFinite(fallbackDistance) && fallbackDistance >= 0
+                    ? Math.round(fallbackDistance)
+                    : Number.isFinite(fallbackFromAmount) && fallbackFromAmount >= 0 && mileageRate > 0
+                      ? Math.round(fallbackFromAmount / mileageRate)
+                      : 0;
 
                   return {
                     ...previous,
                     category_id: String(category.id),
-                    title: shouldSyncTitle ? category.name : previous.title,
+                    distance_mil: selectingCarTrip ? String(derivedDistance) : previous.distance_mil,
+                    title: selectingCarTrip
+                      ? getCarTripTitle(derivedDistance)
+                      : shouldSyncTitle
+                        ? category.name
+                        : previous.title,
                   };
                 })}
                 className={[
@@ -97,6 +114,7 @@ export default function ExpenseFormFields({
             value={form.title}
             onChange={(event) => setForm((previous) => ({ ...previous, title: event.target.value }))}
             placeholder="Till exempel middag eller hotell"
+            readOnly={isCarTripCategory}
             required
           />
         </label>
@@ -118,6 +136,7 @@ export default function ExpenseFormFields({
                 ...previous,
                 amount: amountValue,
                 distance_mil: isCarTripCategory ? derivedDistance : previous.distance_mil,
+                title: isCarTripCategory ? getCarTripTitle(derivedDistance || 0) : previous.title,
               }));
             }}
             placeholder="0"
@@ -143,6 +162,7 @@ export default function ExpenseFormFields({
                   ...previous,
                   distance_mil: distanceMil,
                   amount: calculatedAmount,
+                  title: getCarTripTitle(distanceMil || 0),
                 }));
               }}
               placeholder="0"
