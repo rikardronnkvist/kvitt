@@ -46,7 +46,8 @@ export default function AppShell() {
 
   const openCreateGroup = () => {
     setNewGroupName('');
-    setNewGroupTheme(GROUP_THEMES[0].id);
+    const randomTheme = GROUP_THEMES[Math.floor(Math.random() * GROUP_THEMES.length)];
+    setNewGroupTheme(randomTheme.id);
     setGroupError('');
     setCreatingGroup(true);
   };
@@ -194,7 +195,7 @@ export default function AppShell() {
                     type="text"
                     value={newGroupName}
                     onChange={(e) => setNewGroupName(e.target.value)}
-                    placeholder="T.ex. Sommarstugan, Matlagskassan…"
+                    placeholder="T.ex. Nissedal 2026, Rjukan Feb 26 ..."
                     required
                     autoFocus
                   />
