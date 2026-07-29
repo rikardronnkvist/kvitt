@@ -9,6 +9,12 @@ router.use(authMiddleware);
 
 const createGroupSchema = z.object({
   name: z.string().trim().min(1).max(100),
+  theme_color: z.string().trim().optional(),
+});
+
+const updateGroupSchema = z.object({
+  name: z.string().trim().min(1).max(100).optional(),
+  theme_color: z.string().trim().nullable().optional(),
 });
 
 const addMemberSchema = z.object({
@@ -34,7 +40,7 @@ function requireMembership(req, res, next) {
 
 router.get('/', (req, res) => {
   const groups = db.prepare(`
-    SELECT g.id, g.name, g.created_at,
+    SELECT g.id, g.name, g.theme_color, g.created_at,
            COUNT(gm2.user_id) AS member_count
     FROM groups g
     JOIN group_members gm ON gm.group_id = g.id
@@ -62,20 +68,24 @@ router.post('/', (req, res) => {
   }
 
   const tx = db.transaction(() => {
-    const result = db.prepare('INSERT INTO groups (name, created_by) VALUES (?, ?)').run(parsed.data.name, req.user.id);
+    const result = db.prepare('INSERT INTO groups (name, theme_color, created_by) VALUES (?, ?, ?)').run(
+      parsed.data.name,
+      parsed.data.theme_color ?? null,
+      req.user.id,
+    );
     db.prepare('INSERT INTO group_members (group_id, user_id) VALUES (?, ?)').run(result.lastInsertRowid, req.user.id);
     return result.lastInsertRowid;
   });
 
   const groupId = tx();
-  const group = db.prepare('SELECT id, name, created_by, created_at FROM groups WHERE id = ?').get(groupId);
+  const group = db.prepare('SELECT id, name, theme_color, created_by, created_at FROM groups WHERE id = ?').get(groupId);
   return res.status(201).json(group);
 });
 
 router.get('/:id', requireMembership, (req, res) => {
   const groupId = Number(req.params.id);
   const group = db.prepare(`
-    SELECT g.id, g.name, g.created_by, g.created_at,
+    SELECT g.id, g.name, g.theme_color, g.created_by, g.created_at,
            u.full_name AS created_by_full_name,
            u.email AS created_by_email
     FROM groups g
@@ -170,6 +180,26 @@ router.delete('/:id/members/:userId', requireMembership, (req, res) => {
 
   db.prepare('DELETE FROM group_members WHERE group_id = ? AND user_id = ?').run(groupId, userId);
   return res.status(204).send();
+});
+
+router.patch('/:id', requireMembership, (req, res) => {
+  const parsed = updateGroupSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Ogiltig data.', details: parsed.error.flatten() });
+  }
+
+  const groupId = Number(req.params.id);
+  const { name, theme_color } = parsed.data;
+
+  if (name !== undefined) {
+    db.prepare('UPDATE groups SET name = ? WHERE id = ?').run(name, groupId);
+  }
+  if (theme_color !== undefined) {
+    db.prepare('UPDATE groups SET theme_color = ? WHERE id = ?').run(theme_color, groupId);
+  }
+
+  const group = db.prepare('SELECT id, name, theme_color, created_by, created_at FROM groups WHERE id = ?').get(groupId);
+  return res.json(group);
 });
 
 export default router;

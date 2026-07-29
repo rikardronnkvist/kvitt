@@ -8,11 +8,12 @@ import EditSettlementModal from '../components/EditSettlementModal.jsx';
 import NewSettlementModal from '../components/NewSettlementModal.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import ModalShell from '../components/ModalShell.jsx';
-import { del, get, post } from '../api/client.js';
+import { del, get, patch, post } from '../api/client.js';
 import { computeMemberBalances } from '../lib/balances.js';
 import { formatCurrency, formatDateTime } from '../lib/format.js';
 import { getCurrentUserId } from '../lib/session.js';
 import { getUserDisplayName, getUserSearchLabel } from '../lib/users.js';
+import { GROUP_THEMES, getThemeForGroup } from '../lib/groupTheme.js';
 
 function GroupSkeleton() {
   return (
@@ -126,6 +127,7 @@ export default function GroupView() {
   }, [loadData]);
 
   const members = group?.members ?? [];
+  const theme = getThemeForGroup(group);
   const editingExpense = expenses.find((expense) => expense.id === editingExpenseId);
   const editingSettlement = settlements.find((settlement) => settlement.id === editingSettlementId);
 
@@ -212,6 +214,15 @@ export default function GroupView() {
     }
   };
 
+  const handleUpdateTheme = async (themeId) => {
+    try {
+      const updated = await patch(`/api/groups/${id}`, { theme_color: themeId });
+      setGroup((previous) => ({ ...previous, ...updated }));
+    } catch (updateError) {
+      setError(updateError.message);
+    }
+  };
+
   const handleDeleteExpense = async (expenseId) => {
     try {
       await del(`/api/expenses/${id}/${expenseId}`);
@@ -243,46 +254,57 @@ export default function GroupView() {
   return (
     <div className="space-y-8">
       <section className="space-y-4">
-        <div className="surface-card space-y-6 p-6 sm:p-7">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="space-y-2">
-              <p className="section-eyebrow">Grupp</p>
-              <h1 className="page-title">{group?.name}</h1>
-              <p className="page-copy">{members.map((member) => getUserDisplayName(member)).join(', ')}</p>
-            </div>
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <button type="button" className="btn-primary" onClick={() => setIsAddingExpense(true)}>
-                Lägg till utgift
-              </button>
-              <button type="button" className="btn-secondary" onClick={() => setIsAddingSettlement(true)}>
-                Registrera betalning
-              </button>
-              <button type="button" className="btn-secondary" onClick={() => setIsSettingsOpen(true)}>
-                <Settings className="h-4 w-4" />
-                Inställningar
-              </button>
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <article className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
-              <p className="section-eyebrow">Totala utgifter</p>
-              <p className="m-0 text-lg font-semibold amount-neutral">{formatCurrency(summary.totalExpenses, { precise: true })}</p>
-              <p className="mt-2 text-sm text-[var(--text-secondary)]">{expenses.length} utgifter i gruppen</p>
-            </article>
-            <article className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
-              <p className="section-eyebrow">Medlemsbalanser</p>
-              <div className="mt-2 space-y-1.5">
-                {memberBalances.map((member) => (
-                  <div key={member.id} className="flex items-center justify-between gap-3 text-sm">
-                    <span className="font-medium">{getUserDisplayName(member)}</span>
-                    <span className={`font-semibold ${member.balance > 0 ? 'amount-positive' : member.balance < 0 ? 'amount-negative' : 'amount-neutral'}`}>
-                      {formatCurrency(Math.abs(member.balance), { precise: true })}
-                    </span>
-                  </div>
-                ))}
+        <div className="surface-card overflow-hidden space-y-6 p-0">
+          <div
+            className="h-1.5 w-full"
+            style={{ background: theme.base }}
+          />
+          <div className="space-y-6 px-6 pb-6 sm:px-7 sm:pb-7">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="space-y-2">
+                <span
+                  className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
+                  style={{ background: theme.bgSoft, color: theme.textStrong, border: `1px solid ${theme.borderSoft}` }}
+                >
+                  Grupp
+                </span>
+                <h1 className="page-title">{group?.name}</h1>
+                <p className="page-copy">{members.map((member) => getUserDisplayName(member)).join(', ')}</p>
               </div>
-            </article>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button type="button" className="btn-primary" style={{ background: theme.base, borderColor: theme.base }} onClick={() => setIsAddingExpense(true)}>
+                  Lägg till utgift
+                </button>
+                <button type="button" className="btn-secondary" onClick={() => setIsAddingSettlement(true)}>
+                  Registrera betalning
+                </button>
+                <button type="button" className="btn-secondary" onClick={() => setIsSettingsOpen(true)}>
+                  <Settings className="h-4 w-4" />
+                  Inställningar
+                </button>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <article className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
+                <p className="section-eyebrow">Totala utgifter</p>
+                <p className="m-0 text-lg font-semibold amount-neutral">{formatCurrency(summary.totalExpenses, { precise: true })}</p>
+                <p className="mt-2 text-sm text-[var(--text-secondary)]">{expenses.length} utgifter i gruppen</p>
+              </article>
+              <article className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
+                <p className="section-eyebrow">Medlemsbalanser</p>
+                <div className="mt-2 space-y-1.5">
+                  {memberBalances.map((member) => (
+                    <div key={member.id} className="flex items-center justify-between gap-3 text-sm">
+                      <span className="font-medium">{getUserDisplayName(member)}</span>
+                      <span className={`font-semibold ${member.balance > 0 ? 'amount-positive' : member.balance < 0 ? 'amount-negative' : 'amount-neutral'}`}>
+                        {formatCurrency(Math.abs(member.balance), { precise: true })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </article>
+            </div>
           </div>
         </div>
       </section>
@@ -328,10 +350,37 @@ export default function GroupView() {
       {isSettingsOpen ? (
         <ModalShell
           title="Gruppinställningar"
-          description="Bjud in fler personer eller ta bort medlemmar som inte längre ska vara kvar i gruppen."
+          description="Bjud in fler personer, ta bort medlemmar eller välj gruppens färgtema."
           onClose={() => setIsSettingsOpen(false)}
         >
           <div className="space-y-6">
+            <div className="space-y-3">
+              <p className="field-label">Färgtema</p>
+              <div className="flex flex-wrap gap-2">
+                {GROUP_THEMES.map((t) => {
+                  const isActive = (group?.theme_color ?? null) === t.id
+                    || (!group?.theme_color && getThemeForGroup(group).id === t.id);
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      title={t.name}
+                      onClick={() => handleUpdateTheme(t.id)}
+                      className="h-7 w-7 rounded-full transition hover:scale-110 focus:outline-none focus-visible:ring-2"
+                      style={{
+                        background: t.base,
+                        outline: isActive ? `2px solid ${t.base}` : undefined,
+                        outlineOffset: isActive ? '2px' : undefined,
+                        boxShadow: isActive ? `0 0 0 3px rgba(255,255,255,0.9), 0 0 0 5px ${t.base}` : undefined,
+                      }}
+                      aria-pressed={isActive}
+                      aria-label={t.name}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="space-y-3">
               <label className="field-label">
                 Lägg till medlem via namn eller e-post
