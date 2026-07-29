@@ -80,7 +80,7 @@ export default function NewSettlementModal({ groupId, members, balances, current
 
   return (
     <ModalShell
-      title="Registrera betalning"
+      title="Kvitta skuld"
       description="Fokusera på en reglering i taget och använd det föreslagna beloppet när det passar."
       onClose={onClose}
     >

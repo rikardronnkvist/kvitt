@@ -295,7 +295,7 @@ export default function GroupView() {
                   Lägg till utgift
                 </button>
                 <button type="button" className="btn-secondary" onClick={() => setIsAddingSettlement(true)}>
-                  Registrera betalning
+                  Kvitta skuld
                 </button>
                 <button type="button" className="btn-secondary" onClick={() => setIsSettingsOpen(true)}>
                   <Settings className="h-4 w-4" />
