@@ -47,6 +47,17 @@ export default function EditExpenseModal({ expense, members, groupId, onClose, o
     }
   }, [expense, members]);
 
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
+
   const selectedMembers = useMemo(
     () => members.filter((member) => formData.included_users[member.id] !== false),
     [members, formData.included_users],
@@ -91,16 +102,21 @@ export default function EditExpenseModal({ expense, members, groupId, onClose, o
     }
   };
 
-  const handleKeyDown = (event) => {
-    if (event.key === 'Escape') {
-      onClose();
-    }
-  };
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
 
   if (!expense) return null;
 
   return (
-    <div className="modal-backdrop" onClick={onClose} onKeyDown={handleKeyDown}>
+    <div className="modal-backdrop" onClick={onClose}>
       <section
         className="modal-card"
         role="dialog"
