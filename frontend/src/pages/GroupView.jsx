@@ -318,7 +318,7 @@ export default function GroupView() {
 
             <div className="grid gap-4 md:grid-cols-2">
               <article className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
-                <p className="section-eyebrow">Totala utgifter</p>
+                <p className="section-eyebrow">Utgifter</p>
                 <div className="mt-2 space-y-1.5">
                   {summary.byCategory.map((category) => {
                     const CategoryIcon = getCategoryIcon(category.icon);
@@ -333,10 +333,13 @@ export default function GroupView() {
                     );
                   })}
                 </div>
-                <p className="mt-3 m-0 text-lg font-semibold amount-neutral">{formatCurrency(summary.totalExpenses, { precise: true })}</p>
+                <div className="mt-3 flex items-center justify-between gap-3 border-t border-[var(--border-subtle)] pt-2">
+                  <span className="text-sm text-[var(--text-secondary)]">Totalt</span>
+                  <span className="m-0 text-lg font-semibold amount-neutral">{formatCurrency(summary.totalExpenses, { precise: true })}</span>
+                </div>
               </article>
               <article className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
-                <p className="section-eyebrow">Medlemsbalanser</p>
+                <p className="section-eyebrow">Balans</p>
                 <div className="mt-2 space-y-1.5">
                   {memberBalances.map((member) => (
                     <div key={member.id} className="flex items-center justify-between gap-3 text-sm">
