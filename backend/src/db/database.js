@@ -40,6 +40,7 @@ export function initializeDatabase() {
     CREATE TABLE IF NOT EXISTS groups (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
+      theme_color TEXT,
       created_by INTEGER NOT NULL REFERENCES users(id),
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
@@ -101,5 +102,10 @@ export function initializeDatabase() {
     if (firstUser) {
       db.prepare('UPDATE users SET is_admin = 1 WHERE id = ?').run(firstUser.id);
     }
+  }
+
+  const groupColumns = db.prepare('PRAGMA table_info(groups)').all();
+  if (!groupColumns.some((c) => c.name === 'theme_color')) {
+    db.exec('ALTER TABLE groups ADD COLUMN theme_color TEXT');
   }
 }
