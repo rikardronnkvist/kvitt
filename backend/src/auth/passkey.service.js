@@ -9,6 +9,7 @@ import { db } from '../db/database.js';
 import { challengeStore } from './challenge-store.js';
 import { getWebAuthnConfig } from './webauthn.config.js';
 import { getAuthUserById, signToken } from './token.js';
+import { isValidRegistrationAccessToken } from '../utils/settings.js';
 
 function createHttpError(status, message) {
   const error = new Error(message);
@@ -97,7 +98,11 @@ function updatePasskeyCounter(passkeyId, newCounter) {
   `).run(newCounter, passkeyId);
 }
 
-export async function createRegistrationOptions(displayName) {
+export async function createRegistrationOptions(displayName, registrationToken) {
+  if (!isValidRegistrationAccessToken(registrationToken)) {
+    throw createHttpError(403, 'Registrering är inte tillgänglig med den här länken.');
+  }
+
   const config = getWebAuthnConfig();
   const requestId = randomUUID();
   const userHandle = randomUUID();

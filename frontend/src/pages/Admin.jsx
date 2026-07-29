@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ShieldCheck, Tags, Users, UsersRound } from 'lucide-react';
-import { get, put } from '../api/client.js';
+import { Link2, RefreshCw, ShieldCheck, Tags, Users, UsersRound } from 'lucide-react';
+import { get, post, put } from '../api/client.js';
 import { CATEGORY_ICON_OPTIONS, getCategoryIcon } from '../lib/expenseCategories.js';
 import { GROUP_THEMES, getThemeForGroup } from '../lib/groupTheme.js';
 import { getUserDisplayName } from '../lib/users.js';
@@ -33,14 +33,19 @@ export default function Admin() {
   const [savingCategoryId, setSavingCategoryId] = useState(null);
   const [activeTab, setActiveTab] = useState('users');
   const [selectedGroupId, setSelectedGroupId] = useState(null);
+  const [registrationToken, setRegistrationToken] = useState('');
+  const [registrationUrl, setRegistrationUrl] = useState('');
+  const [savingRegistration, setSavingRegistration] = useState(false);
+  const [resettingRegistration, setResettingRegistration] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [usersData, groupsData, categoriesData] = await Promise.all([
+      const [usersData, groupsData, categoriesData, registrationData] = await Promise.all([
         get('/api/admin/users'),
         get('/api/admin/groups'),
         get('/api/admin/categories'),
+        get('/api/admin/registration-access'),
       ]);
       setUsers(usersData);
       setGroups(groupsData);
@@ -65,6 +70,8 @@ export default function Admin() {
         if (previous && groupsData.some((group) => group.id === previous)) return previous;
         return groupsData[0].id;
       });
+      setRegistrationToken(registrationData.token || '');
+      setRegistrationUrl(registrationData.registration_url || '');
       setError('');
     } catch (loadError) {
       setError(loadError.message);
@@ -175,6 +182,46 @@ export default function Admin() {
     }
   };
 
+  const updateRegistrationAccess = (data) => {
+    setRegistrationToken(data.token || '');
+    setRegistrationUrl(data.registration_url || '');
+  };
+
+  const handleSaveRegistrationToken = async () => {
+    setSavingRegistration(true);
+    setError('');
+    try {
+      const updated = await put('/api/admin/registration-access', { token: registrationToken.trim() });
+      updateRegistrationAccess(updated);
+    } catch (saveError) {
+      setError(saveError.message);
+    } finally {
+      setSavingRegistration(false);
+    }
+  };
+
+  const handleResetRegistrationToken = async () => {
+    setResettingRegistration(true);
+    setError('');
+    try {
+      const updated = await post('/api/admin/registration-access/reset', {});
+      updateRegistrationAccess(updated);
+    } catch (resetError) {
+      setError(resetError.message);
+    } finally {
+      setResettingRegistration(false);
+    }
+  };
+
+  const handleCopyRegistrationUrl = async () => {
+    setError('');
+    try {
+      await navigator.clipboard.writeText(registrationUrl);
+    } catch {
+      setError('Kunde inte kopiera länken.');
+    }
+  };
+
   const tabs = [
     { id: 'users', label: 'Användare', icon: Users, count: users.length },
     { id: 'groups', label: 'Grupper', icon: UsersRound, count: groups.length },
@@ -198,6 +245,39 @@ export default function Admin() {
         <div className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-3 py-2 text-sm text-[var(--text-secondary)]">
           <ShieldCheck className="h-4 w-4" />
           Endast admin
+        </div>
+      </section>
+
+      <section className="surface-card space-y-4 p-6">
+        <div className="space-y-1">
+          <p className="section-eyebrow">Registrering</p>
+          <h2 className="m-0 text-lg font-semibold">Registreringslänk</h2>
+          <p className="m-0 text-sm text-[var(--text-secondary)]">Endast besökare med denna länk kan skapa konto.</p>
+        </div>
+        <label className="field-label">
+          Registreringsnyckel
+          <input
+            value={registrationToken}
+            onChange={(event) => setRegistrationToken(event.target.value)}
+            placeholder="Lång unik nyckel"
+          />
+        </label>
+        <label className="field-label">
+          Registrerings-URL
+          <input value={registrationUrl} readOnly />
+        </label>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="btn-primary" onClick={handleSaveRegistrationToken} disabled={savingRegistration || resettingRegistration || registrationToken.trim().length < 16}>
+            {savingRegistration ? 'Sparar...' : 'Spara nyckel'}
+          </button>
+          <button type="button" className="btn-secondary" onClick={handleResetRegistrationToken} disabled={savingRegistration || resettingRegistration}>
+            <RefreshCw className="h-4 w-4" />
+            {resettingRegistration ? 'Återställer...' : 'Återställ nyckel'}
+          </button>
+          <button type="button" className="btn-secondary" onClick={handleCopyRegistrationUrl} disabled={!registrationUrl}>
+            <Link2 className="h-4 w-4" />
+            Kopiera länk
+          </button>
         </div>
       </section>
 

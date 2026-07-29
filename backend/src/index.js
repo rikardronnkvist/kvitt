@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { initializeDatabase } from './db/database.js';
+import { getRegistrationAccessToken } from './utils/settings.js';
 import authRoutes from './routes/auth.js';
 import groupRoutes from './routes/groups.js';
 import expenseRoutes from './routes/expenses.js';
@@ -13,6 +14,30 @@ initializeDatabase();
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
+
+function getPublicOrigin() {
+  if (process.env.PASSKEY_ORIGIN) {
+    const origins = process.env.PASSKEY_ORIGIN
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean);
+    if (origins.length > 0) {
+      return origins[0];
+    }
+  }
+
+  const frontendPort = Number(process.env.FRONTEND_PORT) || 5173;
+  return `http://localhost:${frontendPort}`;
+}
+
+function getRegistrationUrl() {
+  const token = getRegistrationAccessToken();
+  if (!token) {
+    return null;
+  }
+
+  return `${getPublicOrigin()}/register?${encodeURIComponent(token)}`;
+}
 const authRateLimit = rateLimit({
   windowMs: 60_000,
   limit: 10,
@@ -55,4 +80,8 @@ app.use((error, _req, res, _next) => {
 
 app.listen(port, () => {
   console.log(`Kvitt backend listening on port ${port}`);
+  const registrationUrl = getRegistrationUrl();
+  if (registrationUrl) {
+    console.log(`Registration URL: ${registrationUrl}`);
+  }
 });

@@ -6,6 +6,7 @@ import { db } from '../db/database.js';
 import requireAuth from '../middleware/auth.js';
 import passkeyRoutes from '../auth/passkey.routes.js';
 import { getAuthUserById, signToken } from '../auth/token.js';
+import { isValidRegistrationAccessToken } from '../utils/settings.js';
 
 const router = express.Router();
 const isDevboxMode = process.env.DEVBOX === 'true' || process.env.NODE_ENV === 'development';
@@ -14,6 +15,7 @@ const registerSchema = z.object({
   email: z.string().trim().email(),
   password: z.string().min(8).max(100),
   full_name: z.string().trim().min(1).max(100),
+  registration_token: z.string().trim().min(1),
 });
 
 const loginSchema = z.object({
@@ -44,7 +46,11 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ error: 'Ogiltig registreringsdata.', details: parsed.error.flatten() });
   }
 
-  const { email, password, full_name } = parsed.data;
+  const { email, password, full_name, registration_token } = parsed.data;
+  if (!isValidRegistrationAccessToken(registration_token)) {
+    return res.status(403).json({ error: 'Registrering är inte tillgänglig med den här länken.' });
+  }
+
   const normalizedEmail = email.toLowerCase();
 
   const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(normalizedEmail);
