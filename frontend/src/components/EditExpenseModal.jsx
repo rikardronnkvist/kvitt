@@ -24,6 +24,7 @@ export default function EditExpenseModal({ expense, members, groupId, onClose, o
       });
       setSplits(expense.splits.map((split) => ({
         user_id: split.user_id,
+        username: split.username,
         amount_owed: String(split.amount_owed),
       })));
     }
@@ -33,10 +34,10 @@ export default function EditExpenseModal({ expense, members, groupId, onClose, o
     setFormData((previous) => ({ ...previous, [field]: value }));
   };
 
-  const handleSplitChange = (index, field, value) => {
+  const handleSplitChange = (index, value) => {
     setSplits((previous) => {
       const updated = [...previous];
-      updated[index] = { ...updated[index], [field]: value };
+      updated[index] = { ...updated[index], amount_owed: value };
       return updated;
     });
   };
@@ -141,21 +142,18 @@ export default function EditExpenseModal({ expense, members, groupId, onClose, o
           <fieldset className="form-section">
             <legend>Splits</legend>
             <div className="splits-grid">
-              {splits.map((split, index) => {
-                const member = members.find((m) => m.id === split.user_id);
-                return (
-                  <div key={index} className="split-row">
-                    <span>{member?.username || `Användare ${split.user_id}`}</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={split.amount_owed}
-                      onChange={(e) => handleSplitChange(index, 'amount_owed', e.target.value)}
-                      required
-                    />
-                  </div>
-                );
-              })}
+              {splits.map((split, index) => (
+                <div key={index} className="split-row">
+                  <span>{split.username}</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={split.amount_owed}
+                    onChange={(e) => handleSplitChange(index, e.target.value)}
+                    required
+                  />
+                </div>
+              ))}
             </div>
           </fieldset>
 
