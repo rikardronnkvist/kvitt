@@ -43,13 +43,18 @@ function requireMembership(req, res, next) {
 router.get('/', (req, res) => {
   const groups = db.prepare(`
     SELECT g.id, g.name, g.theme_color, g.mileage_rate, g.created_at,
-           COUNT(gm2.user_id) AS member_count
+           COUNT(gm2.user_id) AS member_count,
+           MAX(
+             COALESCE((SELECT MAX(COALESCE(e.occurred_at, e.created_at)) FROM expenses e WHERE e.group_id = g.id), g.created_at),
+             COALESCE((SELECT MAX(s.settled_at) FROM settlements s WHERE s.group_id = g.id), g.created_at),
+             g.created_at
+           ) AS last_activity_at
     FROM groups g
     JOIN group_members gm ON gm.group_id = g.id
     LEFT JOIN group_members gm2 ON gm2.group_id = g.id
     WHERE gm.user_id = ?
     GROUP BY g.id
-    ORDER BY g.created_at DESC
+    ORDER BY last_activity_at DESC, g.created_at DESC
   `).all(req.user.id);
 
   return res.json(groups.map((group) => {
