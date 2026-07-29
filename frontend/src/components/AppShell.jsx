@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { FolderKanban, LayoutGrid, LogOut, Moon, PlusCircle, Settings, Sun, UserCircle2 } from 'lucide-react';
 import { parseUser } from '../lib/session.js';
 import { getUserDisplayName } from '../lib/users.js';
+import { put } from '../api/client.js';
 
 function getInitialTheme() {
   if (typeof window === 'undefined') return 'light';
@@ -16,7 +17,11 @@ export default function AppShell() {
   const location = useLocation();
   const [theme, setTheme] = useState(getInitialTheme);
   const [accountOpen, setAccountOpen] = useState(false);
-  const user = useMemo(() => parseUser(), []);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileForm, setProfileForm] = useState({ full_name: '', email: '', current_password: '', new_password: '' });
+  const [profileError, setProfileError] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [user, setUser] = useState(() => parseUser());
   const routeGroupId = location.pathname.match(/^\/groups\/(\d+)/)?.[1] ?? null;
   const [lastGroupId, setLastGroupId] = useState(() => localStorage.getItem('last-group-id'));
 
@@ -39,6 +44,33 @@ export default function AppShell() {
     localStorage.removeItem('token');
     localStorage.removeItem('last-group-id');
     navigate('/login');
+  };
+
+  const openEditProfile = () => {
+    setProfileForm({ full_name: user?.full_name || '', email: user?.email || '', current_password: '', new_password: '' });
+    setProfileError('');
+    setEditingProfile(true);
+  };
+
+  const handleSaveProfile = async (event) => {
+    event.preventDefault();
+    setProfileError('');
+    setProfileSaving(true);
+    try {
+      const body = { full_name: profileForm.full_name, email: profileForm.email };
+      if (profileForm.new_password) {
+        body.current_password = profileForm.current_password;
+        body.new_password = profileForm.new_password;
+      }
+      const data = await put('/api/auth/profile', body);
+      localStorage.setItem('token', data.token);
+      setUser(parseUser());
+      setEditingProfile(false);
+    } catch (err) {
+      setProfileError(err.message || 'Något gick fel.');
+    } finally {
+      setProfileSaving(false);
+    }
   };
 
   return (
@@ -124,38 +156,106 @@ export default function AppShell() {
       </nav>
 
       {accountOpen ? (
-        <div className="modal-backdrop" onClick={() => setAccountOpen(false)}>
+        <div className="modal-backdrop" onClick={() => { setAccountOpen(false); setEditingProfile(false); }}>
           <div className="modal-sheet md:w-[420px]" onClick={(event) => event.stopPropagation()}>
-            <section className="space-y-5">
-              <div className="space-y-1">
-                <p className="section-eyebrow">Profil</p>
-                <h2 className="m-0 text-xl font-semibold">{user ? getUserDisplayName(user) : 'Konto'}</h2>
-                <p className="m-0 text-sm text-[var(--text-secondary)]">{user?.email || 'Ingen e-post tillgänglig'}</p>
-              </div>
-              <div className="space-y-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-sm font-medium">Tema</span>
-                  <button type="button" className="btn-secondary" onClick={() => setTheme((previous) => (previous === 'dark' ? 'light' : 'dark'))}>
-                    {theme === 'dark' ? 'Mörkt läge' : 'Ljust läge'}
+            {editingProfile ? (
+              <form className="space-y-5" onSubmit={handleSaveProfile}>
+                <div className="space-y-1">
+                  <p className="section-eyebrow">Profil</p>
+                  <h2 className="m-0 text-xl font-semibold">Redigera profil</h2>
+                </div>
+                <div className="space-y-3">
+                  <label className="field-label">
+                    Fullständigt namn
+                    <input
+                      type="text"
+                      value={profileForm.full_name}
+                      onChange={(e) => setProfileForm((f) => ({ ...f, full_name: e.target.value }))}
+                      required
+                      autoComplete="name"
+                    />
+                  </label>
+                  <label className="field-label">
+                    E-post
+                    <input
+                      type="email"
+                      value={profileForm.email}
+                      onChange={(e) => setProfileForm((f) => ({ ...f, email: e.target.value }))}
+                      required
+                      autoComplete="email"
+                    />
+                  </label>
+                  <label className="field-label">
+                    Nytt lösenord <span className="text-[var(--text-muted)] font-normal">(valfritt)</span>
+                    <input
+                      type="password"
+                      value={profileForm.new_password}
+                      onChange={(e) => setProfileForm((f) => ({ ...f, new_password: e.target.value }))}
+                      autoComplete="new-password"
+                      placeholder="Lämna tomt för att behålla"
+                    />
+                  </label>
+                  {profileForm.new_password ? (
+                    <label className="field-label">
+                      Nuvarande lösenord
+                      <input
+                        type="password"
+                        value={profileForm.current_password}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, current_password: e.target.value }))}
+                        autoComplete="current-password"
+                        required
+                      />
+                    </label>
+                  ) : null}
+                  {profileError ? (
+                    <p className="m-0 rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{profileError}</p>
+                  ) : null}
+                </div>
+                <div className="flex gap-3">
+                  <button type="button" className="btn-secondary flex-1" onClick={() => setEditingProfile(false)}>
+                    Avbryt
+                  </button>
+                  <button type="submit" className="btn-primary flex-1" disabled={profileSaving}>
+                    {profileSaving ? 'Sparar…' : 'Spara'}
                   </button>
                 </div>
-                {user?.is_admin ? (
-                  <button type="button" className="btn-secondary w-full justify-start" onClick={() => { setAccountOpen(false); navigate('/admin'); }}>
-                    <Settings className="h-4 w-4" />
-                    Adminpanel
+              </form>
+            ) : (
+              <section className="space-y-5">
+                <div className="space-y-1">
+                  <p className="section-eyebrow">Profil</p>
+                  <h2 className="m-0 text-xl font-semibold">{user ? getUserDisplayName(user) : 'Konto'}</h2>
+                  <p className="m-0 text-sm text-[var(--text-secondary)]">{user?.email || 'Ingen e-post tillgänglig'}</p>
+                </div>
+                <div className="space-y-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
+                  <button type="button" className="btn-secondary w-full justify-start" onClick={openEditProfile}>
+                    <UserCircle2 className="h-4 w-4" />
+                    Redigera profil
                   </button>
-                ) : null}
-              </div>
-              <div className="flex gap-3">
-                <button type="button" className="btn-secondary flex-1" onClick={() => setAccountOpen(false)}>
-                  Stäng
-                </button>
-                <button type="button" className="btn-primary flex-1" onClick={handleLogout}>
-                  <LogOut className="h-4 w-4" />
-                  Logga ut
-                </button>
-              </div>
-            </section>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm font-medium">Tema</span>
+                    <button type="button" className="btn-secondary" onClick={() => setTheme((previous) => (previous === 'dark' ? 'light' : 'dark'))}>
+                      {theme === 'dark' ? 'Mörkt läge' : 'Ljust läge'}
+                    </button>
+                  </div>
+                  {user?.is_admin ? (
+                    <button type="button" className="btn-secondary w-full justify-start" onClick={() => { setAccountOpen(false); navigate('/admin'); }}>
+                      <Settings className="h-4 w-4" />
+                      Adminpanel
+                    </button>
+                  ) : null}
+                </div>
+                <div className="flex gap-3">
+                  <button type="button" className="btn-secondary flex-1" onClick={() => setAccountOpen(false)}>
+                    Stäng
+                  </button>
+                  <button type="button" className="btn-primary flex-1" onClick={handleLogout}>
+                    <LogOut className="h-4 w-4" />
+                    Logga ut
+                  </button>
+                </div>
+              </section>
+            )}
           </div>
         </div>
       ) : null}

@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { db, usersTableHasUsernameColumn } from '../db/database.js';
+import requireAuth from '../middleware/auth.js';
 
 const router = express.Router();
 const jwtSecret = process.env.JWT_SECRET || 'changeme-use-a-strong-secret';
@@ -17,6 +18,16 @@ const registerSchema = z.object({
 const loginSchema = z.object({
   email: z.string().trim().email(),
   password: z.string().min(1),
+});
+
+const updateProfileSchema = z.object({
+  full_name: z.string().trim().min(1).max(100),
+  email: z.string().trim().email(),
+  current_password: z.string().optional(),
+  new_password: z.string().min(8).max(100).optional(),
+}).refine((data) => !data.new_password || data.current_password, {
+  message: 'Nuvarande lösenord krävs för att byta lösenord.',
+  path: ['current_password'],
 });
 
 function signToken(user) {
@@ -80,6 +91,42 @@ router.post('/login', async (req, res) => {
 
   const { password_hash: _passwordHash, ...safeUser } = user;
   return res.json({ token: signToken(safeUser), user: safeUser });
+});
+
+router.put('/profile', requireAuth, async (req, res) => {
+  const parsed = updateProfileSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Ogiltig data.', details: parsed.error.flatten() });
+  }
+
+  const { full_name, email, current_password, new_password } = parsed.data;
+  const normalizedEmail = email.toLowerCase();
+  const currentUser = db.prepare('SELECT id, email, password_hash, is_admin FROM users WHERE id = ?').get(req.user.id);
+
+  if (!currentUser) {
+    return res.status(404).json({ error: 'Användaren hittades inte.' });
+  }
+
+  if (normalizedEmail !== currentUser.email) {
+    const conflict = db.prepare('SELECT id FROM users WHERE email = ? AND id != ?').get(normalizedEmail, req.user.id);
+    if (conflict) {
+      return res.status(409).json({ error: 'E-postadressen används redan av ett annat konto.' });
+    }
+  }
+
+  if (new_password) {
+    const passwordOk = await bcrypt.compare(current_password, currentUser.password_hash);
+    if (!passwordOk) {
+      return res.status(400).json({ error: 'Nuvarande lösenord är felaktigt.' });
+    }
+    const newHash = await bcrypt.hash(new_password, 10);
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newHash, req.user.id);
+  }
+
+  db.prepare('UPDATE users SET full_name = ?, email = ? WHERE id = ?').run(full_name, normalizedEmail, req.user.id);
+
+  const updatedUser = db.prepare('SELECT id, email, is_admin, full_name FROM users WHERE id = ?').get(req.user.id);
+  return res.json({ token: signToken(updatedUser), user: updatedUser });
 });
 
 export default router;

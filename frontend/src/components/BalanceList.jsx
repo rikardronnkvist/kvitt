@@ -12,7 +12,7 @@ export default function BalanceList({ balances, nested = false }) {
       {balances.map((balance, index) => (
         <div
           key={`${balance.from.id}-${balance.to.id}-${index}`}
-          className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-3 py-3 text-sm"
+          className="flex items-center justify-between gap-3 py-1.5 text-sm"
         >
           <div className="flex min-w-0 items-center gap-2">
             <span className="truncate font-medium">{getUserDisplayName(balance.from)}</span>
