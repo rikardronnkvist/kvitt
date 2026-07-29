@@ -13,8 +13,10 @@ export default function authMiddleware(req, res, next) {
     const payload = jwt.verify(token, process.env.JWT_SECRET || 'changeme-use-a-strong-secret');
     req.user = {
       id: Number(payload.id),
-      email: payload.email,
-      full_name: payload.full_name,
+      email: payload.email ?? null,
+      full_name: payload.full_name ?? null,
+      username: payload.username ?? null,
+      user_handle: payload.user_handle,
       is_admin: Boolean(payload.is_admin),
     };
     return next();

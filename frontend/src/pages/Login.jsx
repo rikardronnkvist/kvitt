@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ArrowRight, KeyRound, LockKeyhole } from 'lucide-react';
+import { ArrowRight, LockKeyhole } from 'lucide-react';
 import { post } from '../api/client.js';
+import PasskeyButton from '../components/PasskeyButton.jsx';
+import { usePasskeyAuth } from '../hooks/usePasskeyAuth.js';
 
 const loginInitialState = { email: '', password: '' };
 const registerInitialState = { email: '', password: '', full_name: '' };
@@ -34,8 +36,8 @@ export default function Login() {
   const [registerForm, setRegisterForm] = useState(registerInitialState);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [passkeyLoading, setPasskeyLoading] = useState(false);
   const isRegisterMode = mode === 'register';
+  const { passkeyLoading, handlePasskeySignup, handlePasskeyLogin } = usePasskeyAuth({ navigate, setError });
 
   useEffect(() => {
     setMode(isRegisterRoute ? 'register' : 'login');
@@ -63,20 +65,22 @@ export default function Login() {
     }
   };
 
-  const handlePasskeySignup = async () => {
-    setError('');
-    setPasskeyLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 700));
-    setPasskeyLoading(false);
-    setError('Passkey-registrering kommer snart.');
-  };
+  const onPasskeySignup = async () => {
+    const initialName = registerForm.full_name.trim();
+    const promptedName = window.prompt('Ange visningsnamn för ditt konto', initialName);
+    if (promptedName === null) {
+      setError('Registreringen avbröts');
+      return;
+    }
 
-  const handlePasskeyLogin = async () => {
-    setError('');
-    setPasskeyLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 700));
-    setPasskeyLoading(false);
-    setError('Passkey-inloggning kommer snart.');
+    const displayName = promptedName.trim();
+    if (!displayName) {
+      setError('Registreringen avbröts');
+      return;
+    }
+
+    setRegisterForm((current) => ({ ...current, full_name: displayName }));
+    await handlePasskeySignup(displayName);
   };
 
   return (
@@ -104,15 +108,13 @@ export default function Login() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-4">
-            <button
-              type="button"
-              onClick={isRegisterMode ? handlePasskeySignup : handlePasskeyLogin}
-              className="btn-secondary w-full justify-start border-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_10%,white)] text-[var(--text-primary)] hover:bg-[color:color-mix(in_srgb,var(--accent)_16%,white)]"
+            <PasskeyButton
+              label={isRegisterMode ? 'Skapa konto med Passkey' : 'Logga in med Passkey'}
+              loadingLabel="Startar Passkey..."
+              loading={passkeyLoading}
               disabled={passkeyLoading || loading}
-            >
-              <KeyRound className="h-4 w-4 text-[var(--accent)]" />
-              {passkeyLoading ? 'Startar Passkey...' : isRegisterMode ? 'Skapa konto med Passkey' : 'Logga in med Passkey'}
-            </button>
+              onClick={isRegisterMode ? onPasskeySignup : handlePasskeyLogin}
+            />
             <div className="flex items-center gap-3">
               <span className="h-px flex-1 bg-[var(--border-subtle)]" />
               <span className="text-xs text-[var(--text-muted)]">eller fortsätt med e-post</span>

@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import fs from 'node:fs';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 
 function resolveDbPath() {
   const preferredPath = process.env.DB_PATH || '/app/data/kvitt.db';
@@ -26,7 +27,7 @@ export function usersTableHasUsernameColumn() {
   return db.prepare('PRAGMA table_info(users)').all().some((column) => column.name === 'username');
 }
 
-export function initializeDatabase() {
+function ensureUsersSchemaForPasskeys() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,7 +37,98 @@ export function initializeDatabase() {
       full_name TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+  `);
 
+  const userColumns = db.prepare('PRAGMA table_info(users)').all();
+  const getColumn = (name) => userColumns.find((column) => column.name === name);
+  const hasColumn = (name) => Boolean(getColumn(name));
+
+  const hasTargetColumns = ['username', 'email', 'password_hash', 'created_at', 'is_admin', 'full_name', 'initials', 'user_handle']
+    .every((name) => hasColumn(name));
+  const hasNullableUsername = hasColumn('username') && getColumn('username').notnull === 0;
+  const hasNullableEmail = hasColumn('email') && getColumn('email').notnull === 0;
+  const hasNullablePassword = hasColumn('password_hash') && getColumn('password_hash').notnull === 0;
+  const hasUserHandleConstraint = hasColumn('user_handle') && getColumn('user_handle').notnull === 1;
+
+  if (hasTargetColumns && hasNullableUsername && hasNullableEmail && hasNullablePassword && hasUserHandleConstraint) {
+    return;
+  }
+
+  const selectUsername = hasColumn('username') ? 'NULLIF(username, \'\')' : 'NULL';
+  const selectEmail = hasColumn('email') ? 'NULLIF(email, \'\')' : 'NULL';
+  const selectPasswordHash = hasColumn('password_hash') ? 'NULLIF(password_hash, \'\')' : 'NULL';
+  const selectCreatedAt = hasColumn('created_at') ? 'COALESCE(created_at, CURRENT_TIMESTAMP)' : 'CURRENT_TIMESTAMP';
+  const selectIsAdmin = hasColumn('is_admin') ? 'COALESCE(is_admin, 0)' : '0';
+  const selectFullName = hasColumn('full_name') ? 'full_name' : 'NULL';
+  const selectInitials = hasColumn('initials') ? 'initials' : 'NULL';
+  const selectUserHandle = hasColumn('user_handle')
+    ? 'COALESCE(NULLIF(user_handle, \'\'), \'legacy-\' || id)'
+    : '\'legacy-\' || id';
+
+  db.exec('PRAGMA foreign_keys = OFF');
+  const migrateUsersTable = db.transaction(() => {
+    db.exec(`
+      CREATE TABLE users_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE,
+        email TEXT UNIQUE,
+        password_hash TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        is_admin INTEGER NOT NULL DEFAULT 0,
+        full_name TEXT,
+        initials TEXT,
+        user_handle TEXT UNIQUE NOT NULL
+      );
+    `);
+
+    db.exec(`
+      INSERT INTO users_new (id, username, email, password_hash, created_at, is_admin, full_name, initials, user_handle)
+      SELECT
+        id,
+        ${selectUsername},
+        ${selectEmail},
+        ${selectPasswordHash},
+        ${selectCreatedAt},
+        ${selectIsAdmin},
+        ${selectFullName},
+        ${selectInitials},
+        ${selectUserHandle}
+      FROM users;
+    `);
+
+    db.exec('DROP TABLE users');
+    db.exec('ALTER TABLE users_new RENAME TO users');
+  });
+
+  try {
+    migrateUsersTable();
+  } finally {
+    db.exec('PRAGMA foreign_keys = ON');
+  }
+
+  const duplicateUserHandles = db.prepare(`
+    SELECT user_handle
+    FROM users
+    GROUP BY user_handle
+    HAVING COUNT(*) > 1
+  `).all();
+
+  if (duplicateUserHandles.length > 0) {
+    const updateHandle = db.prepare('UPDATE users SET user_handle = ? WHERE id = ?');
+    const rows = db.prepare('SELECT id, user_handle FROM users ORDER BY id ASC').all();
+    for (const row of rows) {
+      const conflict = db.prepare('SELECT id FROM users WHERE user_handle = ? AND id != ?').get(row.user_handle, row.id);
+      if (conflict) {
+        updateHandle.run(`legacy-${row.id}-${randomUUID()}`, row.id);
+      }
+    }
+  }
+}
+
+export function initializeDatabase() {
+  ensureUsersSchemaForPasskeys();
+
+  db.exec(`
     CREATE TABLE IF NOT EXISTS groups (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
@@ -90,10 +182,25 @@ export function initializeDatabase() {
       settled_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS passkeys (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      credential_id TEXT NOT NULL UNIQUE,
+      public_key TEXT NOT NULL,
+      counter INTEGER NOT NULL DEFAULT 0,
+      device_type TEXT NOT NULL,
+      backed_up INTEGER NOT NULL DEFAULT 0,
+      transports TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      last_used_at DATETIME
+    );
+
     CREATE INDEX IF NOT EXISTS idx_group_members_user_id ON group_members(user_id);
     CREATE INDEX IF NOT EXISTS idx_expenses_group_id ON expenses(group_id);
     CREATE INDEX IF NOT EXISTS idx_expense_splits_expense_id ON expense_splits(expense_id);
     CREATE INDEX IF NOT EXISTS idx_settlements_group_id ON settlements(group_id);
+    CREATE INDEX IF NOT EXISTS idx_passkeys_user_id ON passkeys(user_id);
+    CREATE INDEX IF NOT EXISTS idx_passkeys_credential_id ON passkeys(credential_id);
   `);
 
   const userColumns = db.prepare('PRAGMA table_info(users)').all();
@@ -111,6 +218,13 @@ export function initializeDatabase() {
   if (!hasInitialsColumn) {
     db.exec('ALTER TABLE users ADD COLUMN initials TEXT');
   }
+
+  const hasUserHandleColumn = userColumns.some((column) => column.name === 'user_handle');
+  if (!hasUserHandleColumn) {
+    db.exec('ALTER TABLE users ADD COLUMN user_handle TEXT');
+  }
+  db.exec('UPDATE users SET user_handle = COALESCE(NULLIF(user_handle, \'\'), \'legacy-\' || id)');
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_user_handle ON users(user_handle)');
 
   const adminCount = db.prepare('SELECT COUNT(*) AS count FROM users WHERE is_admin = 1').get();
   if (Number(adminCount.count) === 0) {
