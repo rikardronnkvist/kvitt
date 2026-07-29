@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { CheckCircle2, Coins, Settings, UserPlus, Users } from 'lucide-react';
+import { CheckCircle2, Coins, Settings, UserPlus } from 'lucide-react';
 import ExpenseItem from '../components/ExpenseItem.jsx';
 import EditExpenseModal from '../components/EditExpenseModal.jsx';
 import NewExpenseModal from '../components/NewExpenseModal.jsx';
@@ -10,7 +10,7 @@ import EmptyState from '../components/EmptyState.jsx';
 import ModalShell from '../components/ModalShell.jsx';
 import { del, get, post } from '../api/client.js';
 import { computeMemberBalances } from '../lib/balances.js';
-import { formatCurrency, formatDateTime, formatMonthYear } from '../lib/format.js';
+import { formatCurrency, formatDateTime } from '../lib/format.js';
 import { getCurrentUserId } from '../lib/session.js';
 import { getUserDisplayName, getUserSearchLabel } from '../lib/users.js';
 
@@ -188,14 +188,9 @@ export default function GroupView() {
     [members, expenses, settlements],
   );
 
-  const summary = useMemo(() => {
-    const currentMember = memberBalances.find((member) => String(member.id) === currentUserId);
-    return {
-      totalExpenses: expenses.reduce((sum, expense) => sum + expense.amount, 0),
-      activityCount: timeline.length,
-      currentUserBalance: currentMember?.balance || 0,
-    };
-  }, [currentUserId, expenses, memberBalances, timeline.length]);
+  const summary = useMemo(() => ({
+    totalExpenses: expenses.reduce((sum, expense) => sum + expense.amount, 0),
+  }), [expenses]);
 
   const handleAddMember = async (userId) => {
     try {
@@ -269,25 +264,24 @@ export default function GroupView() {
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <article className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
-              <p className="section-eyebrow">Månad</p>
-              <p className="m-0 text-lg font-semibold capitalize">{formatMonthYear()}</p>
-              <p className="mt-2 text-sm text-[var(--text-secondary)]">{summary.activityCount} aktiviteter registrerade</p>
-            </article>
+          <div className="grid gap-4 md:grid-cols-2">
             <article className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
               <p className="section-eyebrow">Totala utgifter</p>
               <p className="m-0 text-lg font-semibold amount-neutral">{formatCurrency(summary.totalExpenses, { precise: true })}</p>
               <p className="mt-2 text-sm text-[var(--text-secondary)]">{expenses.length} utgifter i gruppen</p>
             </article>
             <article className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
-              <p className="section-eyebrow">Din position</p>
-              <p className={`m-0 text-lg font-semibold ${summary.currentUserBalance > 0 ? 'amount-positive' : summary.currentUserBalance < 0 ? 'amount-negative' : 'amount-neutral'}`}>
-                {formatCurrency(Math.abs(summary.currentUserBalance), { precise: true })}
-              </p>
-              <p className="mt-2 text-sm text-[var(--text-secondary)]">
-                {summary.currentUserBalance > 0 ? 'Du ska få tillbaka pengar' : summary.currentUserBalance < 0 ? 'Du är skyldig pengar' : 'Du är helt kvitt'}
-              </p>
+              <p className="section-eyebrow">Medlemsbalanser</p>
+              <div className="mt-2 space-y-1.5">
+                {memberBalances.map((member) => (
+                  <div key={member.id} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="font-medium">{getUserDisplayName(member)}</span>
+                    <span className={`font-semibold ${member.balance > 0 ? 'amount-positive' : member.balance < 0 ? 'amount-negative' : 'amount-neutral'}`}>
+                      {formatCurrency(Math.abs(member.balance), { precise: true })}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </article>
           </div>
         </div>
@@ -295,7 +289,7 @@ export default function GroupView() {
 
       {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="grid gap-6">
         <section className="surface-card overflow-hidden">
           <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
             <div>
@@ -329,31 +323,6 @@ export default function GroupView() {
             </div>
           )}
         </section>
-
-        <aside className="space-y-4">
-          <section className="surface-card p-5">
-            <div className="mb-4 flex items-center gap-2">
-              <Users className="h-4 w-4 text-[var(--text-secondary)]" />
-              <h2 className="m-0 text-lg font-semibold">Medlemsbalanser</h2>
-            </div>
-            <div className="space-y-3">
-              {memberBalances.map((member) => (
-                <div key={member.id} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-3 py-3">
-                  <div>
-                    <p className="m-0 text-sm font-medium">{getUserDisplayName(member)}</p>
-                    <p className="mt-1 text-xs text-[var(--text-muted)]">
-                      {member.balance > 0 ? 'Ska få tillbaka' : member.balance < 0 ? 'Är skyldig' : 'I balans'}
-                    </p>
-                  </div>
-                  <span className={`text-sm font-semibold ${member.balance > 0 ? 'amount-positive' : member.balance < 0 ? 'amount-negative' : 'amount-neutral'}`}>
-                    {formatCurrency(Math.abs(member.balance), { precise: true })}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </section>
-
-        </aside>
       </div>
 
       {isSettingsOpen ? (

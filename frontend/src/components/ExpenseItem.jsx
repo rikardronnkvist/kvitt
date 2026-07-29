@@ -56,7 +56,7 @@ export default function ExpenseItem({ expense, onEdit }) {
           </div>
         </div>
 
-        {expense.notes ? <p className="m-0 text-sm text-[var(--text-secondary)]">{expense.notes}</p> : null}
+        {expense.notes ? <p className="m-0 whitespace-pre-wrap text-sm text-[var(--text-secondary)]">{expense.notes}</p> : null}
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
