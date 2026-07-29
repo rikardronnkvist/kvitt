@@ -110,10 +110,7 @@ export default function NewExpenseModal({ groupId, members, onClose, onSuccess }
         aria-label="Lägg till utgift"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="modal-header">
-          <h2>Lägg till utgift</h2>
-          <button type="button" className="secondary" onClick={onClose}>Stäng</button>
-        </div>
+        <h2>Lägg till utgift</h2>
 
         <form onSubmit={handleSubmit} className="form-grid">
           <label>
