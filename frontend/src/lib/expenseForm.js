@@ -5,7 +5,36 @@ function toLocalDateTimeInputValue(input) {
   const date = input ? new Date(input) : new Date();
   const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
   const pad = (value) => String(value).padStart(2, '0');
-  return `${safeDate.getFullYear()}-${pad(safeDate.getMonth() + 1)}-${pad(safeDate.getDate())}T${pad(safeDate.getHours())}:${pad(safeDate.getMinutes())}`;
+  return `${safeDate.getFullYear()}-${pad(safeDate.getMonth() + 1)}-${pad(safeDate.getDate())} ${pad(safeDate.getHours())}:${pad(safeDate.getMinutes())}`;
+}
+
+function parseLocalDateTimeInput(value) {
+  const input = String(value || '').trim();
+  const match = input.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})$/);
+  if (!match) {
+    return null;
+  }
+
+  const [, yearText, monthText, dayText, hourText, minuteText] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const parsed = new Date(year, month - 1, day, hour, minute, 0, 0);
+
+  if (
+    Number.isNaN(parsed.getTime())
+    || parsed.getFullYear() !== year
+    || parsed.getMonth() !== month - 1
+    || parsed.getDate() !== day
+    || parsed.getHours() !== hour
+    || parsed.getMinutes() !== minute
+  ) {
+    return null;
+  }
+
+  return parsed;
 }
 
 function roundMoney(value) {
@@ -133,7 +162,13 @@ export function buildExpensePayload(form, members) {
     category_id: categoryId,
     paid_by_user_id: Number(form.paid_by_user_id),
     notes: form.notes || null,
-    occurred_at: form.occurred_at,
+    occurred_at: (() => {
+      const occurredAt = parseLocalDateTimeInput(form.occurred_at);
+      if (!occurredAt) {
+        throw new Error('Ange datum och tid som YYYY-MM-DD HH:MM.');
+      }
+      return occurredAt.toISOString();
+    })(),
     splits,
   };
 }
