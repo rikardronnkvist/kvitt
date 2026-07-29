@@ -72,7 +72,6 @@ function SettlementItem({ settlement, onEdit }) {
         </div>
         <div>
           <h3 className="m-0 text-base font-semibold">{settlement.payer_display_name} betalade {settlement.receiver_display_name}</h3>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">Registrerad betalning</p>
         </div>
       </div>
       <div className="grid shrink-0 grid-cols-[9.5rem_6.5rem] items-center gap-4 self-center text-right">
