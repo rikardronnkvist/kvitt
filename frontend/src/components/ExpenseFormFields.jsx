@@ -55,7 +55,7 @@ export default function ExpenseFormFields({
     <form className="space-y-6" onSubmit={handleSubmit}>
       <div className="space-y-2">
         <p className="section-eyebrow">Kategori</p>
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
           {categories.map((category) => {
             const Icon = getCategoryIcon(category.icon);
             const isActive = String(form.category_id) === String(category.id);
@@ -91,7 +91,7 @@ export default function ExpenseFormFields({
                   };
                 })}
                 className={[
-                  'inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition',
+                  'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition',
                   isActive
                     ? 'border-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--text-primary)]'
                     : 'border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[var(--text-secondary)] hover:bg-[var(--app-surface-muted)]',
