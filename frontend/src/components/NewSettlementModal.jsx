@@ -28,15 +28,19 @@ function buildSwishLink({ phone, amount, message }) {
     return null;
   }
 
-  const params = new URLSearchParams({
-    phone: swishPhone,
-    amount: amount.toFixed(2),
-    message,
-  });
-  return `swish://payment?${params.toString()}`;
+  const encodedMessage = encodeURIComponent(message);
+  return `swish://payment?phone=${swishPhone}&amount=${amount.toFixed(2)}&message=${encodedMessage}`;
 }
 
-export default function NewSettlementModal({ groupId, members, balances, currentUserId, onClose, onSuccess }) {
+export default function NewSettlementModal({
+  groupId,
+  groupName,
+  members,
+  balances,
+  currentUserId,
+  onClose,
+  onSuccess,
+}) {
   const defaultPayerId = members.some((member) => String(member.id) === String(currentUserId)) ? String(currentUserId) : '';
 
   const [formData, setFormData] = useState({
@@ -73,9 +77,9 @@ export default function NewSettlementModal({ groupId, members, balances, current
     () => buildSwishLink({
       phone: receiverSwishPhone,
       amount: parsedAmount,
-      message: 'Kvitt skuld',
+      message: `Kvittar skuld (${groupName || 'Okänd grupp'})`,
     }),
-    [receiverSwishPhone, parsedAmount],
+    [receiverSwishPhone, parsedAmount, groupName],
   );
   const showSwishSection = Boolean(formData.receiver_id && receiverSwishPhone);
   const canSwish = Boolean(swishLink && formData.payer_id && formData.receiver_id);
