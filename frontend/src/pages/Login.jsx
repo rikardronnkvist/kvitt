@@ -169,11 +169,11 @@ export default function Login() {
                   <button
                     key={user.id}
                     type="button"
-                    className="btn-secondary w-full justify-start"
+                    className="btn-secondary w-full items-start justify-start py-3 text-left"
                     onClick={() => handleDevboxUserLogin(user.id)}
                     disabled={isBusy}
                   >
-                    <span className="flex flex-col items-start gap-0.5">
+                    <span className="flex w-full flex-col items-start gap-0.5 leading-tight">
                       <span>{user.name}</span>
                       {user.subtitle ? <span className="text-xs text-[var(--text-muted)]">{user.subtitle}</span> : null}
                     </span>
