@@ -187,11 +187,14 @@ export default function ExpenseFormFields({
         </label>
 
         <label className="field-label md:col-span-2">
-          Datum och tid för utlägget
+          <span>Datum och tid för utlägget <span className="text-[var(--text-muted)] font-normal">(YYYY-MM-DD HH:MM)</span></span>
           <input
-            type="datetime-local"
+            type="text"
             value={form.occurred_at || ''}
             onChange={(event) => setForm((previous) => ({ ...previous, occurred_at: event.target.value }))}
+            placeholder="2026-07-29 14:44"
+            inputMode="numeric"
+            pattern="\d{4}-\d{2}-\d{2} \d{2}:\d{2}"
             required
           />
         </label>
