@@ -1,15 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { ChevronDown, FolderKanban, LayoutGrid, LogOut, PlusCircle, Settings, UserCircle2 } from 'lucide-react';
+import { ChevronDown, FolderKanban, FolderPlus, LayoutGrid, LogOut, PlusCircle, Settings, UserCircle2 } from 'lucide-react';
 import { parseUser } from '../lib/session.js';
 import { getUserDisplayName } from '../lib/users.js';
-import { put } from '../api/client.js';
+import { post, put } from '../api/client.js';
 
 export default function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
+  const [creatingGroup, setCreatingGroup] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [groupError, setGroupError] = useState('');
+  const [groupSaving, setGroupSaving] = useState(false);
   const [profileForm, setProfileForm] = useState({ full_name: '', email: '', current_password: '', new_password: '' });
   const [profileError, setProfileError] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
@@ -52,6 +56,12 @@ export default function AppShell() {
     setEditingProfile(true);
   };
 
+  const openCreateGroup = () => {
+    setNewGroupName('');
+    setGroupError('');
+    setCreatingGroup(true);
+  };
+
   const handleSaveProfile = async (event) => {
     event.preventDefault();
     setProfileError('');
@@ -70,6 +80,21 @@ export default function AppShell() {
       setProfileError(err.message || 'Något gick fel.');
     } finally {
       setProfileSaving(false);
+    }
+  };
+
+  const handleCreateGroup = async (event) => {
+    event.preventDefault();
+    setGroupError('');
+    setGroupSaving(true);
+    try {
+      const group = await post('/api/groups', { name: newGroupName });
+      setCreatingGroup(false);
+      navigate(`/groups/${group.id}`);
+    } catch (err) {
+      setGroupError(err.message || 'Något gick fel.');
+    } finally {
+      setGroupSaving(false);
     }
   };
 
@@ -94,6 +119,15 @@ export default function AppShell() {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="hidden min-h-11 items-center gap-2 rounded-lg border border-[var(--border-subtle)] px-3 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--app-surface-muted)] hover:text-[var(--text-primary)] md:inline-flex"
+              onClick={openCreateGroup}
+            >
+              <FolderPlus className="h-4 w-4" />
+              Skapa grupp
+            </button>
+
             <div className="relative hidden md:block" ref={dropdownRef}>
               <button
                 type="button"
@@ -160,10 +194,10 @@ export default function AppShell() {
             <LayoutGrid className="h-4 w-4" />
             <span>Dashboard</span>
           </NavLink>
-          <NavLink to="/" className={({ isActive }) => `mobile-bottom-nav-item ${isActive ? 'active' : ''}`}>
+          <button type="button" className="mobile-bottom-nav-item" onClick={openCreateGroup}>
             <FolderKanban className="h-4 w-4" />
-            <span>Groups</span>
-          </NavLink>
+            <span>Ny grupp</span>
+          </button>
           <NavLink to={addExpenseHref} className={`mobile-bottom-nav-item ${isAddExpenseActive ? 'active' : ''}`}>
             <PlusCircle className="h-4 w-4" />
             <span>Add Expense</span>
@@ -174,6 +208,43 @@ export default function AppShell() {
           </button>
         </div>
       </nav>
+
+      {creatingGroup ? (
+        <div className="modal-backdrop" onClick={() => setCreatingGroup(false)}>
+          <div className="modal-sheet md:w-[420px]" onClick={(event) => event.stopPropagation()}>
+            <form className="space-y-5 p-5 sm:p-6" onSubmit={handleCreateGroup}>
+              <div className="space-y-1">
+                <p className="section-eyebrow">Grupper</p>
+                <h2 className="m-0 text-xl font-semibold">Skapa ny grupp</h2>
+              </div>
+              <div className="space-y-3">
+                <label className="field-label">
+                  Gruppnamn
+                  <input
+                    type="text"
+                    value={newGroupName}
+                    onChange={(e) => setNewGroupName(e.target.value)}
+                    placeholder="T.ex. Sommarstugan, Matlagskassan…"
+                    required
+                    autoFocus
+                  />
+                </label>
+                {groupError ? (
+                  <p className="m-0 rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{groupError}</p>
+                ) : null}
+              </div>
+              <div className="flex gap-3">
+                <button type="button" className="btn-secondary flex-1" onClick={() => setCreatingGroup(false)}>
+                  Avbryt
+                </button>
+                <button type="submit" className="btn-primary flex-1" disabled={groupSaving}>
+                  {groupSaving ? 'Skapar…' : 'Skapa grupp'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : null}
 
       {editingProfile ? (
         <div className="modal-backdrop" onClick={() => setEditingProfile(false)}>
