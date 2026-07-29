@@ -489,7 +489,6 @@ export default function GroupView() {
           <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
             <div>
               <p className="section-eyebrow">Aktivitet</p>
-              <h2 className="m-0 text-lg font-semibold">Utgifter och betalningar</h2>
             </div>
           </div>
 
