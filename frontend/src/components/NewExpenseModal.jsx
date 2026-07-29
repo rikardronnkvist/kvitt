@@ -95,10 +95,16 @@ export default function NewExpenseModal({ groupId, members, onClose, onSuccess }
     }
   };
 
+  const handleKeyDown = (event) => {
+    if (event.key === 'Escape') {
+      onClose();
+    }
+  };
+
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop" onClick={onClose} onKeyDown={handleKeyDown}>
       <section
-        className="card modal-card"
+        className="modal-card"
         role="dialog"
         aria-modal="true"
         aria-label="Lägg till utgift"

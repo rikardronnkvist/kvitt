@@ -173,6 +173,10 @@ textarea {
   width: min(640px, 100%);
   max-height: 90vh;
   overflow: auto;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
 }
 
 .modal-header {
