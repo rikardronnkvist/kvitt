@@ -52,6 +52,20 @@ export async function registerWithPasskey(displayName, phone, registrationToken)
   });
 }
 
+export async function listMyPasskeys() {
+  const data = await get('/api/auth/passkey/mine');
+  return Array.isArray(data.passkeys) ? data.passkeys : [];
+}
+
+export async function addPasskeyToAccount() {
+  const optionsResponse = await post('/api/auth/passkey/mine/options', {});
+  const response = await startRegistrationCompat(optionsResponse.options);
+  return post('/api/auth/passkey/mine/verify', {
+    requestId: optionsResponse.requestId,
+    response,
+  });
+}
+
 export async function loginWithPasskey() {
   const optionsResponse = await post('/api/auth/passkey/login/options', {});
   const response = await startAuthenticationCompat(optionsResponse.options);
