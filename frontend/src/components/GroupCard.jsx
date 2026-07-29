@@ -32,6 +32,7 @@ export default function GroupCard({ group, onOpen }) {
       type="button"
       className="surface-card flex w-full flex-col gap-5 overflow-hidden p-0 text-left transition hover:-translate-y-0.5"
       onClick={() => onOpen(group.id)}
+      style={{ background: theme.bgSoft, borderColor: theme.borderSoft }}
     >
       <div
         className="h-1 w-full"
@@ -57,7 +58,7 @@ export default function GroupCard({ group, onOpen }) {
           <ArrowRight className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
         </div>
 
-        <div className="flex items-end gap-3 border-t border-[var(--border-subtle)] pt-4">
+        <div className="flex items-end gap-3 border-t pt-4" style={{ borderColor: theme.borderSoft }}>
           <div>
             <p className="m-0 text-xs uppercase tracking-[0.08em] text-[var(--text-muted)]">Din balans</p>
             <p className={`mt-2 text-xl font-semibold ${state.amountClass}`}>
