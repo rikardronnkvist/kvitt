@@ -270,11 +270,24 @@ export default function GroupView() {
           </div>
 
           {activeTab === 'Utgifter' ? (
-            <div className="stack">
-              {expenses.map((expense) => (
-                <ExpenseItem key={expense.id} expense={expense} onDelete={handleDeleteExpense} onEdit={handleEditExpense} />
-              ))}
-              {!expenses.length ? <p>Inga utgifter registrerade ännu.</p> : null}
+            <div className="expenses-section">
+              {expenses.length > 0 && (
+                <div className="month-summary">
+                  <div>
+                    <h3>{new Date().toLocaleString('sv-SE', { month: 'long', year: 'numeric' })}</h3>
+                  </div>
+                  <div className="summary-stats">
+                    <span className="total-amount">SEK {expenses.reduce((sum, e) => sum + e.amount, 0).toFixed(0)}</span>
+                    <span className="total-count">total spent | {expenses.length} expenses</span>
+                  </div>
+                </div>
+              )}
+              <div className="expenses-list">
+                {expenses.map((expense) => (
+                  <ExpenseItem key={expense.id} expense={expense} onDelete={handleDeleteExpense} onEdit={handleEditExpense} />
+                ))}
+                {!expenses.length ? <p>Inga utgifter registrerade ännu.</p> : null}
+              </div>
             </div>
           ) : null}
 
