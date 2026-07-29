@@ -115,7 +115,7 @@ export default function ExpenseFormFields({
             onChange={(event) => setForm((previous) => ({ ...previous, title: event.target.value }))}
             placeholder="Till exempel middag eller hotell"
             readOnly={isCarTripCategory}
-            className={isCarTripCategory ? 'bg-[var(--app-surface-muted)] text-[var(--text-muted)]' : ''}
+            style={isCarTripCategory ? { background: 'var(--app-surface-muted)', color: 'var(--text-muted)', cursor: 'not-allowed' } : undefined}
             required
           />
         </label>
