@@ -11,15 +11,34 @@ function normalizeSwishPhone(phone) {
   const digits = String(phone).replace(/[^\d+]/g, '');
   if (!digits) return null;
   if (digits.startsWith('+')) {
-    return digits.slice(1);
+    return digits.startsWith('+46') ? digits : null;
   }
   if (digits.startsWith('00')) {
-    return digits.slice(2);
+    const normalized = `+${digits.slice(2)}`;
+    return normalized.startsWith('+46') ? normalized : null;
   }
   if (digits.startsWith('0')) {
-    return `46${digits.slice(1)}`;
+    return `+46${digits.slice(1)}`;
   }
-  return digits;
+  if (digits.startsWith('46')) {
+    return `+${digits}`;
+  }
+  return null;
+}
+
+function buildSwishLinkData({ phone, amount, message }) {
+  return {
+    version: 1,
+    payee: {
+      value: phone,
+    },
+    amount: {
+      value: Number(amount.toFixed(2)),
+    },
+    message: {
+      value: message.slice(0, 50),
+    },
+  };
 }
 
 function buildSwishLink({ phone, amount, message }) {
@@ -28,8 +47,12 @@ function buildSwishLink({ phone, amount, message }) {
     return null;
   }
 
-  const encodedMessage = encodeURIComponent(message);
-  return `swish://payment?phone=${swishPhone}&amount=${amount.toFixed(2)}&message=${encodedMessage}`;
+  const swishData = buildSwishLinkData({
+    phone: swishPhone,
+    amount,
+    message,
+  });
+  return `swish://payment?data=${encodeURIComponent(JSON.stringify(swishData))}`;
 }
 
 export default function NewSettlementModal({
