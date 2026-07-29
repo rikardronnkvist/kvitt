@@ -46,5 +46,6 @@ async function request(url, options = {}, responseType = 'json') {
 
 export const get = (url) => request(url);
 export const post = (url, body) => request(url, { method: 'POST', body: JSON.stringify(body) });
+export const put = (url, body) => request(url, { method: 'PUT', body: JSON.stringify(body) });
 export const del = (url) => request(url, { method: 'DELETE' });
 export const getBlob = (url) => request(url, {}, 'blob');

@@ -141,6 +141,11 @@ textarea {
   gap: 0.75rem;
 }
 
+.split-grid label.checkbox-row {
+  display: flex;
+  align-items: center;
+}
+
 .checkbox-row input {
   width: auto;
 }
@@ -148,6 +153,48 @@ textarea {
 .auth-card {
   max-width: 460px;
   margin: 4rem auto;
+}
+
+.group-header {
+  align-items: flex-start;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  z-index: 1000;
+}
+
+.modal-card {
+  width: min(640px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.modal-card h3,
+.modal-card h4 {
+  margin: 0;
+}
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+}
+
+.admin-item {
+  border: 1px solid #e5e7eb;
 }
 
 .error-text {

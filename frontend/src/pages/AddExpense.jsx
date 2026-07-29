@@ -3,31 +3,48 @@ import { useNavigate, useParams } from 'react-router-dom';
 import Header from '../components/Header.jsx';
 import { get, post } from '../api/client.js';
 
+function getCurrentUserId() {
+  const token = localStorage.getItem('token');
+  if (!token) return null;
+
+  try {
+    const [, payload] = token.split('.');
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=');
+    const data = JSON.parse(atob(padded));
+    return data?.id ? String(data.id) : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function AddExpense() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [group, setGroup] = useState(null);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const [equalSplit, setEqualSplit] = useState(true);
   const [form, setForm] = useState({
     title: '',
     amount: '',
-    currency: 'SEK',
     paid_by_user_id: '',
     notes: '',
-    splits: {},
+    included_users: {},
   });
 
   useEffect(() => {
     const loadGroup = async () => {
       try {
         const data = await get(`/api/groups/${id}`);
+        const currentUserId = getCurrentUserId();
+        const defaultPayerId = data.members.some((member) => String(member.id) === currentUserId)
+          ? currentUserId
+          : String(data.members[0]?.id || '');
         setGroup(data);
         setForm((previous) => ({
           ...previous,
-          paid_by_user_id: previous.paid_by_user_id || String(data.members[0]?.id || ''),
-          splits: Object.fromEntries(data.members.map((member) => [member.id, ''])),
+          paid_by_user_id: previous.paid_by_user_id || defaultPayerId,
+          included_users: Object.fromEntries(data.members.map((member) => [member.id, true])),
         }));
       } catch (loadError) {
         setError(loadError.message);
@@ -38,29 +55,51 @@ export default function AddExpense() {
   }, [id]);
 
   const members = group?.members ?? [];
-  const amountNumber = Number(form.amount || 0);
-  const calculatedSplits = useMemo(() => {
-    if (!members.length || amountNumber <= 0) return [];
-    if (equalSplit) return [];
-    return members.map((member) => ({
-      user_id: member.id,
-      amount_owed: Number(form.splits[member.id] || 0),
-    }));
-  }, [equalSplit, form.splits, members, amountNumber]);
+  const selectedMembers = useMemo(
+    () => members.filter((member) => form.included_users[member.id] !== false),
+    [members, form.included_users],
+  );
+
+  function buildEqualSplits(amount, splitMembers) {
+    if (!splitMembers.length) return [];
+    const totalCents = Math.round(amount * 100);
+    const baseCents = Math.floor(totalCents / splitMembers.length);
+    let remainder = totalCents - baseCents * splitMembers.length;
+
+    return splitMembers.map((member) => {
+      const extraCent = remainder > 0 ? 1 : 0;
+      remainder -= extraCent;
+      return {
+        user_id: member.id,
+        amount_owed: (baseCents + extraCent) / 100,
+      };
+    });
+  }
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    const amount = Number(form.amount);
+
+    if (!selectedMembers.length) {
+      setError('Välj minst en person att dela utgiften med.');
+      return;
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError('Belopp måste vara större än 0.');
+      return;
+    }
+
     setSaving(true);
     setError('');
 
     try {
       const payload = {
         title: form.title,
-        amount: Number(form.amount),
-        currency: form.currency,
+        amount,
         paid_by_user_id: Number(form.paid_by_user_id),
         notes: form.notes,
-        ...(equalSplit ? {} : { splits: calculatedSplits }),
+        splits: buildEqualSplits(amount, selectedMembers),
       };
       await post(`/api/expenses/${id}`, payload);
       navigate(`/groups/${id}`);
@@ -87,10 +126,6 @@ export default function AddExpense() {
               <input type="number" min="0" step="0.01" value={form.amount} onChange={(event) => setForm((previous) => ({ ...previous, amount: event.target.value }))} required />
             </label>
             <label>
-              Valuta
-              <input value={form.currency} onChange={(event) => setForm((previous) => ({ ...previous, currency: event.target.value }))} required />
-            </label>
-            <label>
               Betald av
               <select value={form.paid_by_user_id} onChange={(event) => setForm((previous) => ({ ...previous, paid_by_user_id: event.target.value }))} required>
                 {members.map((member) => (
@@ -102,30 +137,27 @@ export default function AddExpense() {
               Anteckningar
               <textarea value={form.notes} onChange={(event) => setForm((previous) => ({ ...previous, notes: event.target.value }))} rows="3" />
             </label>
-            <label className="checkbox-row">
-              <input type="checkbox" checked={equalSplit} onChange={(event) => setEqualSplit(event.target.checked)} />
-              Dela lika
-            </label>
-
-            {!equalSplit ? (
+            <div>
+              <p>Dela med</p>
               <div className="split-grid">
                 {members.map((member) => (
-                  <label key={member.id}>
-                    {member.username}
+                  <label key={member.id} className="checkbox-row">
                     <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={form.splits[member.id] ?? ''}
+                      type="checkbox"
+                      checked={form.included_users[member.id] !== false}
                       onChange={(event) => setForm((previous) => ({
                         ...previous,
-                        splits: { ...previous.splits, [member.id]: event.target.value },
+                        included_users: {
+                          ...previous.included_users,
+                          [member.id]: event.target.checked,
+                        },
                       }))}
                     />
+                    {member.username}
                   </label>
                 ))}
               </div>
-            ) : null}
+            </div>
             {error ? <p className="error-text">{error}</p> : null}
             <div className="button-row">
               <button type="submit" disabled={saving}>{saving ? 'Sparar...' : 'Spara'}</button>

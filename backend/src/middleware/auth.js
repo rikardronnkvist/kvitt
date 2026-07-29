@@ -11,7 +11,7 @@ export default function authMiddleware(req, res, next) {
 
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET || 'changeme-use-a-strong-secret');
-    req.user = { id: payload.id, username: payload.username, email: payload.email };
+    req.user = { id: payload.id, username: payload.username, email: payload.email, is_admin: Boolean(payload.is_admin) };
     return next();
   } catch {
     return res.status(401).json({ error: 'Ogiltig eller utgången token.' });

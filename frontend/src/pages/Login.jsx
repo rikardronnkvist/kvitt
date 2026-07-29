@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { post } from '../api/client.js';
 
-const loginInitialState = { email: '', password: '' };
+const loginInitialState = { identifier: '', password: '' };
 const registerInitialState = { username: '', email: '', password: '' };
 
 export default function Login() {
@@ -62,8 +62,14 @@ export default function Login() {
           ) : null}
 
           <label>
-            E-post
-            <input name="email" type="email" value={mode === 'login' ? loginForm.email : registerForm.email} onChange={mode === 'login' ? handleChange(setLoginForm) : handleChange(setRegisterForm)} required />
+            {mode === 'login' ? 'Användarnamn eller e-post' : 'E-post'}
+            <input
+              name={mode === 'login' ? 'identifier' : 'email'}
+              type={mode === 'login' ? 'text' : 'email'}
+              value={mode === 'login' ? loginForm.identifier : registerForm.email}
+              onChange={mode === 'login' ? handleChange(setLoginForm) : handleChange(setRegisterForm)}
+              required
+            />
           </label>
 
           <label>

@@ -14,13 +14,13 @@ const registerSchema = z.object({
 });
 
 const loginSchema = z.object({
-  email: z.string().trim().email(),
+  identifier: z.string().trim().min(1),
   password: z.string().min(1),
 });
 
 function signToken(user) {
   return jwt.sign(
-    { id: user.id, username: user.username, email: user.email },
+    { id: user.id, username: user.username, email: user.email, is_admin: Boolean(user.is_admin) },
     jwtSecret,
     { expiresIn: '7d' },
   );
@@ -43,12 +43,14 @@ router.post('/register', async (req, res) => {
     return res.status(409).json({ error: 'Användarnamn eller e-post används redan.' });
   }
 
+  const userCount = db.prepare('SELECT COUNT(*) AS count FROM users').get();
+  const isFirstUser = Number(userCount.count) === 0;
   const passwordHash = await bcrypt.hash(password, 10);
   const result = db.prepare(
-    'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
-  ).run(username, normalizedEmail, passwordHash);
+    'INSERT INTO users (username, email, is_admin, password_hash) VALUES (?, ?, ?, ?)',
+  ).run(username, normalizedEmail, isFirstUser ? 1 : 0, passwordHash);
 
-  const user = db.prepare('SELECT id, username, email FROM users WHERE id = ?').get(result.lastInsertRowid);
+  const user = db.prepare('SELECT id, username, email, is_admin FROM users WHERE id = ?').get(result.lastInsertRowid);
 
   return res.status(201).json({ token: signToken(user), user });
 });
@@ -59,10 +61,15 @@ router.post('/login', async (req, res) => {
     return res.status(400).json({ error: 'Ogiltig inloggningsdata.', details: parsed.error.flatten() });
   }
 
-  const { email, password } = parsed.data;
-  const user = db.prepare(
-    'SELECT id, username, email, password_hash FROM users WHERE email = ?',
-  ).get(email.toLowerCase());
+  const { identifier, password } = parsed.data;
+  const isEmail = identifier.includes('@');
+  const user = isEmail
+    ? db.prepare(
+      'SELECT id, username, email, is_admin, password_hash FROM users WHERE email = ?',
+    ).get(identifier.toLowerCase())
+    : db.prepare(
+      'SELECT id, username, email, is_admin, password_hash FROM users WHERE username = ?',
+    ).get(identifier);
 
   if (!user) {
     return res.status(401).json({ error: 'Felaktig e-post eller lösenord.' });
