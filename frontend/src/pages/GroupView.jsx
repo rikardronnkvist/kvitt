@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, CheckCircle2, Coins, Settings, UserPlus, Users } from 'lucide-react';
+import { CheckCircle2, Coins, Settings, UserPlus, Users } from 'lucide-react';
 import ExpenseItem from '../components/ExpenseItem.jsx';
 import EditExpenseModal from '../components/EditExpenseModal.jsx';
 import NewExpenseModal from '../components/NewExpenseModal.jsx';
 import EditSettlementModal from '../components/EditSettlementModal.jsx';
 import NewSettlementModal from '../components/NewSettlementModal.jsx';
-import BalanceList from '../components/BalanceList.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import ModalShell from '../components/ModalShell.jsx';
 import { del, get, post } from '../api/client.js';
@@ -49,23 +48,33 @@ function GroupSkeleton() {
 }
 
 function SettlementItem({ settlement, onEdit }) {
+  const handleKeyDown = (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onEdit(settlement.id);
+    }
+  };
+
   return (
-    <article className="flex flex-col gap-4 border-b border-[var(--border-subtle)] px-5 py-5 last:border-b-0 sm:flex-row sm:items-start sm:justify-between">
-      <div className="flex items-start gap-3">
+    <article
+      className="flex cursor-pointer flex-col gap-4 border-b border-[var(--border-subtle)] px-5 py-5 transition hover:bg-[var(--app-surface-muted)] focus:outline-none focus-visible:bg-[var(--app-surface-muted)] last:border-b-0 sm:flex-row sm:items-center sm:justify-between"
+      role="button"
+      tabIndex={0}
+      onClick={() => onEdit(settlement.id)}
+      onKeyDown={handleKeyDown}
+    >
+      <div className="flex items-center gap-3">
         <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[var(--app-surface-muted)] text-[var(--text-secondary)]">
           <CheckCircle2 className="h-5 w-5" />
         </div>
         <div>
-          <h3 className="m-0 text-base font-semibold">{settlement.payer_username} betalade {settlement.receiver_username}</h3>
+          <h3 className="m-0 text-base font-semibold">{settlement.payer_display_name} betalade {settlement.receiver_display_name}</h3>
           <p className="mt-1 text-sm text-[var(--text-secondary)]">Registrerad betalning</p>
-          <p className="mt-1 text-xs text-[var(--text-muted)]">{formatDateTime(settlement.settled_at)}</p>
         </div>
       </div>
-      <div className="flex flex-col items-start gap-3 sm:items-end">
-        <p className="m-0 text-lg font-semibold amount-neutral">{formatCurrency(settlement.amount, { precise: true })}</p>
-        <button type="button" className="btn-secondary" onClick={() => onEdit(settlement.id)}>
-          Redigera
-        </button>
+      <div className="grid shrink-0 grid-cols-[9.5rem_6.5rem] items-center gap-4 self-center text-right">
+        <p className="m-0 whitespace-nowrap text-xs tabular-nums text-[var(--text-muted)]">{formatDateTime(settlement.settled_at)}</p>
+        <p className="m-0 text-lg font-semibold tabular-nums amount-neutral">{formatCurrency(settlement.amount, { precise: true })}</p>
       </div>
     </article>
   );
@@ -114,15 +123,25 @@ export default function GroupView() {
   }, [loadData]);
 
   const members = group?.members ?? [];
+  const displayNameByUsername = useMemo(
+    () => Object.fromEntries(members.map((member) => [member.username, member.full_name || member.username])),
+    [members],
+  );
   const editingExpense = expenses.find((expense) => expense.id === editingExpenseId);
   const editingSettlement = settlements.find((settlement) => settlement.id === editingSettlementId);
 
   const timeline = useMemo(() => {
     return [
       ...expenses.map((expense) => ({ ...expense, kind: 'expense', activityDate: expense.created_at })),
-      ...settlements.map((settlement) => ({ ...settlement, kind: 'settlement', activityDate: settlement.settled_at })),
+      ...settlements.map((settlement) => ({
+        ...settlement,
+        kind: 'settlement',
+        activityDate: settlement.settled_at,
+        payer_display_name: displayNameByUsername[settlement.payer_username] || settlement.payer_full_name || settlement.payer_username,
+        receiver_display_name: displayNameByUsername[settlement.receiver_username] || settlement.receiver_full_name || settlement.receiver_username,
+      })),
     ].sort((a, b) => new Date(b.activityDate) - new Date(a.activityDate));
-  }, [expenses, settlements]);
+  }, [displayNameByUsername, expenses, settlements]);
 
   const memberBalances = useMemo(
     () => computeMemberBalances(members, expenses, settlements),
@@ -189,11 +208,6 @@ export default function GroupView() {
   return (
     <div className="space-y-8">
       <section className="space-y-4">
-        <button type="button" className="btn-secondary" onClick={() => navigate('/')}>
-          <ArrowLeft className="h-4 w-4" />
-          Tillbaka till dashboard
-        </button>
-
         <div className="surface-card space-y-6 p-6 sm:p-7">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="space-y-2">
@@ -254,7 +268,7 @@ export default function GroupView() {
             <div>
               {timeline.map((item) => (
                 item.kind === 'expense' ? (
-                  <ExpenseItem key={`expense-${item.id}`} expense={item} onEdit={setEditingExpenseId} />
+                  <ExpenseItem key={`expense-${item.id}`} expense={item} onEdit={setEditingExpenseId} displayNameByUsername={displayNameByUsername} />
                 ) : (
                   <SettlementItem key={`settlement-${item.id}`} settlement={item} onEdit={setEditingSettlementId} />
                 )
@@ -299,13 +313,6 @@ export default function GroupView() {
             </div>
           </section>
 
-          <section className="surface-card p-5">
-            <div className="mb-4 flex items-center gap-2">
-              <ArrowRight className="h-4 w-4 text-[var(--text-secondary)]" />
-              <h2 className="m-0 text-lg font-semibold">Föreslagna regleringar</h2>
-            </div>
-            <BalanceList balances={balances} nested />
-          </section>
         </aside>
       </div>
 
@@ -382,6 +389,7 @@ export default function GroupView() {
           groupId={id}
           members={members}
           balances={balances}
+          currentUserId={currentUserId}
           onClose={() => setIsAddingSettlement(false)}
           onSuccess={loadData}
         />

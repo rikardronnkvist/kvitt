@@ -41,7 +41,7 @@ router.get('/', (req, res) => {
   `).all(req.user.id);
 
   return res.json(groups.map((group) => {
-    const currentMember = calculateMemberBalances(group.id).find((member) => member.id === req.user.id);
+    const currentMember = calculateMemberBalances(group.id).find((member) => Number(member.id) === Number(req.user.id));
 
     return {
       ...group,

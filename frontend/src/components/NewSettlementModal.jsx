@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { ArrowRight, Sparkles } from 'lucide-react';
 import { post } from '../api/client.js';
+import BalanceList from './BalanceList.jsx';
 import ModalShell from './ModalShell.jsx';
 import { formatCurrency } from '../lib/format.js';
 
-export default function NewSettlementModal({ groupId, members, balances, onClose, onSuccess }) {
+export default function NewSettlementModal({ groupId, members, balances, currentUserId, onClose, onSuccess }) {
+  const defaultPayerId = members.some((member) => String(member.id) === String(currentUserId)) ? String(currentUserId) : '';
+
   const [formData, setFormData] = useState({
-    payer_id: '',
+    payer_id: defaultPayerId,
     receiver_id: '',
     amount: '',
   });
@@ -127,6 +130,14 @@ export default function NewSettlementModal({ groupId, members, balances, onClose
             <span className="amount-neutral">{formatCurrency(suggestedAmount, { precise: true })}</span>
           </button>
         ) : null}
+
+        <section className="space-y-3">
+          <div className="flex items-center gap-2">
+            <ArrowRight className="h-4 w-4 text-[var(--text-secondary)]" />
+            <h3 className="m-0 text-base font-semibold">Föreslagna regleringar</h3>
+          </div>
+          <BalanceList balances={balances} nested />
+        </section>
 
         {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
 
