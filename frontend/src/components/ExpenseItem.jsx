@@ -2,7 +2,7 @@ function formatDate(value) {
   return new Date(value).toLocaleString('sv-SE');
 }
 
-export default function ExpenseItem({ expense, onDelete }) {
+export default function ExpenseItem({ expense, onDelete, onEdit }) {
   return (
     <article className="card expense-item">
       <div className="expense-header">
@@ -13,11 +13,18 @@ export default function ExpenseItem({ expense, onDelete }) {
           <p>{formatDate(expense.created_at)}</p>
           {expense.notes ? <p>{expense.notes}</p> : null}
         </div>
-        {onDelete ? (
-          <button type="button" className="danger" onClick={() => onDelete(expense.id)}>
-            Ta bort
-          </button>
-        ) : null}
+        <div className="expense-actions">
+          {onEdit ? (
+            <button type="button" onClick={() => onEdit(expense.id)}>
+              Redigera
+            </button>
+          ) : null}
+          {onDelete ? (
+            <button type="button" className="danger" onClick={() => onDelete(expense.id)}>
+              Ta bort
+            </button>
+          ) : null}
+        </div>
       </div>
       <ul>
         {expense.splits.map((split) => (
