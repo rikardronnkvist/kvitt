@@ -65,8 +65,8 @@ router.post('/:groupId', (req, res) => {
   }
 
   const result = db.prepare(`
-    INSERT INTO settlements (group_id, payer_id, receiver_id, amount)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO settlements (group_id, payer_id, receiver_id, amount, settled_at)
+    VALUES (?, ?, ?, ?, datetime('now', 'localtime'))
   `).run(groupId, payer_id, receiver_id, amount);
 
   const settlement = db.prepare(`
