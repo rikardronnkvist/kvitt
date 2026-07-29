@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import Header from '../components/Header.jsx';
 import ExpenseItem from '../components/ExpenseItem.jsx';
 import EditExpenseModal from '../components/EditExpenseModal.jsx';
+import NewExpenseModal from '../components/NewExpenseModal.jsx';
 import BalanceList from '../components/BalanceList.jsx';
 import { del, get, getBlob, post, put } from '../api/client.js';
 
@@ -35,6 +36,7 @@ export default function GroupView() {
   const [memberUsername, setMemberUsername] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState(null);
+  const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [settlementForm, setSettlementForm] = useState({ payer_id: '', receiver_id: '', amount: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -194,7 +196,7 @@ export default function GroupView() {
     setExpenses((previous) => previous.map((expense) => (expense.id === updated.id ? updated : expense)));
   };
 
-  const editingExpense = expenses.find((expense) => expense.id === editingExpenseId);
+  const handleExport = async () => {
     try {
       const blob = await getBlob(`/api/expenses/${id}/export`);
       const link = document.createElement('a');
@@ -207,6 +209,8 @@ export default function GroupView() {
       setError(downloadError.message);
     }
   };
+
+  const editingExpense = expenses.find((expense) => expense.id === editingExpenseId);
 
   const handleSettlement = async (event) => {
     event.preventDefault();
@@ -248,7 +252,7 @@ export default function GroupView() {
             <p>Medlemmar: {members.map((member) => member.username).join(', ')}</p>
           </div>
           <div className="button-row">
-            <button type="button" onClick={() => navigate(`/groups/${id}/expenses/new`)}>Lägg till utgift</button>
+            <button type="button" onClick={() => setIsAddingExpense(true)}>Lägg till utgift</button>
             <button type="button" className="secondary" onClick={handleExport}>Exportera CSV</button>
             <button type="button" className="secondary" onClick={() => setIsSettingsOpen(true)}>Gruppinställningar</button>
           </div>
@@ -351,6 +355,15 @@ export default function GroupView() {
             groupId={id}
             onClose={() => setEditingExpenseId(null)}
             onSave={handleSaveExpense}
+          />
+        )}
+
+        {isAddingExpense && (
+          <NewExpenseModal
+            groupId={id}
+            members={members}
+            onClose={() => setIsAddingExpense(false)}
+            onSuccess={loadData}
           />
         )}
       </main>
