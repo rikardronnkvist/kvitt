@@ -17,6 +17,11 @@ function requireMembership(groupId, userId) {
   return db.prepare('SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?').get(groupId, userId);
 }
 
+function isGroupArchived(groupId) {
+  const group = db.prepare('SELECT archived_at FROM groups WHERE id = ?').get(groupId);
+  return Boolean(group?.archived_at);
+}
+
 router.get('/:groupId', (req, res) => {
   const groupId = Number(req.params.groupId);
   if (!requireMembership(groupId, req.user.id)) {
@@ -46,6 +51,9 @@ router.post('/:groupId', (req, res) => {
   const groupId = Number(req.params.groupId);
   if (!requireMembership(groupId, req.user.id)) {
     return res.status(403).json({ error: 'Du har inte åtkomst till den här gruppen.' });
+  }
+  if (isGroupArchived(groupId)) {
+    return res.status(409).json({ error: 'Gruppen är arkiverad och skrivskyddad.' });
   }
 
   const parsed = settlementSchema.safeParse(req.body);
@@ -90,6 +98,9 @@ router.put('/:groupId/:settlementId', (req, res) => {
 
   if (!requireMembership(groupId, req.user.id)) {
     return res.status(403).json({ error: 'Du har inte åtkomst till den här gruppen.' });
+  }
+  if (isGroupArchived(groupId)) {
+    return res.status(409).json({ error: 'Gruppen är arkiverad och skrivskyddad.' });
   }
 
   const parsed = settlementSchema.safeParse(req.body);
@@ -140,6 +151,9 @@ router.delete('/:groupId/:settlementId', (req, res) => {
 
   if (!requireMembership(groupId, req.user.id)) {
     return res.status(403).json({ error: 'Du har inte åtkomst till den här gruppen.' });
+  }
+  if (isGroupArchived(groupId)) {
+    return res.status(409).json({ error: 'Gruppen är arkiverad och skrivskyddad.' });
   }
 
   const existing = db.prepare('SELECT id FROM settlements WHERE id = ? AND group_id = ?').get(settlementId, groupId);

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { CheckCircle2, Coins, Settings, UserPlus } from 'lucide-react';
+import { useParams } from 'react-router-dom';
+import { Archive, CheckCircle2, Coins, Settings, UserPlus } from 'lucide-react';
 import ExpenseItem from '../components/ExpenseItem.jsx';
 import EditExpenseModal from '../components/EditExpenseModal.jsx';
 import NewExpenseModal from '../components/NewExpenseModal.jsx';
@@ -50,8 +50,9 @@ function GroupSkeleton() {
   );
 }
 
-function SettlementItem({ settlement, onEdit }) {
+function SettlementItem({ settlement, onEdit, readOnly = false }) {
   const handleKeyDown = (event) => {
+    if (readOnly) return;
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       onEdit(settlement.id);
@@ -60,11 +61,14 @@ function SettlementItem({ settlement, onEdit }) {
 
   return (
     <article
-      className="flex cursor-pointer flex-col gap-4 border-b border-[var(--border-subtle)] px-5 py-5 transition hover:bg-[var(--app-surface-muted)] focus:outline-none focus-visible:bg-[var(--app-surface-muted)] last:border-b-0 sm:flex-row sm:items-center sm:justify-between"
-      role="button"
-      tabIndex={0}
-      onClick={() => onEdit(settlement.id)}
-      onKeyDown={handleKeyDown}
+      className={[
+        'flex flex-col gap-4 border-b border-[var(--border-subtle)] px-5 py-5 transition last:border-b-0 sm:flex-row sm:items-center sm:justify-between',
+        readOnly ? '' : 'cursor-pointer hover:bg-[var(--app-surface-muted)] focus:outline-none focus-visible:bg-[var(--app-surface-muted)]',
+      ].join(' ')}
+      role={readOnly ? undefined : 'button'}
+      tabIndex={readOnly ? undefined : 0}
+      onClick={readOnly ? undefined : () => onEdit(settlement.id)}
+      onKeyDown={readOnly ? undefined : handleKeyDown}
     >
       <div className="flex items-center gap-3">
         <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[var(--app-surface-muted)] text-[var(--text-secondary)]">
@@ -84,7 +88,6 @@ function SettlementItem({ settlement, onEdit }) {
 
 export default function GroupView() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const currentUserId = useMemo(() => getCurrentUserId(), []);
   const [group, setGroup] = useState(null);
   const [expenses, setExpenses] = useState([]);
@@ -137,6 +140,7 @@ export default function GroupView() {
 
   const members = group?.members ?? [];
   const isGroupOwner = Number(group?.created_by) === Number(currentUserId);
+  const isArchived = Boolean(group?.archived_at);
   const theme = getThemeForGroup(group);
   const mileageRate = Number(group?.mileage_rate) > 0 ? Number(group.mileage_rate) : 20;
   const editingExpense = expenses.find((expense) => expense.id === editingExpenseId);
@@ -200,6 +204,7 @@ export default function GroupView() {
     () => computeMemberBalances(members, expenses, settlements),
     [members, expenses, settlements],
   );
+  const canArchiveGroup = isGroupOwner && !isArchived && memberBalances.every((member) => Number(member.balance) === 0);
 
   const summary = useMemo(() => {
     const totals = new Map();
@@ -217,6 +222,10 @@ export default function GroupView() {
   }, [expenses]);
 
   const handleAddMember = async (userId) => {
+    if (isArchived) {
+      setError('Gruppen är arkiverad och skrivskyddad.');
+      return;
+    }
     try {
       await post(`/api/groups/${id}/members`, { user_id: userId });
       setMemberSearchQuery('');
@@ -228,6 +237,10 @@ export default function GroupView() {
   };
 
   const handleRemoveMember = async (userId) => {
+    if (isArchived) {
+      setError('Gruppen är arkiverad och skrivskyddad.');
+      return;
+    }
     try {
       await del(`/api/groups/${id}/members/${userId}`);
       await loadData();
@@ -237,6 +250,10 @@ export default function GroupView() {
   };
 
   const handleUpdateTheme = async (themeId) => {
+    if (isArchived) {
+      setError('Gruppen är arkiverad och skrivskyddad.');
+      return;
+    }
     try {
       const updated = await patch(`/api/groups/${id}`, { theme_color: themeId });
       setGroup((previous) => ({ ...previous, ...updated }));
@@ -246,6 +263,10 @@ export default function GroupView() {
   };
 
   const handleUpdateMileageRate = async () => {
+    if (isArchived) {
+      setError('Gruppen är arkiverad och skrivskyddad.');
+      return;
+    }
     const parsed = Number(mileageRateDraft);
     if (!Number.isFinite(parsed) || parsed <= 0) {
       setError('Milkostnad måste vara större än 0.');
@@ -262,6 +283,10 @@ export default function GroupView() {
   };
 
   const handleDeleteExpense = async (expenseId) => {
+    if (isArchived) {
+      setError('Gruppen är arkiverad och skrivskyddad.');
+      return;
+    }
     try {
       await del(`/api/expenses/${id}/${expenseId}`);
       await loadData();
@@ -271,18 +296,52 @@ export default function GroupView() {
   };
 
   const handleSaveExpense = (updated) => {
+    if (isArchived) {
+      setError('Gruppen är arkiverad och skrivskyddad.');
+      return;
+    }
     setExpenses((previous) => previous.map((expense) => (expense.id === updated.id ? updated : expense)));
     loadData();
   };
 
   const handleSaveSettlement = (updated) => {
+    if (isArchived) {
+      setError('Gruppen är arkiverad och skrivskyddad.');
+      return;
+    }
     setSettlements((previous) => previous.map((settlement) => (settlement.id === updated.id ? updated : settlement)));
     loadData();
   };
 
   const handleDeleteSettlement = (settlementId) => {
+    if (isArchived) {
+      setError('Gruppen är arkiverad och skrivskyddad.');
+      return;
+    }
     setSettlements((previous) => previous.filter((settlement) => settlement.id !== settlementId));
     loadData();
+  };
+
+  const handleArchiveGroup = async () => {
+    if (!canArchiveGroup) {
+      return;
+    }
+    if (!window.confirm('Är du säker på att du vill arkivera gruppen? Gruppen blir skrivskyddad.')) {
+      return;
+    }
+
+    try {
+      const updated = await post(`/api/groups/${id}/archive`, {});
+      setGroup((previous) => ({ ...previous, ...updated }));
+      setIsSettingsOpen(false);
+      setIsAddingExpense(false);
+      setIsAddingSettlement(false);
+      setEditingExpenseId(null);
+      setEditingSettlementId(null);
+      setError('');
+    } catch (archiveError) {
+      setError(archiveError.message);
+    }
   };
 
   if (loading) {
@@ -303,10 +362,10 @@ export default function GroupView() {
                 <h1 className="page-title">{group?.name}</h1>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row">
-                <button type="button" className="btn-primary" style={{ background: theme.base, borderColor: theme.base }} onClick={() => setIsAddingExpense(true)} disabled={members.length < 2}>
+                <button type="button" className="btn-primary" style={{ background: theme.base, borderColor: theme.base }} onClick={() => setIsAddingExpense(true)} disabled={members.length < 2 || isArchived}>
                   Lägg till utgift
                 </button>
-                <button type="button" className="btn-secondary" onClick={() => setIsAddingSettlement(true)}>
+                <button type="button" className="btn-secondary" onClick={() => setIsAddingSettlement(true)} disabled={isArchived}>
                   Kvitta skuld
                 </button>
                 {isGroupOwner ? (
@@ -354,6 +413,11 @@ export default function GroupView() {
                 </div>
               </article>
             </div>
+            {isArchived ? (
+              <p className="m-0 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-4 py-3 text-sm text-[var(--text-secondary)]">
+                Gruppen är arkiverad och skrivskyddad.
+              </p>
+            ) : null}
           </div>
         </div>
       </section>
@@ -373,9 +437,9 @@ export default function GroupView() {
             <div>
               {timeline.map((item) => (
                 item.kind === 'expense' ? (
-                  <ExpenseItem key={`expense-${item.id}`} expense={item} onEdit={setEditingExpenseId} />
+                  <ExpenseItem key={`expense-${item.id}`} expense={item} onEdit={setEditingExpenseId} readOnly={isArchived} />
                 ) : (
-                  <SettlementItem key={`settlement-${item.id}`} settlement={item} onEdit={setEditingSettlementId} />
+                  <SettlementItem key={`settlement-${item.id}`} settlement={item} onEdit={setEditingSettlementId} readOnly={isArchived} />
                 )
               ))}
             </div>
@@ -386,7 +450,7 @@ export default function GroupView() {
                 title="Ingen aktivitet ännu"
                 description="Lägg till den första utgiften eller registrera en betalning så fylls flödet här."
                 action={(
-                  <button type="button" className="btn-primary" onClick={() => setIsAddingExpense(true)}>
+                  <button type="button" className="btn-primary" onClick={() => setIsAddingExpense(true)} disabled={isArchived}>
                     Lägg till första utgiften
                   </button>
                 )}
@@ -399,7 +463,9 @@ export default function GroupView() {
       {isSettingsOpen && isGroupOwner ? (
         <ModalShell
           title="Gruppinställningar"
-          description="Bjud in fler personer, ta bort medlemmar eller välj gruppens färgtema."
+          description={isArchived
+            ? 'Gruppen är arkiverad och skrivskyddad.'
+            : 'Bjud in fler personer, ta bort medlemmar eller välj gruppens färgtema.'}
           onClose={() => setIsSettingsOpen(false)}
         >
           <div className="space-y-6">
@@ -415,6 +481,7 @@ export default function GroupView() {
                       type="button"
                       title={t.name}
                       onClick={() => handleUpdateTheme(t.id)}
+                      disabled={isArchived}
                       className="h-7 w-7 rounded-full transition hover:scale-110 focus:outline-none focus-visible:ring-2"
                       style={{
                         background: t.base,
@@ -438,9 +505,10 @@ export default function GroupView() {
                     step="0.1"
                     value={mileageRateDraft}
                     onChange={(event) => setMileageRateDraft(event.target.value)}
+                    disabled={isArchived}
                   />
                 </label>
-                <button type="button" className="btn-secondary" onClick={handleUpdateMileageRate}>
+                <button type="button" className="btn-secondary" onClick={handleUpdateMileageRate} disabled={isArchived}>
                   Spara milkostnad
                 </button>
               </div>
@@ -453,6 +521,7 @@ export default function GroupView() {
                   value={memberSearchQuery}
                   onChange={(event) => setMemberSearchQuery(event.target.value)}
                   placeholder="Sök på fullständigt namn"
+                  disabled={isArchived}
                 />
               </label>
               {memberSearchQuery.trim() ? (
@@ -466,7 +535,7 @@ export default function GroupView() {
                       <div>
                         <p className="m-0 text-sm font-medium">{getUserSearchLabel(candidate)}</p>
                       </div>
-                      <button type="button" className="btn-primary" onClick={() => handleAddMember(candidate.id)}>
+                      <button type="button" className="btn-primary" onClick={() => handleAddMember(candidate.id)} disabled={isArchived}>
                         <UserPlus className="h-4 w-4" />
                         Lägg till
                       </button>
@@ -484,17 +553,35 @@ export default function GroupView() {
                   <div>
                     <p className="m-0 text-sm font-medium">{getUserDisplayName(member)}</p>
                   </div>
-                  <button type="button" className="btn-danger" onClick={() => handleRemoveMember(member.id)}>
-                    Ta bort
-                  </button>
+                  {Number(member.id) === Number(group?.created_by) ? (
+                    <span className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border-subtle)] px-4 text-sm font-medium text-[var(--text-secondary)]">
+                      Ägare
+                    </span>
+                  ) : (
+                    <button type="button" className="btn-danger" onClick={() => handleRemoveMember(member.id)} disabled={isArchived}>
+                      Ta bort
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
+            {isGroupOwner && !isArchived ? (
+              <div className="space-y-3 border-t border-[var(--border-subtle)] pt-4">
+                <p className="m-0 text-sm text-[var(--text-secondary)]">
+                  Arkivera gruppen för att göra den skrivskyddad.
+                  {!canArchiveGroup ? ' Alla medlemmar måste ha balans 0 innan du kan arkivera.' : ''}
+                </p>
+                <button type="button" className="btn-danger" onClick={handleArchiveGroup} disabled={!canArchiveGroup}>
+                  <Archive className="h-4 w-4" />
+                  Arkivera grupp
+                </button>
+              </div>
+            ) : null}
           </div>
         </ModalShell>
       ) : null}
 
-      {editingExpense ? (
+      {editingExpense && !isArchived ? (
         <EditExpenseModal
           expense={editingExpense}
           members={members}
@@ -507,7 +594,7 @@ export default function GroupView() {
         />
       ) : null}
 
-      {editingSettlement ? (
+      {editingSettlement && !isArchived ? (
         <EditSettlementModal
           settlement={editingSettlement}
           members={members}
@@ -518,7 +605,7 @@ export default function GroupView() {
         />
       ) : null}
 
-      {isAddingExpense ? (
+      {isAddingExpense && !isArchived ? (
         <NewExpenseModal
           groupId={id}
           members={members}
@@ -529,7 +616,7 @@ export default function GroupView() {
         />
       ) : null}
 
-      {isAddingSettlement ? (
+      {isAddingSettlement && !isArchived ? (
         <NewSettlementModal
           groupId={id}
           groupName={group?.name}

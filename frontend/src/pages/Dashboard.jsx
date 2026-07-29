@@ -42,6 +42,9 @@ export default function Dashboard() {
     loadGroups();
   }, [loadGroups]);
 
+  const activeGroups = groups.filter((group) => !group.archived_at);
+  const archivedGroups = groups.filter((group) => Boolean(group.archived_at));
+
   return (
     <div className="space-y-8">
 
@@ -53,13 +56,27 @@ export default function Dashboard() {
       {!loading ? (
         <>
           {groups.length ? (
-            <section className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                {groups.map((group) => (
-                  <GroupCard key={group.id} group={group} onOpen={(groupId) => navigate(`/groups/${groupId}`)} />
-                ))}
-              </div>
-            </section>
+            <div className="space-y-6">
+              {activeGroups.length ? (
+                <section className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {activeGroups.map((group) => (
+                      <GroupCard key={group.id} group={group} onOpen={(groupId) => navigate(`/groups/${groupId}`)} />
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+
+              {archivedGroups.length ? (
+                <section className="space-y-4 pt-5">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {archivedGroups.map((group) => (
+                      <GroupCard key={group.id} group={group} onOpen={(groupId) => navigate(`/groups/${groupId}`)} />
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+            </div>
           ) : (
             <EmptyState
               icon={FolderPlus}

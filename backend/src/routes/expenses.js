@@ -26,6 +26,11 @@ function requireMembership(groupId, userId) {
   return db.prepare('SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?').get(groupId, userId);
 }
 
+function isGroupArchived(groupId) {
+  const group = db.prepare('SELECT archived_at FROM groups WHERE id = ?').get(groupId);
+  return Boolean(group?.archived_at);
+}
+
 function getDefaultCategoryId() {
   const row = db.prepare('SELECT id FROM expense_categories ORDER BY sort_order ASC, id ASC LIMIT 1').get();
   if (!row) {
@@ -174,6 +179,9 @@ router.post('/:groupId', (req, res) => {
   if (!requireMembership(groupId, req.user.id)) {
     return res.status(403).json({ error: 'Du har inte åtkomst till den här gruppen.' });
   }
+  if (isGroupArchived(groupId)) {
+    return res.status(409).json({ error: 'Gruppen är arkiverad och skrivskyddad.' });
+  }
 
   const parsed = expenseSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -282,6 +290,9 @@ router.put('/:groupId/:expenseId', (req, res) => {
   if (!requireMembership(groupId, req.user.id)) {
     return res.status(403).json({ error: 'Du har inte åtkomst till den här gruppen.' });
   }
+  if (isGroupArchived(groupId)) {
+    return res.status(409).json({ error: 'Gruppen är arkiverad och skrivskyddad.' });
+  }
 
   const expense = db.prepare('SELECT id, group_id FROM expenses WHERE id = ? AND group_id = ?').get(expenseId, groupId);
   if (!expense) {
@@ -384,6 +395,9 @@ router.delete('/:groupId/:expenseId', (req, res) => {
   const expenseId = Number(req.params.expenseId);
   if (!requireMembership(groupId, req.user.id)) {
     return res.status(403).json({ error: 'Du har inte åtkomst till den här gruppen.' });
+  }
+  if (isGroupArchived(groupId)) {
+    return res.status(409).json({ error: 'Gruppen är arkiverad och skrivskyddad.' });
   }
 
   const expense = db.prepare('SELECT id FROM expenses WHERE id = ? AND group_id = ?').get(expenseId, groupId);

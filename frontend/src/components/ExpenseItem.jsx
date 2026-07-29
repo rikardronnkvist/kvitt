@@ -2,7 +2,7 @@ import { getCategoryIcon } from '../lib/expenseCategories.js';
 import { formatCurrency, formatDateTime } from '../lib/format.js';
 import { getUserDisplayName, getUserInitials } from '../lib/users.js';
 
-export default function ExpenseItem({ expense, onEdit }) {
+export default function ExpenseItem({ expense, onEdit, readOnly = false }) {
   const uniqueParticipants = Array.from(
     new Map(
       [{ user_id: expense.paid_by_user_id, full_name: expense.paid_by_full_name, username: expense.paid_by_username, initials: expense.paid_by_initials }, ...expense.splits].map((item) => [
@@ -19,6 +19,7 @@ export default function ExpenseItem({ expense, onEdit }) {
   const CategoryIcon = getCategoryIcon(expense.category_icon);
 
   const handleKeyDown = (event) => {
+    if (readOnly) return;
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       onEdit(expense.id);
@@ -27,11 +28,14 @@ export default function ExpenseItem({ expense, onEdit }) {
 
   return (
     <article
-      className="flex cursor-pointer flex-col gap-4 border-b border-[var(--border-subtle)] px-5 py-5 transition hover:bg-[var(--app-surface-muted)] focus:outline-none focus-visible:bg-[var(--app-surface-muted)] last:border-b-0 sm:flex-row sm:items-center sm:justify-between"
-      role="button"
-      tabIndex={0}
-      onClick={() => onEdit(expense.id)}
-      onKeyDown={handleKeyDown}
+      className={[
+        'flex flex-col gap-4 border-b border-[var(--border-subtle)] px-5 py-5 transition last:border-b-0 sm:flex-row sm:items-center sm:justify-between',
+        readOnly ? '' : 'cursor-pointer hover:bg-[var(--app-surface-muted)] focus:outline-none focus-visible:bg-[var(--app-surface-muted)]',
+      ].join(' ')}
+      role={readOnly ? undefined : 'button'}
+      tabIndex={readOnly ? undefined : 0}
+      onClick={readOnly ? undefined : () => onEdit(expense.id)}
+      onKeyDown={readOnly ? undefined : handleKeyDown}
     >
       <div className="flex items-center gap-3">
         <div title={getUserDisplayName(payer)} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[var(--app-surface-muted)] text-sm font-semibold text-[var(--text-primary)]">
