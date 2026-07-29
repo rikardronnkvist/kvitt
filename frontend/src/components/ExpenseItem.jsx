@@ -28,7 +28,7 @@ export default function ExpenseItem({ expense, onEdit }) {
       onClick={() => onEdit(expense.id)}
       onKeyDown={handleKeyDown}
     >
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[var(--app-surface-muted)] text-sm font-semibold text-[var(--text-primary)]">
+      <div title={getUserDisplayName(payer)} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[var(--app-surface-muted)] text-sm font-semibold text-[var(--text-primary)]">
         {getUserInitials(payer)}
       </div>
       <div className="min-w-0 flex-1 space-y-2">
