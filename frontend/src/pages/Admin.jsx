@@ -25,6 +25,7 @@ export default function Admin() {
         username: user.username,
         email: user.email,
         is_admin: Boolean(user.is_admin),
+        full_name: user.full_name,
       }])));
       setGroupDrafts(Object.fromEntries(groupsData.map((group) => [group.id, { name: group.name }])));
       setError('');
@@ -70,6 +71,7 @@ export default function Admin() {
         username: draft.username,
         email: draft.email,
         is_admin: Boolean(draft.is_admin),
+        full_name: draft.full_name,
       });
       setUsers((previous) => previous.map((user) => (user.id === userId ? updated : user)));
       setUserDrafts((previous) => ({
@@ -78,6 +80,7 @@ export default function Admin() {
           username: updated.username,
           email: updated.email,
           is_admin: Boolean(updated.is_admin),
+          full_name: updated.full_name,
         },
       }));
     } catch (saveError) {
@@ -134,6 +137,13 @@ export default function Admin() {
                         <input
                           value={draft.username}
                           onChange={(event) => handleUserDraftChange(user.id, 'username', event.target.value)}
+                        />
+                      </label>
+                      <label>
+                        Fullständigt namn
+                        <input
+                          value={draft.full_name}
+                          onChange={(event) => handleUserDraftChange(user.id, 'full_name', event.target.value)}
                         />
                       </label>
                       <label>

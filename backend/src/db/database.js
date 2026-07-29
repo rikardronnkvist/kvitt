@@ -85,6 +85,11 @@ export function initializeDatabase() {
   if (!hasIsAdminColumn) {
     db.exec('ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0');
   }
+  
+  const hasFullNameColumn = userColumns.some((column) => column.name === 'full_name');
+  if (!hasFullNameColumn) {
+    db.exec('ALTER TABLE users ADD COLUMN full_name TEXT');
+  }
 
   const adminCount = db.prepare('SELECT COUNT(*) AS count FROM users WHERE is_admin = 1').get();
   if (Number(adminCount.count) === 0) {

@@ -23,17 +23,23 @@ export default function Header() {
     navigate('/login');
   };
 
+  const handleAdminClick = () => {
+    navigate('/admin');
+  };
+
   return (
     <header className="app-header">
       <div>
         <h1>Kvitt</h1>
         <nav>
           <Link to="/">Hem</Link>
-          {user?.is_admin ? <Link to="/admin">Admin</Link> : null}
         </nav>
       </div>
       <div className="header-actions">
         <span>{user ? `Inloggad som ${user.username}` : 'Inte inloggad'}</span>
+        {user?.is_admin ? (
+          <button type="button" onClick={handleAdminClick}>Admin</button>
+        ) : null}
         <button type="button" onClick={handleLogout}>Logga ut</button>
       </div>
     </header>

@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { post } from '../api/client.js';
 
 const loginInitialState = { identifier: '', password: '' };
-const registerInitialState = { username: '', email: '', password: '' };
+const registerInitialState = { username: '', email: '', password: '', full_name: '' };
 
 export default function Login() {
   const navigate = useNavigate();
@@ -55,10 +55,16 @@ export default function Login() {
 
         <form onSubmit={handleSubmit} className="form-grid">
           {mode === 'register' ? (
-            <label>
-              Användarnamn
-              <input name="username" value={registerForm.username} onChange={handleChange(setRegisterForm)} required />
-            </label>
+            <>
+              <label>
+                Användarnamn
+                <input name="username" value={registerForm.username} onChange={handleChange(setRegisterForm)} required />
+              </label>
+              <label>
+                Fullständigt namn
+                <input name="full_name" value={registerForm.full_name} onChange={handleChange(setRegisterForm)} required />
+              </label>
+            </>
           ) : null}
 
           <label>
