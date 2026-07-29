@@ -53,6 +53,7 @@ export default function Admin() {
       setGroupDrafts(Object.fromEntries(groupsData.map((group) => [group.id, {
         name: group.name,
         theme_color: group.theme_color ?? null,
+        mileage_rate: Number(group.mileage_rate) > 0 ? group.mileage_rate : 20,
       }])));
       setCategoryDrafts(Object.fromEntries(categoriesData.map((category) => [category.id, {
         name: category.name,
@@ -129,6 +130,7 @@ export default function Admin() {
       const updated = await put(`/api/admin/groups/${groupId}`, {
         name: draft.name,
         theme_color: draft.theme_color ?? null,
+        mileage_rate: Number(draft.mileage_rate) > 0 ? Number(draft.mileage_rate) : 20,
       });
       setGroups((previous) => previous.map((group) => (group.id === groupId ? updated : group)));
       setGroupDrafts((previous) => ({
@@ -136,6 +138,7 @@ export default function Admin() {
         [groupId]: {
           name: updated.name,
           theme_color: updated.theme_color ?? null,
+          mileage_rate: Number(updated.mileage_rate) > 0 ? updated.mileage_rate : 20,
         },
       }));
     } catch (saveError) {
@@ -181,6 +184,7 @@ export default function Admin() {
   const selectedGroupDraft = selectedGroup ? (groupDrafts[selectedGroup.id] ?? {
     name: selectedGroup.name,
     theme_color: selectedGroup.theme_color ?? null,
+    mileage_rate: Number(selectedGroup.mileage_rate) > 0 ? selectedGroup.mileage_rate : 20,
   }) : null;
 
   return (
@@ -318,6 +322,16 @@ export default function Admin() {
                       <input
                         value={selectedGroupDraft.name}
                         onChange={(event) => handleGroupDraftChange(selectedGroup.id, 'name', event.target.value)}
+                      />
+                    </label>
+                    <label className="field-label">
+                      Milkostnad för Bilresa (kr/mil)
+                      <input
+                        type="number"
+                        min="0.1"
+                        step="0.1"
+                        value={selectedGroupDraft.mileage_rate}
+                        onChange={(event) => handleGroupDraftChange(selectedGroup.id, 'mileage_rate', event.target.value)}
                       />
                     </label>
                   </div>

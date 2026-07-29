@@ -26,6 +26,7 @@ export default function ExpenseFormFields({
   setForm,
   members,
   categories,
+  mileageRate = 20,
   error,
   saving,
   onCancel,
@@ -35,6 +36,8 @@ export default function ExpenseFormFields({
   submitLabel,
 }) {
   const { selectedMembers, equalSplits, customTotal, customDifference, hasValidAmount } = getSplitSummary(form, members);
+  const selectedCategory = categories.find((category) => String(category.id) === String(form.category_id));
+  const isCarTripCategory = selectedCategory?.icon === 'car';
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -104,6 +107,32 @@ export default function ExpenseFormFields({
             required
           />
         </label>
+
+        {isCarTripCategory ? (
+          <label className="field-label">
+            Antal mil
+            <input
+              type="number"
+              min="0"
+              step="0.1"
+              value={form.distance_mil || ''}
+              onChange={(event) => {
+                const distanceMil = event.target.value;
+                const numericDistance = Number(distanceMil);
+                const calculatedAmount = Number.isFinite(numericDistance) && numericDistance >= 0
+                  ? String((numericDistance * mileageRate).toFixed(2))
+                  : '';
+                setForm((previous) => ({
+                  ...previous,
+                  distance_mil: distanceMil,
+                  amount: calculatedAmount,
+                }));
+              }}
+              placeholder="0"
+            />
+            <span className="text-xs text-[var(--text-muted)]">{mileageRate} kr/mil</span>
+          </label>
+        ) : null}
 
         <label className="field-label">
           Betald av

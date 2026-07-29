@@ -4,7 +4,7 @@ import ExpenseFormFields from './ExpenseFormFields.jsx';
 import ModalShell from './ModalShell.jsx';
 import { createExpenseForm } from '../lib/expenseForm.js';
 
-export default function EditExpenseModal({ expense, members, categories, groupId, onClose, onSave, onDelete }) {
+export default function EditExpenseModal({ expense, members, categories, mileageRate, groupId, onClose, onSave, onDelete }) {
   const [form, setForm] = useState(() => createExpenseForm({ members, categories, expense }));
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -72,6 +72,7 @@ export default function EditExpenseModal({ expense, members, categories, groupId
         setForm={setForm}
         members={members}
         categories={categories}
+        mileageRate={mileageRate}
         error={error}
         saving={saving}
         onCancel={onClose}

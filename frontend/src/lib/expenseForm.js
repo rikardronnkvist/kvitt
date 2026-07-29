@@ -56,6 +56,7 @@ export function createExpenseForm({ members, categories = [], currentUserId, exp
     category_id: String(expense?.category_id ?? getDefaultCategoryId(categories) ?? ''),
     paid_by_user_id: String(expense?.paid_by_user_id || defaultPayerId),
     notes: expense?.notes || '',
+    distance_mil: '',
     split_type: expense && !hasEqualSplits(expense.amount, expense.splits) ? 'custom' : 'equal',
     included_users: includedUsers,
     custom_amounts: customAmounts,
