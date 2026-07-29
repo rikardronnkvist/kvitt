@@ -164,7 +164,7 @@ router.get('/:groupId', (req, res) => {
     LEFT JOIN expense_splits es ON es.expense_id = e.id
     LEFT JOIN users split_user ON split_user.id = es.user_id
     WHERE e.group_id = ?
-    ORDER BY e.occurred_at DESC, es.id ASC
+    ORDER BY e.occurred_at DESC, e.created_at DESC, e.id DESC, es.id ASC
   `).all(groupId);
 
   return res.json(parseExpenseRows(rows));

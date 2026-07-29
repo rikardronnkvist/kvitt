@@ -36,7 +36,7 @@ router.get('/:groupId', (req, res) => {
     JOIN users payer ON payer.id = s.payer_id
     JOIN users receiver ON receiver.id = s.receiver_id
     WHERE s.group_id = ?
-    ORDER BY s.settled_at DESC
+    ORDER BY s.settled_at DESC, s.id DESC
   `).all(groupId).map((settlement) => ({
     ...settlement,
     amount: Math.round(Number(settlement.amount)),
