@@ -1,21 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ArrowRight, LockKeyhole } from 'lucide-react';
+import { ArrowRight, KeyRound, LockKeyhole } from 'lucide-react';
 import { post } from '../api/client.js';
 
 const loginInitialState = { email: '', password: '' };
 const registerInitialState = { email: '', password: '', full_name: '' };
 
-function AuthModeButton({ active, onClick, children }) {
+function AuthModeButton({ active, onClick, disabled, children }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       className={[
         'min-h-11 rounded-lg border px-4 text-sm font-semibold transition',
         active
           ? 'border-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_8%,transparent)] text-[var(--text-primary)]'
           : 'border-[var(--border-subtle)] bg-transparent text-[var(--text-secondary)] hover:bg-[var(--app-surface-muted)]',
+        disabled ? 'cursor-not-allowed opacity-60' : '',
       ].join(' ')}
     >
       {children}
@@ -32,6 +34,8 @@ export default function Login() {
   const [registerForm, setRegisterForm] = useState(registerInitialState);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const isRegisterMode = mode === 'register';
 
   useEffect(() => {
     setMode(isRegisterRoute ? 'register' : 'login');
@@ -59,6 +63,14 @@ export default function Login() {
     }
   };
 
+  const handlePasskeySignup = async () => {
+    setError('');
+    setPasskeyLoading(true);
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    setPasskeyLoading(false);
+    setError('Passkey-registrering kommer snart.');
+  };
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-[var(--app-bg)] px-4 py-12">
       <section className="surface-card w-full max-w-[420px] space-y-8 p-7 sm:p-8">
@@ -73,18 +85,34 @@ export default function Login() {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <AuthModeButton active={mode === 'login'} onClick={() => setMode('login')}>
+            <AuthModeButton active={mode === 'login'} onClick={() => setMode('login')} disabled={loading || passkeyLoading}>
               Logga in
             </AuthModeButton>
-            <AuthModeButton active={mode === 'register'} onClick={() => setMode('register')}>
+            <AuthModeButton active={mode === 'register'} onClick={() => setMode('register')} disabled={loading || passkeyLoading}>
               Skapa konto
             </AuthModeButton>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {mode === 'register' ? (
+          {isRegisterMode ? (
             <>
+              <div className="space-y-4">
+                <button
+                  type="button"
+                  onClick={handlePasskeySignup}
+                  className="btn-secondary w-full justify-start border-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_10%,white)] text-[var(--text-primary)] hover:bg-[color:color-mix(in_srgb,var(--accent)_16%,white)]"
+                  disabled={passkeyLoading || loading}
+                >
+                  <KeyRound className="h-4 w-4 text-[var(--accent)]" />
+                  {passkeyLoading ? 'Startar Passkey...' : 'Skapa konto med Passkey'}
+                </button>
+                <div className="flex items-center gap-3">
+                  <span className="h-px flex-1 bg-[var(--border-subtle)]" />
+                  <span className="text-xs text-[var(--text-muted)]">eller fortsätt med e-post</span>
+                  <span className="h-px flex-1 bg-[var(--border-subtle)]" />
+                </div>
+              </div>
               <label className="field-label">
                 Fullständigt namn
                 <input name="full_name" value={registerForm.full_name} onChange={handleChange(setRegisterForm)} required />
@@ -97,8 +125,8 @@ export default function Login() {
             <input
               name="email"
               type="email"
-              value={mode === 'login' ? loginForm.email : registerForm.email}
-              onChange={mode === 'login' ? handleChange(setLoginForm) : handleChange(setRegisterForm)}
+              value={isRegisterMode ? registerForm.email : loginForm.email}
+              onChange={isRegisterMode ? handleChange(setRegisterForm) : handleChange(setLoginForm)}
               required
             />
           </label>
@@ -111,8 +139,8 @@ export default function Login() {
                 className="pl-10"
                 name="password"
                 type="password"
-                value={mode === 'login' ? loginForm.password : registerForm.password}
-                onChange={mode === 'login' ? handleChange(setLoginForm) : handleChange(setRegisterForm)}
+                value={isRegisterMode ? registerForm.password : loginForm.password}
+                onChange={isRegisterMode ? handleChange(setRegisterForm) : handleChange(setLoginForm)}
                 required
               />
             </div>
@@ -120,8 +148,8 @@ export default function Login() {
 
           {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
 
-          <button type="submit" className="btn-primary w-full" disabled={loading}>
-            {loading ? 'Sparar...' : mode === 'login' ? 'Fortsätt' : 'Skapa konto'}
+          <button type="submit" className="btn-primary w-full" disabled={loading || passkeyLoading}>
+            {loading ? 'Sparar...' : isRegisterMode ? 'Skapa konto' : 'Fortsätt'}
             {!loading ? <ArrowRight className="h-4 w-4" /> : null}
           </button>
         </form>
