@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { get, post } from '../api/client.js';
 import PasskeyButton from '../components/PasskeyButton.jsx';
 import { usePasskeyAuth } from '../hooks/usePasskeyAuth.js';
+import { formatSwedishPhone, sanitizePhoneInput } from '../lib/phone.js';
 
 const registerInitialState = { full_name: '', phone: '' };
 
@@ -142,7 +143,7 @@ export default function Login() {
       return;
     }
 
-    await handlePasskeySignup(displayName, registerForm.phone.trim(), registrationToken);
+    await handlePasskeySignup(displayName, formatSwedishPhone(registerForm.phone), registrationToken);
   };
 
   const handleDevboxUserLogin = async (userId) => {
@@ -206,10 +207,12 @@ export default function Login() {
                   name="phone"
                   type="tel"
                   value={registerForm.phone}
-                  onChange={(event) => setRegisterForm((previous) => ({ ...previous, phone: event.target.value }))}
+                  onChange={(event) => setRegisterForm((previous) => ({ ...previous, phone: sanitizePhoneInput(event.target.value) }))}
+                  onBlur={(event) => setRegisterForm((previous) => ({ ...previous, phone: formatSwedishPhone(event.target.value) }))}
                   disabled={!hasValidRegistrationToken}
                   placeholder="T.ex. +46-70-123 45 67"
                   autoComplete="tel"
+                  pattern="[\d+\-\s]*"
                 />
               </label>
               <div className="space-y-4">
