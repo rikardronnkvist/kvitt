@@ -318,7 +318,6 @@ export default function GroupView() {
 
             <div className="grid gap-4 md:grid-cols-2">
               <article className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
-                <p className="section-eyebrow">Utgifter</p>
                 <div className="mt-2 space-y-1.5">
                   {summary.byCategory.map((category) => {
                     const CategoryIcon = getCategoryIcon(category.icon);
@@ -345,6 +344,7 @@ export default function GroupView() {
                     <div key={member.id} className="flex items-center justify-between gap-3 text-sm">
                       <span className="font-medium">{getUserDisplayName(member)}</span>
                       <span className={`font-semibold ${member.balance > 0 ? 'amount-positive' : member.balance < 0 ? 'amount-negative' : 'amount-neutral'}`}>
+                        {member.balance < 0 ? '-' : ''}
                         {formatCurrency(Math.abs(member.balance), { precise: true })}
                       </span>
                     </div>
