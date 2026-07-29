@@ -434,7 +434,7 @@ export default function Admin() {
                   </div>
 
                   <div className="space-y-1 text-sm text-[var(--text-secondary)]">
-                    <p className="m-0">Skapad av: {getUserDisplayName({ full_name: selectedGroup.created_by_full_name, username: selectedGroup.created_by_username })}</p>
+                    <p className="m-0">Skapad av: {getUserDisplayName({ full_name: selectedGroup.created_by_full_name })}</p>
                     <p className="m-0">Antal medlemmar: {selectedGroup.member_count}</p>
                   </div>
 

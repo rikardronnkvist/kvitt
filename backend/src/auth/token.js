@@ -11,7 +11,6 @@ export function signToken(user, { currentPasskeyId = null } = {}) {
       full_name: user.full_name ?? null,
       phone: user.phone ?? null,
       initials: user.initials ?? null,
-      username: user.username ?? null,
       user_handle: user.user_handle,
       current_passkey_id: currentPasskeyId ? Number(currentPasskeyId) : null,
     },
@@ -22,7 +21,7 @@ export function signToken(user, { currentPasskeyId = null } = {}) {
 
 export function getAuthUserById(userId) {
   return db.prepare(`
-    SELECT id, username, is_admin, full_name, phone, initials, user_handle
+    SELECT id, is_admin, full_name, phone, initials, user_handle
     FROM users
     WHERE id = ?
   `).get(userId);

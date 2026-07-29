@@ -24,10 +24,6 @@ export const db = new Database(dbPath);
 db.pragma('foreign_keys = ON');
 db.pragma('journal_mode = WAL');
 
-export function usersTableHasUsernameColumn() {
-  return db.prepare('PRAGMA table_info(users)').all().some((column) => column.name === 'username');
-}
-
 function ensureUsersSchemaForPasskeys() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -45,18 +41,16 @@ function ensureUsersSchemaForPasskeys() {
   const getColumn = (name) => userColumns.find((column) => column.name === name);
   const hasColumn = (name) => Boolean(getColumn(name));
 
-  const hasTargetColumns = ['username', 'email', 'password_hash', 'created_at', 'is_admin', 'full_name', 'phone', 'initials', 'user_handle']
+  const hasTargetColumns = ['email', 'password_hash', 'created_at', 'is_admin', 'full_name', 'phone', 'initials', 'user_handle']
     .every((name) => hasColumn(name));
-  const hasNullableUsername = hasColumn('username') && getColumn('username').notnull === 0;
   const hasNullableEmail = hasColumn('email') && getColumn('email').notnull === 0;
   const hasNullablePassword = hasColumn('password_hash') && getColumn('password_hash').notnull === 0;
   const hasUserHandleConstraint = hasColumn('user_handle') && getColumn('user_handle').notnull === 1;
 
-  if (hasTargetColumns && hasNullableUsername && hasNullableEmail && hasNullablePassword && hasUserHandleConstraint) {
+  if (hasTargetColumns && hasNullableEmail && hasNullablePassword && hasUserHandleConstraint) {
     return;
   }
 
-  const selectUsername = hasColumn('username') ? 'NULLIF(username, \'\')' : 'NULL';
   const selectEmail = hasColumn('email') ? 'NULLIF(email, \'\')' : 'NULL';
   const selectPasswordHash = hasColumn('password_hash') ? 'NULLIF(password_hash, \'\')' : 'NULL';
   const selectCreatedAt = hasColumn('created_at') ? 'COALESCE(created_at, CURRENT_TIMESTAMP)' : 'CURRENT_TIMESTAMP';
@@ -73,7 +67,6 @@ function ensureUsersSchemaForPasskeys() {
     db.exec(`
       CREATE TABLE users_new (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE,
         email TEXT UNIQUE,
         password_hash TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -86,10 +79,9 @@ function ensureUsersSchemaForPasskeys() {
     `);
 
     db.exec(`
-      INSERT INTO users_new (id, username, email, password_hash, created_at, is_admin, full_name, phone, initials, user_handle)
+      INSERT INTO users_new (id, email, password_hash, created_at, is_admin, full_name, phone, initials, user_handle)
       SELECT
         id,
-        ${selectUsername},
         ${selectEmail},
         ${selectPasswordHash},
         ${selectCreatedAt},

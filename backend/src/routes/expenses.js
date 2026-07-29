@@ -65,7 +65,6 @@ function parseExpenseRows(rows) {
         currency: row.currency,
         paid_by_user_id: row.paid_by_user_id,
         paid_by_full_name: row.paid_by_full_name,
-        paid_by_username: row.paid_by_username,
         paid_by_initials: row.paid_by_initials || null,
         category_id: row.category_id ?? null,
         category_name: row.category_name ?? null,
@@ -81,7 +80,6 @@ function parseExpenseRows(rows) {
         id: row.split_id,
         user_id: row.split_user_id,
         full_name: row.split_full_name,
-        username: row.split_username,
         initials: row.split_initials || null,
         amount_owed: Math.round(Number(row.amount_owed)),
       });
@@ -99,8 +97,8 @@ router.get('/:groupId/export', (req, res) => {
   const rows = db.prepare(`
     SELECT e.id, e.title, e.amount, e.currency, e.notes, e.occurred_at, e.created_at,
            c.name AS category_name,
-           COALESCE(NULLIF(TRIM(payer.full_name), ''), payer.username) AS paid_by_display_name,
-           GROUP_CONCAT(COALESCE(NULLIF(TRIM(split_user.full_name), ''), split_user.username) || ':' || CAST(ROUND(es.amount_owed) AS INTEGER), '; ') AS split_summary
+           COALESCE(NULLIF(TRIM(payer.full_name), ''), CAST(payer.id AS TEXT)) AS paid_by_display_name,
+           GROUP_CONCAT(COALESCE(NULLIF(TRIM(split_user.full_name), ''), CAST(split_user.id AS TEXT)) || ':' || CAST(ROUND(es.amount_owed) AS INTEGER), '; ') AS split_summary
     FROM expenses e
     LEFT JOIN expense_categories c ON c.id = e.category_id
     JOIN users payer ON payer.id = e.paid_by_user_id
@@ -156,11 +154,9 @@ router.get('/:groupId', (req, res) => {
            c.name AS category_name,
            c.icon AS category_icon,
            payer.full_name AS paid_by_full_name,
-           payer.username AS paid_by_username,
            payer.initials AS paid_by_initials,
            es.id AS split_id, es.user_id AS split_user_id, es.amount_owed,
            split_user.full_name AS split_full_name,
-           split_user.username AS split_username,
            split_user.initials AS split_initials
     FROM expenses e
     LEFT JOIN expense_categories c ON c.id = e.category_id
@@ -189,7 +185,7 @@ router.post('/:groupId', (req, res) => {
   }
 
   const groupMembers = db.prepare(`
-    SELECT u.id, u.full_name, u.username
+    SELECT u.id, u.full_name
     FROM group_members gm
     JOIN users u ON u.id = gm.user_id
     WHERE gm.group_id = ?
@@ -266,11 +262,9 @@ router.post('/:groupId', (req, res) => {
            c.name AS category_name,
            c.icon AS category_icon,
            payer.full_name AS paid_by_full_name,
-           payer.username AS paid_by_username,
            payer.initials AS paid_by_initials,
            es.id AS split_id, es.user_id AS split_user_id, es.amount_owed,
            split_user.full_name AS split_full_name,
-           split_user.username AS split_username,
            split_user.initials AS split_initials
     FROM expenses e
     LEFT JOIN expense_categories c ON c.id = e.category_id
@@ -305,7 +299,7 @@ router.put('/:groupId/:expenseId', (req, res) => {
   }
 
   const groupMembers = db.prepare(`
-    SELECT u.id, u.full_name, u.username
+    SELECT u.id, u.full_name
     FROM group_members gm
     JOIN users u ON u.id = gm.user_id
     WHERE gm.group_id = ?
@@ -372,11 +366,9 @@ router.put('/:groupId/:expenseId', (req, res) => {
            c.name AS category_name,
            c.icon AS category_icon,
            payer.full_name AS paid_by_full_name,
-           payer.username AS paid_by_username,
            payer.initials AS paid_by_initials,
            es.id AS split_id, es.user_id AS split_user_id, es.amount_owed,
            split_user.full_name AS split_full_name,
-           split_user.username AS split_username,
            split_user.initials AS split_initials
     FROM expenses e
     LEFT JOIN expense_categories c ON c.id = e.category_id

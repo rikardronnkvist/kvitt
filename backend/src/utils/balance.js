@@ -9,11 +9,11 @@ export function calculateMemberBalances(groupId) {
   }
 
   const members = db.prepare(`
-    SELECT u.id, u.full_name, u.username, u.phone
+    SELECT u.id, u.full_name, u.phone
     FROM group_members gm
     JOIN users u ON u.id = gm.user_id
     WHERE gm.group_id = ?
-    ORDER BY COALESCE(NULLIF(TRIM(u.full_name), ''), u.username) COLLATE NOCASE
+    ORDER BY COALESCE(NULLIF(TRIM(u.full_name), ''), CAST(u.id AS TEXT)) COLLATE NOCASE
   `).all(groupId);
 
   const balanceMap = new Map(members.map((member) => [member.id, 0]));
@@ -100,13 +100,11 @@ export function calculateBalances(groupId) {
         from: {
           id: debtor.id,
           full_name: debtor.full_name,
-          username: debtor.username,
           phone: debtor.phone ?? null,
         },
         to: {
           id: creditor.id,
           full_name: creditor.full_name,
-          username: creditor.username,
           phone: creditor.phone ?? null,
         },
         amount: roundedAmount,

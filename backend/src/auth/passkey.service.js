@@ -52,10 +52,10 @@ function getFirstUserAdminFlag() {
 
 function createPasskeyUser(displayName, phone, userHandle) {
   const insertUser = db.prepare(`
-    INSERT INTO users (username, is_admin, full_name, phone, user_handle)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO users (is_admin, full_name, phone, user_handle)
+    VALUES (?, ?, ?, ?)
   `);
-  const result = insertUser.run(null, getFirstUserAdminFlag(), displayName, phone, userHandle);
+  const result = insertUser.run(getFirstUserAdminFlag(), displayName, phone, userHandle);
   return Number(result.lastInsertRowid);
 }
 
@@ -110,7 +110,7 @@ function updatePasskeyCounter(passkeyId, newCounter) {
 
 function getUserForPasskeyEnrollment(userId) {
   return db.prepare(`
-    SELECT id, full_name, username, user_handle
+    SELECT id, full_name, user_handle
     FROM users
     WHERE id = ?
   `).get(userId);
@@ -238,7 +238,7 @@ export async function createUserPasskeyOptions(userId) {
     throw createHttpError(404, 'Användaren hittades inte.');
   }
 
-  const displayName = user.full_name || user.username || `Användare ${user.id}`;
+  const displayName = user.full_name || `Användare ${user.id}`;
   const userPasskeys = getPasskeysForUser(userId);
   const requestId = randomUUID();
 

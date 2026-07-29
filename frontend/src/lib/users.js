@@ -4,11 +4,6 @@ export function getUserDisplayName(user) {
     return fullName;
   }
 
-  const username = user?.username?.trim();
-  if (username) {
-    return username;
-  }
-
   return user?.id ? `Användare ${user.id}` : 'Okänd användare';
 }
 
@@ -20,7 +15,7 @@ export function getUserInitials(user) {
   if (user?.initials?.trim().length === 2) {
     return user.initials.trim().toUpperCase();
   }
-  const name = user?.full_name?.trim() || user?.username?.trim() || '';
+  const name = user?.full_name?.trim() || '';
   const parts = name.split(/\s+/).filter(Boolean);
   if (parts.length >= 2) {
     return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();

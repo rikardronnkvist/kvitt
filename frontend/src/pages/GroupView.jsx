@@ -200,8 +200,8 @@ export default function GroupView() {
         ...settlement,
         kind: 'settlement',
         activityDate: settlement.settled_at,
-        payer_display_name: getUserDisplayName({ full_name: settlement.payer_full_name, username: settlement.payer_username }),
-        receiver_display_name: getUserDisplayName({ full_name: settlement.receiver_full_name, username: settlement.receiver_username }),
+        payer_display_name: getUserDisplayName({ full_name: settlement.payer_full_name }),
+        receiver_display_name: getUserDisplayName({ full_name: settlement.receiver_full_name }),
       })),
     ].sort((a, b) => new Date(b.activityDate) - new Date(a.activityDate));
   }, [expenses, settlements]);

@@ -78,7 +78,7 @@ router.post('/registration-access/reset', (_req, res) => {
 
 router.get('/users', (_req, res) => {
   const users = db.prepare(`
-    SELECT u.id, u.username, u.is_admin, u.full_name, u.created_at,
+    SELECT u.id, u.is_admin, u.full_name, u.created_at,
            COUNT(gm.group_id) AS group_count
     FROM users u
     LEFT JOIN group_members gm ON gm.user_id = u.id
@@ -117,7 +117,7 @@ router.put('/users/:id', (req, res) => {
   ).run(parsed.data.is_admin ? 1 : 0, parsed.data.full_name, userId);
 
   const updated = db.prepare(`
-    SELECT u.id, u.username, u.is_admin, u.full_name, u.created_at,
+    SELECT u.id, u.is_admin, u.full_name, u.created_at,
            COUNT(gm.group_id) AS group_count
     FROM users u
     LEFT JOIN group_members gm ON gm.user_id = u.id
@@ -136,7 +136,6 @@ router.get('/groups', (_req, res) => {
   const groups = db.prepare(`
     SELECT g.id, g.name, g.theme_color, g.mileage_rate, g.created_at, g.created_by, g.archived_at,
            u.full_name AS created_by_full_name,
-           u.username AS created_by_username,
            COUNT(gm.user_id) AS member_count
     FROM groups g
     JOIN users u ON u.id = g.created_by
@@ -178,7 +177,6 @@ router.put('/groups/:id', (req, res) => {
   const updated = db.prepare(`
     SELECT g.id, g.name, g.theme_color, g.mileage_rate, g.created_at, g.created_by, g.archived_at,
            u.full_name AS created_by_full_name,
-           u.username AS created_by_username,
            COUNT(gm.user_id) AS member_count
     FROM groups g
     JOIN users u ON u.id = g.created_by
