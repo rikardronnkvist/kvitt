@@ -12,7 +12,11 @@ const createGroupSchema = z.object({
 });
 
 const addMemberSchema = z.object({
-  username: z.string().trim().min(1),
+  user_id: z.number().int().positive(),
+});
+
+const searchMembersSchema = z.object({
+  query: z.string().trim().min(1).max(100),
 });
 
 function getMembership(groupId, userId) {
@@ -71,7 +75,9 @@ router.post('/', (req, res) => {
 router.get('/:id', requireMembership, (req, res) => {
   const groupId = Number(req.params.id);
   const group = db.prepare(`
-    SELECT g.id, g.name, g.created_by, g.created_at, u.username AS created_by_username
+    SELECT g.id, g.name, g.created_by, g.created_at,
+           u.full_name AS created_by_full_name,
+           u.email AS created_by_email
     FROM groups g
     JOIN users u ON u.id = g.created_by
     WHERE g.id = ?
@@ -82,24 +88,59 @@ router.get('/:id', requireMembership, (req, res) => {
   }
 
   const members = db.prepare(`
-    SELECT u.id, u.username, u.email, u.full_name, gm.joined_at
+    SELECT u.id, u.email, u.full_name, gm.joined_at
     FROM group_members gm
     JOIN users u ON u.id = gm.user_id
     WHERE gm.group_id = ?
-    ORDER BY u.username COLLATE NOCASE
+    ORDER BY COALESCE(NULLIF(TRIM(u.full_name), ''), u.email) COLLATE NOCASE
   `).all(groupId);
 
   return res.json({ ...group, members });
 });
 
-router.post('/:id/members', requireMembership, (req, res) => {
-  const parsed = addMemberSchema.safeParse(req.body);
+router.get('/:id/member-search', requireMembership, (req, res) => {
+  const parsed = searchMembersSchema.safeParse(req.query);
   if (!parsed.success) {
-    return res.status(400).json({ error: 'Ogiltigt användarnamn.', details: parsed.error.flatten() });
+    return res.status(400).json({ error: 'Ogiltig sökfråga.', details: parsed.error.flatten() });
   }
 
   const groupId = Number(req.params.id);
-  const user = db.prepare('SELECT id, username, email FROM users WHERE username = ?').get(parsed.data.username);
+  const searchTerm = parsed.data.query.toLowerCase();
+  const pattern = `%${searchTerm}%`;
+  const candidates = db.prepare(`
+    SELECT u.id, u.email, u.full_name
+    FROM users u
+    WHERE u.id NOT IN (
+      SELECT gm.user_id
+      FROM group_members gm
+      WHERE gm.group_id = ?
+    )
+      AND (
+        LOWER(COALESCE(u.full_name, '')) LIKE ?
+        OR LOWER(u.email) LIKE ?
+      )
+    ORDER BY
+      CASE
+        WHEN LOWER(u.email) = ? THEN 0
+        WHEN LOWER(COALESCE(u.full_name, '')) = ? THEN 1
+        WHEN LOWER(u.email) LIKE ? THEN 2
+        ELSE 3
+      END,
+      COALESCE(NULLIF(TRIM(u.full_name), ''), u.email) COLLATE NOCASE
+    LIMIT 10
+  `).all(groupId, pattern, pattern, searchTerm, searchTerm, `${searchTerm}%`);
+
+  return res.json(candidates);
+});
+
+router.post('/:id/members', requireMembership, (req, res) => {
+  const parsed = addMemberSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Ogiltig användare.', details: parsed.error.flatten() });
+  }
+
+  const groupId = Number(req.params.id);
+  const user = db.prepare('SELECT id, email, full_name FROM users WHERE id = ?').get(parsed.data.user_id);
   if (!user) {
     return res.status(404).json({ error: 'Användaren hittades inte.' });
   }

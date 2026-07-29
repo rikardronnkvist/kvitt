@@ -12,6 +12,7 @@ import { del, get, post } from '../api/client.js';
 import { computeMemberBalances } from '../lib/balances.js';
 import { formatCurrency, formatDateTime, formatMonthYear } from '../lib/format.js';
 import { getCurrentUserId } from '../lib/session.js';
+import { getUserDisplayName, getUserSearchLabel } from '../lib/users.js';
 
 function GroupSkeleton() {
   return (
@@ -88,7 +89,9 @@ export default function GroupView() {
   const [expenses, setExpenses] = useState([]);
   const [balances, setBalances] = useState([]);
   const [settlements, setSettlements] = useState([]);
-  const [memberUsername, setMemberUsername] = useState('');
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
+  const [memberSearchResults, setMemberSearchResults] = useState([]);
+  const [searchingMembers, setSearchingMembers] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [editingSettlementId, setEditingSettlementId] = useState(null);
@@ -123,12 +126,49 @@ export default function GroupView() {
   }, [loadData]);
 
   const members = group?.members ?? [];
-  const displayNameByUsername = useMemo(
-    () => Object.fromEntries(members.map((member) => [member.username, member.full_name || member.username])),
-    [members],
-  );
   const editingExpense = expenses.find((expense) => expense.id === editingExpenseId);
   const editingSettlement = settlements.find((settlement) => settlement.id === editingSettlementId);
+
+  useEffect(() => {
+    if (!isSettingsOpen) {
+      setMemberSearchQuery('');
+      setMemberSearchResults([]);
+      setSearchingMembers(false);
+      return undefined;
+    }
+
+    const query = memberSearchQuery.trim();
+    if (!query) {
+      setMemberSearchResults([]);
+      setSearchingMembers(false);
+      return undefined;
+    }
+
+    let active = true;
+    setSearchingMembers(true);
+    const timer = window.setTimeout(async () => {
+      try {
+        const results = await get(`/api/groups/${id}/member-search?query=${encodeURIComponent(query)}`);
+        if (active) {
+          setMemberSearchResults(results);
+        }
+      } catch (searchError) {
+        if (active) {
+          setError(searchError.message);
+          setMemberSearchResults([]);
+        }
+      } finally {
+        if (active) {
+          setSearchingMembers(false);
+        }
+      }
+    }, 250);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [id, isSettingsOpen, memberSearchQuery]);
 
   const timeline = useMemo(() => {
     return [
@@ -137,11 +177,11 @@ export default function GroupView() {
         ...settlement,
         kind: 'settlement',
         activityDate: settlement.settled_at,
-        payer_display_name: displayNameByUsername[settlement.payer_username] || settlement.payer_full_name || settlement.payer_username,
-        receiver_display_name: displayNameByUsername[settlement.receiver_username] || settlement.receiver_full_name || settlement.receiver_username,
+        payer_display_name: getUserDisplayName({ full_name: settlement.payer_full_name, email: settlement.payer_email }),
+        receiver_display_name: getUserDisplayName({ full_name: settlement.receiver_full_name, email: settlement.receiver_email }),
       })),
     ].sort((a, b) => new Date(b.activityDate) - new Date(a.activityDate));
-  }, [displayNameByUsername, expenses, settlements]);
+  }, [expenses, settlements]);
 
   const memberBalances = useMemo(
     () => computeMemberBalances(members, expenses, settlements),
@@ -157,11 +197,11 @@ export default function GroupView() {
     };
   }, [currentUserId, expenses, memberBalances, timeline.length]);
 
-  const handleAddMember = async (event) => {
-    event.preventDefault();
+  const handleAddMember = async (userId) => {
     try {
-      await post(`/api/groups/${id}/members`, { username: memberUsername });
-      setMemberUsername('');
+      await post(`/api/groups/${id}/members`, { user_id: userId });
+      setMemberSearchQuery('');
+      setMemberSearchResults([]);
       await loadData();
     } catch (submitError) {
       setError(submitError.message);
@@ -213,7 +253,7 @@ export default function GroupView() {
             <div className="space-y-2">
               <p className="section-eyebrow">Grupp</p>
               <h1 className="page-title">{group?.name}</h1>
-              <p className="page-copy">{members.map((member) => member.username).join(', ')}</p>
+              <p className="page-copy">{members.map((member) => getUserDisplayName(member)).join(', ')}</p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
               <button type="button" className="btn-primary" onClick={() => setIsAddingExpense(true)}>
@@ -268,7 +308,7 @@ export default function GroupView() {
             <div>
               {timeline.map((item) => (
                 item.kind === 'expense' ? (
-                  <ExpenseItem key={`expense-${item.id}`} expense={item} onEdit={setEditingExpenseId} displayNameByUsername={displayNameByUsername} />
+                  <ExpenseItem key={`expense-${item.id}`} expense={item} onEdit={setEditingExpenseId} />
                 ) : (
                   <SettlementItem key={`settlement-${item.id}`} settlement={item} onEdit={setEditingSettlementId} />
                 )
@@ -300,7 +340,7 @@ export default function GroupView() {
               {memberBalances.map((member) => (
                 <div key={member.id} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-3 py-3">
                   <div>
-                    <p className="m-0 text-sm font-medium">{member.full_name || member.username}</p>
+                    <p className="m-0 text-sm font-medium">{getUserDisplayName(member)}</p>
                     <p className="mt-1 text-xs text-[var(--text-muted)]">
                       {member.balance > 0 ? 'Ska få tillbaka' : member.balance < 0 ? 'Är skyldig' : 'I balans'}
                     </p>
@@ -323,24 +363,44 @@ export default function GroupView() {
           onClose={() => setIsSettingsOpen(false)}
         >
           <div className="space-y-6">
-            <form onSubmit={handleAddMember} className="space-y-3">
+            <div className="space-y-3">
               <label className="field-label">
-                Lägg till medlem via användarnamn
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <input value={memberUsername} onChange={(event) => setMemberUsername(event.target.value)} placeholder="Användarnamn" required />
-                  <button type="submit" className="btn-primary shrink-0">
-                    <UserPlus className="h-4 w-4" />
-                    Lägg till
-                  </button>
-                </div>
+                Lägg till medlem via namn eller e-post
+                <input
+                  value={memberSearchQuery}
+                  onChange={(event) => setMemberSearchQuery(event.target.value)}
+                  placeholder="Sök på fullständigt namn eller e-post"
+                />
               </label>
-            </form>
+              {memberSearchQuery.trim() ? (
+                <div className="space-y-3">
+                  {searchingMembers ? <p className="m-0 text-sm text-[var(--text-secondary)]">Söker...</p> : null}
+                  {!searchingMembers && !memberSearchResults.length ? (
+                    <p className="m-0 text-sm text-[var(--text-secondary)]">Ingen användare matchade sökningen.</p>
+                  ) : null}
+                  {memberSearchResults.map((candidate) => (
+                    <div key={candidate.id} className="flex flex-col gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="m-0 text-sm font-medium">{getUserSearchLabel(candidate)}</p>
+                        {candidate.full_name ? <p className="mt-1 text-sm text-[var(--text-secondary)]">{candidate.email}</p> : null}
+                      </div>
+                      <button type="button" className="btn-primary" onClick={() => handleAddMember(candidate.id)}>
+                        <UserPlus className="h-4 w-4" />
+                        Lägg till
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="m-0 text-sm text-[var(--text-secondary)]">Börja skriva för att söka efter personer att lägga till i gruppen.</p>
+              )}
+            </div>
 
             <div className="space-y-3">
               {members.map((member) => (
                 <div key={member.id} className="flex flex-col gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="m-0 text-sm font-medium">{member.full_name || member.username}</p>
+                    <p className="m-0 text-sm font-medium">{getUserDisplayName(member)}</p>
                     <p className="mt-1 text-sm text-[var(--text-secondary)]">{member.email}</p>
                   </div>
                   <button type="button" className="btn-danger" onClick={() => handleRemoveMember(member.id)}>

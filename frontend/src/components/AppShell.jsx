@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { FolderKanban, LayoutGrid, LogOut, Moon, PlusCircle, Settings, Sun, UserCircle2 } from 'lucide-react';
 import { parseUser } from '../lib/session.js';
+import { getUserDisplayName } from '../lib/users.js';
 
 function getInitialTheme() {
   if (typeof window === 'undefined') return 'light';
@@ -85,8 +86,8 @@ export default function AppShell() {
             >
               <UserCircle2 className="h-5 w-5 text-[var(--text-secondary)]" />
               <div className="leading-tight">
-                <p className="m-0 text-sm font-medium">{user?.full_name || user?.username || 'Konto'}</p>
-                <p className="m-0 text-xs text-[var(--text-muted)]">{user?.email || user?.username}</p>
+                <p className="m-0 text-sm font-medium">{user ? getUserDisplayName(user) : 'Konto'}</p>
+                <p className="m-0 text-xs text-[var(--text-muted)]">{user?.email || 'Ingen e-post tillgänglig'}</p>
               </div>
             </button>
           </div>
@@ -128,7 +129,7 @@ export default function AppShell() {
             <section className="space-y-5">
               <div className="space-y-1">
                 <p className="section-eyebrow">Profil</p>
-                <h2 className="m-0 text-xl font-semibold">{user?.full_name || user?.username}</h2>
+                <h2 className="m-0 text-xl font-semibold">{user ? getUserDisplayName(user) : 'Konto'}</h2>
                 <p className="m-0 text-sm text-[var(--text-secondary)]">{user?.email || 'Ingen e-post tillgänglig'}</p>
               </div>
               <div className="space-y-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">

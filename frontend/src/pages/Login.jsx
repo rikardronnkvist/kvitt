@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ArrowRight, LockKeyhole, UserRound } from 'lucide-react';
+import { ArrowRight, LockKeyhole } from 'lucide-react';
 import { post } from '../api/client.js';
 
-const loginInitialState = { identifier: '', password: '' };
-const registerInitialState = { username: '', email: '', password: '', full_name: '' };
+const loginInitialState = { email: '', password: '' };
+const registerInitialState = { email: '', password: '', full_name: '' };
 
 function AuthModeButton({ active, onClick, children }) {
   return (
@@ -90,13 +90,6 @@ export default function Login() {
           {mode === 'register' ? (
             <>
               <label className="field-label">
-                Användarnamn
-                <div className="relative">
-                  <UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" />
-                  <input className="pl-10" name="username" value={registerForm.username} onChange={handleChange(setRegisterForm)} required />
-                </div>
-              </label>
-              <label className="field-label">
                 Fullständigt namn
                 <input name="full_name" value={registerForm.full_name} onChange={handleChange(setRegisterForm)} required />
               </label>
@@ -104,11 +97,11 @@ export default function Login() {
           ) : null}
 
           <label className="field-label">
-            {mode === 'login' ? 'Användarnamn eller e-post' : 'E-post'}
+            E-post
             <input
-              name={mode === 'login' ? 'identifier' : 'email'}
-              type={mode === 'login' ? 'text' : 'email'}
-              value={mode === 'login' ? loginForm.identifier : registerForm.email}
+              name="email"
+              type="email"
+              value={mode === 'login' ? loginForm.email : registerForm.email}
               onChange={mode === 'login' ? handleChange(setLoginForm) : handleChange(setRegisterForm)}
               required
             />

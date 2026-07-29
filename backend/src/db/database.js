@@ -22,14 +22,18 @@ export const db = new Database(dbPath);
 db.pragma('foreign_keys = ON');
 db.pragma('journal_mode = WAL');
 
+export function usersTableHasUsernameColumn() {
+  return db.prepare('PRAGMA table_info(users)').all().some((column) => column.name === 'username');
+}
+
 export function initializeDatabase() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT UNIQUE NOT NULL,
       email TEXT UNIQUE NOT NULL,
       is_admin INTEGER NOT NULL DEFAULT 0,
       password_hash TEXT NOT NULL,
+      full_name TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -85,7 +89,7 @@ export function initializeDatabase() {
   if (!hasIsAdminColumn) {
     db.exec('ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0');
   }
-  
+
   const hasFullNameColumn = userColumns.some((column) => column.name === 'full_name');
   if (!hasFullNameColumn) {
     db.exec('ALTER TABLE users ADD COLUMN full_name TEXT');

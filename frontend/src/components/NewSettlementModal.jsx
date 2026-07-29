@@ -4,6 +4,7 @@ import { post } from '../api/client.js';
 import BalanceList from './BalanceList.jsx';
 import ModalShell from './ModalShell.jsx';
 import { formatCurrency } from '../lib/format.js';
+import { getUserDisplayName } from '../lib/users.js';
 
 export default function NewSettlementModal({ groupId, members, balances, currentUserId, onClose, onSuccess }) {
   const defaultPayerId = members.some((member) => String(member.id) === String(currentUserId)) ? String(currentUserId) : '';
@@ -90,7 +91,7 @@ export default function NewSettlementModal({ groupId, members, balances, current
             <option value="">Välj betalare</option>
             {members.map((member) => (
               <option key={member.id} value={member.id}>
-                {member.full_name || member.username}
+                {getUserDisplayName(member)}
               </option>
             ))}
           </select>
@@ -102,7 +103,7 @@ export default function NewSettlementModal({ groupId, members, balances, current
             <option value="">Välj mottagare</option>
             {members.map((member) => (
               <option key={member.id} value={member.id}>
-                {member.full_name || member.username}
+                {getUserDisplayName(member)}
               </option>
             ))}
           </select>

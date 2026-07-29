@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { parseUser } from '../lib/session.js';
+import { getUserDisplayName } from '../lib/users.js';
 
 export default function Header() {
   const navigate = useNavigate();
@@ -23,7 +24,7 @@ export default function Header() {
         </nav>
       </div>
       <div className="header-actions">
-        <span>{user ? `Inloggad som ${user.username}` : 'Inte inloggad'}</span>
+        <span>{user ? `Inloggad som ${getUserDisplayName(user)}` : 'Inte inloggad'}</span>
         {user?.is_admin ? (
           <button type="button" onClick={handleAdminClick}>Admin</button>
         ) : null}

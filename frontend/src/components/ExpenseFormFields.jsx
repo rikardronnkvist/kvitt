@@ -1,6 +1,7 @@
 import { ReceiptText, SplitSquareVertical } from 'lucide-react';
 import { buildExpensePayload, getSplitSummary } from '../lib/expenseForm.js';
 import { formatCurrency } from '../lib/format.js';
+import { getUserDisplayName } from '../lib/users.js';
 
 function SplitTypeButton({ active, children, onClick }) {
   return (
@@ -78,7 +79,7 @@ export default function ExpenseFormFields({
           >
             {members.map((member) => (
               <option key={member.id} value={member.id}>
-                {member.full_name || member.username}
+                {getUserDisplayName(member)}
               </option>
             ))}
           </select>
@@ -143,7 +144,7 @@ export default function ExpenseFormFields({
                     },
                   }))}
                 />
-                <span className="text-sm font-medium">{member.full_name || member.username}</span>
+                <span className="text-sm font-medium">{getUserDisplayName(member)}</span>
               </label>
             );
           })}
@@ -160,7 +161,7 @@ export default function ExpenseFormFields({
                 const member = members.find((item) => item.id === split.user_id);
                 return (
                   <div key={split.user_id} className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-[var(--text-secondary)]">{member?.full_name || member?.username}</span>
+                    <span className="text-[var(--text-secondary)]">{member ? getUserDisplayName(member) : 'Okänd användare'}</span>
                     <span className="font-medium amount-neutral">{formatCurrency(split.amount_owed, { precise: true })}</span>
                   </div>
                 );
@@ -186,7 +187,7 @@ export default function ExpenseFormFields({
             <div className="space-y-3">
               {selectedMembers.map((member) => (
                 <label key={member.id} className="field-label">
-                  {member.full_name || member.username}
+                  {getUserDisplayName(member)}
                   <input
                     type="number"
                     min="0"

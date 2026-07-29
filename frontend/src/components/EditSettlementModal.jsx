@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { del, put } from '../api/client.js';
 import ModalShell from './ModalShell.jsx';
+import { getUserDisplayName } from '../lib/users.js';
 
 export default function EditSettlementModal({ settlement, members, groupId, onClose, onSave, onDelete }) {
   const [formData, setFormData] = useState({
@@ -96,7 +97,7 @@ export default function EditSettlementModal({ settlement, members, groupId, onCl
             <option value="">Välj betalare</option>
             {members.map((member) => (
               <option key={member.id} value={member.id}>
-                {member.full_name || member.username}
+                {getUserDisplayName(member)}
               </option>
             ))}
           </select>
@@ -108,7 +109,7 @@ export default function EditSettlementModal({ settlement, members, groupId, onCl
             <option value="">Välj mottagare</option>
             {members.map((member) => (
               <option key={member.id} value={member.id}>
-                {member.full_name || member.username}
+                {getUserDisplayName(member)}
               </option>
             ))}
           </select>
