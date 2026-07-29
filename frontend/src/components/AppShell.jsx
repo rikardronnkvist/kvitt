@@ -70,7 +70,8 @@ export default function AppShell() {
     setProfileError('');
     setProfileSaving(true);
     try {
-      const body = { full_name: profileForm.full_name, email: profileForm.email, initials: profileForm.initials || undefined };
+      const trimmedInitials = profileForm.initials.trim();
+      const body = { full_name: profileForm.full_name, email: profileForm.email, initials: trimmedInitials.length === 2 ? trimmedInitials : '' };
       if (profileForm.new_password) {
         body.current_password = profileForm.current_password;
         body.new_password = profileForm.new_password;
@@ -289,14 +290,14 @@ export default function AppShell() {
                   />
                 </label>
                 <label className="field-label">
-                  <span>Initialer <span className="text-[var(--text-muted)] font-normal">(valfritt, max 3 tecken)</span></span>
+                  <span>Initialer <span className="text-[var(--text-muted)] font-normal">(valfritt, exakt 2 tecken)</span></span>
                   <input
                     type="text"
                     value={profileForm.initials}
-                    onChange={(e) => setProfileForm((f) => ({ ...f, initials: e.target.value.slice(0, 3) }))}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, initials: e.target.value.slice(0, 2) }))}
                     placeholder="Lämna tomt för automatiska initialer"
                     autoComplete="off"
-                    maxLength={3}
+                    maxLength={2}
                   />
                 </label>
                 <label className="field-label">
