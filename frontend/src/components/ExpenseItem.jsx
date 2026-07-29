@@ -33,14 +33,14 @@ export default function ExpenseItem({ expense, onEdit }) {
         {getUserInitials(payer)}
       </div>
       <div className="min-w-0 flex-1 space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <CategoryIcon className="h-4 w-4 text-[var(--text-muted)]" />
               <h3 className="m-0 text-base font-semibold">{expense.title}</h3>
             </div>
           </div>
-          <div className="grid shrink-0 grid-cols-[9.5rem_6.5rem] items-center gap-4 self-center text-right">
+          <div className="grid grid-cols-[9.5rem_6.5rem] items-center gap-4 self-start text-right sm:shrink-0 sm:self-center">
             <p className="m-0 whitespace-nowrap text-xs tabular-nums text-[var(--text-muted)]">{formatDateTime(expense.occurred_at || expense.created_at)}</p>
             <p className="m-0 text-lg font-semibold tabular-nums amount-neutral">{formatCurrency(expense.amount, { precise: true })}</p>
           </div>
