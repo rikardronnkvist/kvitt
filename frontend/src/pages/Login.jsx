@@ -63,11 +63,14 @@ export default function Login() {
     <main className="flex min-h-screen items-center justify-center bg-[var(--app-bg)] px-4 py-12">
       <section className="surface-card w-full max-w-[420px] space-y-8 p-7 sm:p-8">
         <div className="space-y-4">
-          <div className="flex h-[88px] w-[88px] items-center justify-center overflow-hidden rounded-lg bg-[var(--app-surface-muted)]">
-            <img src="/kvitt.png" alt="Kvitt logo" className="h-16 w-16 object-contain" />
-          </div>
-          <div className="space-y-2">
-            <h1 className="page-title">Logga in på Kvitt</h1>
+          <div className="flex items-center gap-4">
+            <div className="flex h-[88px] w-[88px] items-center justify-center overflow-hidden rounded-lg bg-[var(--app-surface-muted)]">
+              <img src="/kvitt.png" alt="Kvitt logo" className="h-16 w-16 object-contain" />
+            </div>
+            <div className="space-y-1">
+              <h1 className="page-title">#teambail on tour</h1>
+              <p className="m-0 text-sm text-[var(--text-secondary)]">Logga in på Kvitt</p>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <AuthModeButton active={mode === 'login'} onClick={() => setMode('login')}>
