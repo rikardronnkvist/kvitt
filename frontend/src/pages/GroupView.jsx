@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Header from '../components/Header.jsx';
 import ExpenseItem from '../components/ExpenseItem.jsx';
+import EditExpenseModal from '../components/EditExpenseModal.jsx';
 import BalanceList from '../components/BalanceList.jsx';
-import { del, get, getBlob, post } from '../api/client.js';
+import { del, get, getBlob, post, put } from '../api/client.js';
 
 const tabs = ['Utgifter', 'Saldon', 'Betalningar'];
 
@@ -33,6 +34,7 @@ export default function GroupView() {
   const [settlements, setSettlements] = useState([]);
   const [memberUsername, setMemberUsername] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [settlementForm, setSettlementForm] = useState({ payer_id: '', receiver_id: '', amount: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -184,7 +186,15 @@ export default function GroupView() {
     }
   };
 
-  const handleExport = async () => {
+  const handleEditExpense = (expenseId) => {
+    setEditingExpenseId(expenseId);
+  };
+
+  const handleSaveExpense = (updated) => {
+    setExpenses((previous) => previous.map((expense) => (expense.id === updated.id ? updated : expense)));
+  };
+
+  const editingExpense = expenses.find((expense) => expense.id === editingExpenseId);
     try {
       const blob = await getBlob(`/api/expenses/${id}/export`);
       const link = document.createElement('a');
@@ -258,7 +268,7 @@ export default function GroupView() {
           {activeTab === 'Utgifter' ? (
             <div className="stack">
               {expenses.map((expense) => (
-                <ExpenseItem key={expense.id} expense={expense} onDelete={handleDeleteExpense} />
+                <ExpenseItem key={expense.id} expense={expense} onDelete={handleDeleteExpense} onEdit={handleEditExpense} />
               ))}
               {!expenses.length ? <p>Inga utgifter registrerade ännu.</p> : null}
             </div>
@@ -333,6 +343,16 @@ export default function GroupView() {
             </section>
           </div>
         ) : null}
+
+        {editingExpense && (
+          <EditExpenseModal
+            expense={editingExpense}
+            members={members}
+            groupId={id}
+            onClose={() => setEditingExpenseId(null)}
+            onSave={handleSaveExpense}
+          />
+        )}
       </main>
     </>
   );

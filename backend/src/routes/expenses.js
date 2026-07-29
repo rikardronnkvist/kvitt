@@ -206,7 +206,94 @@ router.post('/:groupId', (req, res) => {
   return res.status(201).json(parseExpenseRows(rows)[0]);
 });
 
-router.delete('/:groupId/:expenseId', (req, res) => {
+router.put('/:groupId/:expenseId', (req, res) => {
+  const groupId = Number(req.params.groupId);
+  const expenseId = Number(req.params.expenseId);
+  if (!requireMembership(groupId, req.user.id)) {
+    return res.status(403).json({ error: 'Du har inte åtkomst till den här gruppen.' });
+  }
+
+  const expense = db.prepare('SELECT id, group_id FROM expenses WHERE id = ? AND group_id = ?').get(expenseId, groupId);
+  if (!expense) {
+    return res.status(404).json({ error: 'Utgiften hittades inte.' });
+  }
+
+  const parsed = expenseSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Ogiltig utgiftsdata.', details: parsed.error.flatten() });
+  }
+
+  const groupMembers = db.prepare(`
+    SELECT u.id, u.username
+    FROM group_members gm
+    JOIN users u ON u.id = gm.user_id
+    WHERE gm.group_id = ?
+    ORDER BY u.id ASC
+  `).all(groupId);
+
+  const memberIds = new Set(groupMembers.map((member) => member.id));
+  const { title, amount, currency, paid_by_user_id, notes } = parsed.data;
+
+  if (!memberIds.has(paid_by_user_id)) {
+    return res.status(400).json({ error: 'Betalaren måste vara medlem i gruppen.' });
+  }
+
+  let splits = parsed.data.splits;
+  if (!splits || splits.length === 0) {
+    const base = Math.floor((amount / groupMembers.length) * 100) / 100;
+    let remainder = Math.round((amount - base * groupMembers.length) * 100);
+    splits = groupMembers.map((member) => {
+      const extra = remainder > 0 ? 0.01 : 0;
+      remainder -= extra > 0 ? 1 : 0;
+      return {
+        user_id: member.id,
+        amount_owed: Math.round((base + extra) * 100) / 100,
+      };
+    });
+  }
+
+  const invalidSplit = splits.find((split) => !memberIds.has(split.user_id));
+  if (invalidSplit) {
+    return res.status(400).json({ error: 'Alla splits måste tillhöra gruppmedlemmar.' });
+  }
+
+  const splitTotal = Math.round(splits.reduce((sum, split) => sum + Number(split.amount_owed), 0) * 100) / 100;
+  const roundedAmount = Math.round(amount * 100) / 100;
+  if (Math.abs(splitTotal - roundedAmount) > 0.01) {
+    return res.status(400).json({ error: 'Summan av splits måste motsvara utgiftens belopp.' });
+  }
+
+  const tx = db.transaction(() => {
+    db.prepare('UPDATE expenses SET title = ?, amount = ?, currency = ?, paid_by_user_id = ?, notes = ? WHERE id = ?')
+      .run(title, amount, currency, paid_by_user_id, notes || null, expenseId);
+
+    db.prepare('DELETE FROM expense_splits WHERE expense_id = ?').run(expenseId);
+
+    const insertSplit = db.prepare(
+      'INSERT INTO expense_splits (expense_id, user_id, amount_owed) VALUES (?, ?, ?)',
+    );
+
+    for (const split of splits) {
+      insertSplit.run(expenseId, split.user_id, split.amount_owed);
+    }
+  });
+
+  tx();
+  const rows = db.prepare(`
+    SELECT e.id, e.group_id, e.title, e.amount, e.currency, e.paid_by_user_id, e.notes, e.created_at,
+           payer.username AS paid_by_username,
+           es.id AS split_id, es.user_id AS split_user_id, es.amount_owed,
+           split_user.username AS split_username
+    FROM expenses e
+    JOIN users payer ON payer.id = e.paid_by_user_id
+    LEFT JOIN expense_splits es ON es.expense_id = e.id
+    LEFT JOIN users split_user ON split_user.id = es.user_id
+    WHERE e.id = ?
+    ORDER BY es.id ASC
+  `).all(expenseId);
+
+  return res.json(parseExpenseRows(rows)[0]);
+});
   const groupId = Number(req.params.groupId);
   const expenseId = Number(req.params.expenseId);
   if (!requireMembership(groupId, req.user.id)) {
