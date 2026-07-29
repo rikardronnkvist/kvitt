@@ -48,14 +48,13 @@ export default function GroupCard({ group, onOpen }) {
         <ArrowRight className="h-4 w-4 text-[var(--text-muted)]" />
       </div>
 
-      <div className="flex items-end justify-between gap-3 border-t border-[var(--border-subtle)] pt-4">
+      <div className="flex items-end gap-3 border-t border-[var(--border-subtle)] pt-4">
         <div>
           <p className="m-0 text-xs uppercase tracking-[0.08em] text-[var(--text-muted)]">Din balans</p>
           <p className={`mt-2 text-xl font-semibold ${state.amountClass}`}>
-            {formatCurrency(Math.abs(group.current_user_balance || 0), { precise: true })}
+            {formatCurrency(group.current_user_balance || 0, { precise: true })}
           </p>
         </div>
-        <span className="text-sm font-medium text-[var(--text-secondary)]">Öppna grupp</span>
       </div>
     </button>
   );

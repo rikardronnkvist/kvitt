@@ -1,53 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { FolderKanban, LayoutGrid, LogOut, Moon, PlusCircle, Settings, Sun, UserCircle2 } from 'lucide-react';
-import { getCurrentUserId, parseUser } from '../lib/session.js';
+import { parseUser } from '../lib/session.js';
 
 function getInitialTheme() {
   if (typeof window === 'undefined') return 'light';
   const stored = window.localStorage.getItem('theme-preference');
   if (stored === 'light' || stored === 'dark') return stored;
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-}
-
-function NavItem({ icon: Icon, label, to, active, onClick }) {
-  const content = (
-    <>
-      <Icon className="h-4 w-4" />
-      <span>{label}</span>
-    </>
-  );
-
-  if (to) {
-    return (
-      <NavLink
-        to={to}
-        className={({ isActive }) => [
-          'flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition',
-          isActive || active
-            ? 'bg-[var(--app-surface-muted)] text-[var(--text-primary)]'
-            : 'text-[var(--text-secondary)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--text-primary)]',
-        ].join(' ')}
-      >
-        {content}
-      </NavLink>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        'flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm font-medium transition',
-        active
-          ? 'bg-[var(--app-surface-muted)] text-[var(--text-primary)]'
-          : 'text-[var(--text-secondary)] hover:bg-[var(--app-surface-muted)] hover:text-[var(--text-primary)]',
-      ].join(' ')}
-    >
-      {content}
-    </button>
-  );
 }
 
 export default function AppShell() {
@@ -73,7 +33,6 @@ export default function AppShell() {
   const currentGroupId = routeGroupId || lastGroupId;
   const addExpenseHref = currentGroupId ? `/groups/${currentGroupId}/expenses/new` : '/';
   const isAddExpenseActive = location.pathname === addExpenseHref;
-  const currentUserId = getCurrentUserId();
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -134,38 +93,7 @@ export default function AppShell() {
         </div>
       </header>
 
-      <div className="mx-auto flex max-w-[1280px] gap-8 px-4 pb-24 pt-6 sm:px-6 lg:pb-10">
-        <aside className="hidden w-64 shrink-0 lg:block">
-          <div className="surface-card sticky top-24 space-y-6 p-4">
-            <div className="space-y-1">
-              <p className="section-eyebrow">Navigation</p>
-              <nav className="space-y-1">
-                <NavItem icon={LayoutGrid} label="Dashboard" to="/" />
-                <NavItem icon={FolderKanban} label="Grupper" to="/" />
-                <NavItem icon={PlusCircle} label="Ny utgift" to={addExpenseHref} active={isAddExpenseActive} />
-                {user?.is_admin ? <NavItem icon={Settings} label="Admin" to="/admin" /> : null}
-              </nav>
-            </div>
-
-            <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
-              <p className="m-0 text-sm font-semibold">{user?.full_name || user?.username}</p>
-              <p className="mt-1 text-sm text-[var(--text-secondary)]">{user?.email || 'Inloggad användare'}</p>
-              <div className="mt-4 flex gap-2">
-                <button type="button" className="btn-secondary flex-1" onClick={() => setAccountOpen(true)}>
-                  Profil
-                </button>
-                <button type="button" className="btn-secondary flex-1" onClick={handleLogout}>
-                  Logga ut
-                </button>
-              </div>
-            </div>
-
-            {currentUserId ? (
-              <p className="m-0 text-xs text-[var(--text-muted)]">Användar-ID {currentUserId}</p>
-            ) : null}
-          </div>
-        </aside>
-
+      <div className="mx-auto max-w-[1280px] px-4 pb-24 pt-6 sm:px-6 lg:pb-10">
         <div className="min-w-0 flex-1">
           <div className="mx-auto max-w-[960px]">
             <Outlet />
