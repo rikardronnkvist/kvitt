@@ -191,7 +191,7 @@ export default function ExpenseFormFields({
         </label>
 
         <label className="field-label md:col-span-2">
-          <span>Datum och tid för utlägget <span className="text-[var(--text-muted)] font-normal">(YYYY-MM-DD HH:MM)</span></span>
+          <span>Datum och tid för utlägget</span>
           <input
             type="text"
             value={form.occurred_at || ''}
