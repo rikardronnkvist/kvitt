@@ -205,7 +205,7 @@ export default function AppShell() {
                   />
                 </label>
                 <label className="field-label">
-                  Nytt lösenord <span className="text-[var(--text-muted)] font-normal">(valfritt)</span>
+                  <span>Nytt lösenord <span className="text-[var(--text-muted)] font-normal">(valfritt)</span></span>
                   <input
                     type="password"
                     value={profileForm.new_password}
