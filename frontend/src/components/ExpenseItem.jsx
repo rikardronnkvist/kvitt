@@ -54,9 +54,9 @@ export default function ExpenseItem({ expense, onEdit }) {
               <span
                 key={participant.user_id}
                 title={getUserDisplayName(participant)}
-                className="inline-flex items-center justify-center rounded-md border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-2 py-1 text-xs font-medium text-[var(--text-secondary)]"
+                className="inline-flex items-center justify-center px-0.5 py-0.5 text-xs font-medium text-[var(--text-secondary)]"
               >
-                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-[var(--app-surface-strong)] text-[10px] font-semibold text-[var(--text-primary)]">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[10px] font-semibold text-[var(--text-primary)]">
                   {getUserInitials(participant)}
                 </span>
               </span>
