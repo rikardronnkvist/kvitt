@@ -1,5 +1,4 @@
 import express from 'express';
-import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { db } from '../db/database.js';
 import requireAuth from '../middleware/auth.js';
@@ -16,11 +15,6 @@ const devboxLoginSchema = z.object({
 const updateProfileSchema = z.object({
   full_name: z.string().trim().min(1).max(100),
   initials: z.string().trim().length(2).optional().or(z.literal('')),
-  current_password: z.string().optional(),
-  new_password: z.string().min(8).max(100).optional(),
-}).refine((data) => !data.new_password || data.current_password, {
-  message: 'Nuvarande lösenord krävs för att byta lösenord.',
-  path: ['current_password'],
 });
 
 router.use('/passkey', passkeyRoutes);
@@ -81,21 +75,12 @@ router.put('/profile', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Ogiltig data.', details: parsed.error.flatten() });
   }
 
-  const { full_name, initials, current_password, new_password } = parsed.data;
+  const { full_name, initials } = parsed.data;
   const normalizedInitials = initials && initials.trim().length === 2 ? initials.trim().toUpperCase() : null;
-  const currentUser = db.prepare('SELECT id, password_hash, is_admin FROM users WHERE id = ?').get(req.user.id);
+  const currentUser = db.prepare('SELECT id, is_admin FROM users WHERE id = ?').get(req.user.id);
 
   if (!currentUser) {
     return res.status(404).json({ error: 'Användaren hittades inte.' });
-  }
-
-  if (new_password) {
-    const passwordOk = await bcrypt.compare(current_password, currentUser.password_hash);
-    if (!passwordOk) {
-      return res.status(400).json({ error: 'Nuvarande lösenord är felaktigt.' });
-    }
-    const newHash = await bcrypt.hash(new_password, 10);
-    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newHash, req.user.id);
   }
 
   db.prepare('UPDATE users SET full_name = ?, initials = ? WHERE id = ?').run(full_name, normalizedInitials, req.user.id);

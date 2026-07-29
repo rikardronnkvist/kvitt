@@ -15,7 +15,7 @@ export default function AppShell() {
   const [newGroupTheme, setNewGroupTheme] = useState(GROUP_THEMES[0].id);
   const [groupError, setGroupError] = useState('');
   const [groupSaving, setGroupSaving] = useState(false);
-  const [profileForm, setProfileForm] = useState({ full_name: '', initials: '', current_password: '', new_password: '' });
+  const [profileForm, setProfileForm] = useState({ full_name: '', initials: '' });
   const [profileError, setProfileError] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
   const [user, setUser] = useState(() => parseUser());
@@ -38,7 +38,7 @@ export default function AppShell() {
   };
 
   const openEditProfile = () => {
-    setProfileForm({ full_name: user?.full_name || '', initials: user?.initials || '', current_password: '', new_password: '' });
+    setProfileForm({ full_name: user?.full_name || '', initials: user?.initials || '' });
     setProfileError('');
     setDropdownOpen(false);
     setEditingProfile(true);
@@ -59,10 +59,6 @@ export default function AppShell() {
     try {
       const trimmedInitials = profileForm.initials.trim();
       const body = { full_name: profileForm.full_name, initials: trimmedInitials.length === 2 ? trimmedInitials : '' };
-      if (profileForm.new_password) {
-        body.current_password = profileForm.current_password;
-        body.new_password = profileForm.new_password;
-      }
       const data = await put('/api/auth/profile', body);
       localStorage.setItem('token', data.token);
       setUser(parseUser());
@@ -266,28 +262,6 @@ export default function AppShell() {
                     maxLength={2}
                   />
                 </label>
-                <label className="field-label">
-                  <span>Nytt lösenord <span className="text-[var(--text-muted)] font-normal">(valfritt)</span></span>
-                  <input
-                    type="password"
-                    value={profileForm.new_password}
-                    onChange={(e) => setProfileForm((f) => ({ ...f, new_password: e.target.value }))}
-                    autoComplete="new-password"
-                    placeholder="Lämna tomt för att behålla"
-                  />
-                </label>
-                {profileForm.new_password ? (
-                  <label className="field-label">
-                    Nuvarande lösenord
-                    <input
-                      type="password"
-                      value={profileForm.current_password}
-                      onChange={(e) => setProfileForm((f) => ({ ...f, current_password: e.target.value }))}
-                      autoComplete="current-password"
-                      required
-                    />
-                  </label>
-                ) : null}
                 {profileError ? (
                   <p className="m-0 rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{profileError}</p>
                 ) : null}

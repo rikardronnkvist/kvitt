@@ -52,10 +52,10 @@ function getFirstUserAdminFlag() {
 
 function createPasskeyUser(displayName, userHandle) {
   const insertUser = db.prepare(`
-    INSERT INTO users (username, password_hash, is_admin, full_name, user_handle)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO users (username, is_admin, full_name, user_handle)
+    VALUES (?, ?, ?, ?)
   `);
-  const result = insertUser.run(null, null, getFirstUserAdminFlag(), displayName, userHandle);
+  const result = insertUser.run(null, getFirstUserAdminFlag(), displayName, userHandle);
   return Number(result.lastInsertRowid);
 }
 
