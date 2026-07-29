@@ -10,6 +10,7 @@ import EmptyState from '../components/EmptyState.jsx';
 import ModalShell from '../components/ModalShell.jsx';
 import { del, get, patch, post } from '../api/client.js';
 import { computeMemberBalances } from '../lib/balances.js';
+import { getCategoryIcon } from '../lib/expenseCategories.js';
 import { formatCurrency, formatDateTime } from '../lib/format.js';
 import { getCurrentUserId } from '../lib/session.js';
 import { getUserDisplayName, getUserSearchLabel } from '../lib/users.js';
@@ -200,9 +201,20 @@ export default function GroupView() {
     [members, expenses, settlements],
   );
 
-  const summary = useMemo(() => ({
-    totalExpenses: expenses.reduce((sum, expense) => sum + expense.amount, 0),
-  }), [expenses]);
+  const summary = useMemo(() => {
+    const totals = new Map();
+    for (const expense of expenses) {
+      const key = `${expense.category_name || 'Övrigt'}|${expense.category_icon || 'shapes'}`;
+      const current = totals.get(key) || { name: expense.category_name || 'Övrigt', icon: expense.category_icon || 'shapes', amount: 0 };
+      current.amount += Number(expense.amount || 0);
+      totals.set(key, current);
+    }
+
+    return {
+      totalExpenses: expenses.reduce((sum, expense) => sum + expense.amount, 0),
+      byCategory: Array.from(totals.values()).sort((a, b) => b.amount - a.amount),
+    };
+  }, [expenses]);
 
   const handleAddMember = async (userId) => {
     try {
@@ -308,7 +320,20 @@ export default function GroupView() {
               <article className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
                 <p className="section-eyebrow">Totala utgifter</p>
                 <p className="m-0 text-lg font-semibold amount-neutral">{formatCurrency(summary.totalExpenses, { precise: true })}</p>
-                <p className="mt-2 text-sm text-[var(--text-secondary)]">{expenses.length} utgifter i gruppen</p>
+                <div className="mt-2 space-y-1.5">
+                  {summary.byCategory.map((category) => {
+                    const CategoryIcon = getCategoryIcon(category.icon);
+                    return (
+                      <div key={`${category.name}-${category.icon}`} className="flex items-center justify-between gap-3 text-sm">
+                        <span className="inline-flex items-center gap-1.5 text-[var(--text-secondary)]">
+                          <CategoryIcon className="h-4 w-4" />
+                          {category.name}
+                        </span>
+                        <span className="font-semibold amount-neutral">{formatCurrency(category.amount, { precise: true })}</span>
+                      </div>
+                    );
+                  })}
+                </div>
               </article>
               <article className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
                 <p className="section-eyebrow">Medlemsbalanser</p>
