@@ -59,7 +59,11 @@ export default function ExpenseFormFields({
                 key={category.id}
                 type="button"
                 title={category.name}
-                onClick={() => setForm((previous) => ({ ...previous, category_id: String(category.id) }))}
+                onClick={() => setForm((previous) => ({
+                  ...previous,
+                  category_id: String(category.id),
+                  title: previous.title.trim() ? previous.title : category.name,
+                }))}
                 className={[
                   'inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition',
                   isActive
