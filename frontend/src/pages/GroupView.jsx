@@ -271,23 +271,44 @@ export default function GroupView() {
 
           {activeTab === 'Utgifter' ? (
             <div className="group-overview">
-              <div className="expenses-section">
-                {expenses.length > 0 && (
+              <div className="timeline-section">
+                {(expenses.length > 0 || settlements.length > 0) && (
                   <div className="month-summary">
                     <div>
                       <h3>{new Date().toLocaleString('sv-SE', { month: 'long', year: 'numeric' })}</h3>
                     </div>
                     <div className="summary-stats">
                       <span className="total-amount">SEK {expenses.reduce((sum, e) => sum + e.amount, 0).toFixed(0)}</span>
-                      <span className="total-count">total spent | {expenses.length} expenses</span>
+                      <span className="total-count">total spent | {expenses.length} expenses | {settlements.length} payments</span>
                     </div>
                   </div>
                 )}
-                <div className="expenses-list">
-                  {expenses.map((expense) => (
-                    <ExpenseItem key={expense.id} expense={expense} onDelete={handleDeleteExpense} onEdit={handleEditExpense} />
-                  ))}
-                  {!expenses.length ? <p>Inga utgifter registrerade ännu.</p> : null}
+                <div className="timeline-list">
+                  {expenses.length === 0 && settlements.length === 0 ? (
+                    <p>Ingen aktivitet ännu.</p>
+                  ) : (
+                    <>
+                      {expenses.map((expense) => (
+                        <ExpenseItem key={`expense-${expense.id}`} expense={expense} onDelete={handleDeleteExpense} onEdit={handleEditExpense} />
+                      ))}
+                      {settlements.map((settlement) => (
+                        <article key={`settlement-${settlement.id}`} className="settlement-row">
+                          <div className="settlement-avatar">✓</div>
+                          <div className="settlement-details">
+                            <div className="settlement-title-row">
+                              <h3>{settlement.payer_username} → {settlement.receiver_username}</h3>
+                            </div>
+                            <p className="settlement-description">Payment settled</p>
+                            <p className="settlement-date">{new Date(settlement.settled_at).toLocaleString('sv-SE', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
+                          </div>
+                          <div className="settlement-amount-display">
+                            <span className="amount-value">{settlement.amount.toFixed(0)} SEK</span>
+                          </div>
+                          <div className="settlement-participants" />
+                        </article>
+                      ))}
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -295,23 +316,6 @@ export default function GroupView() {
                 <div className="balances-section">
                   <h3>Skuldsammanfattning</h3>
                   <BalanceList balances={balances} nested />
-                </div>
-              )}
-
-              {settlements && settlements.length > 0 && (
-                <div className="settlements-section">
-                  <h3>Kvittenser/Betalningar</h3>
-                  <ul className="list-reset settlements-list">
-                    {settlements.map((settlement) => (
-                      <li key={settlement.id} className="settlement-item">
-                        <div className="settlement-payer">{settlement.payer_username}</div>
-                        <div className="settlement-arrow">→</div>
-                        <div className="settlement-receiver">{settlement.receiver_username}</div>
-                        <div className="settlement-amount">{settlement.amount.toFixed(2)} SEK</div>
-                        <div className="settlement-date">{new Date(settlement.settled_at).toLocaleDateString('sv-SE')}</div>
-                      </li>
-                    ))}
-                  </ul>
                 </div>
               )}
             </div>
