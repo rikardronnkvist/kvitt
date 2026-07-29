@@ -4,16 +4,16 @@ import ExpenseFormFields from './ExpenseFormFields.jsx';
 import ModalShell from './ModalShell.jsx';
 import { createExpenseForm } from '../lib/expenseForm.js';
 
-export default function EditExpenseModal({ expense, members, groupId, onClose, onSave, onDelete }) {
-  const [form, setForm] = useState(() => createExpenseForm({ members, expense }));
+export default function EditExpenseModal({ expense, members, categories, groupId, onClose, onSave, onDelete }) {
+  const [form, setForm] = useState(() => createExpenseForm({ members, categories, expense }));
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (expense) {
-      setForm(createExpenseForm({ members, expense }));
+      setForm(createExpenseForm({ members, categories, expense }));
     }
-  }, [expense, members]);
+  }, [expense, members, categories]);
 
   useEffect(() => {
     const handleEscape = (event) => {
@@ -71,6 +71,7 @@ export default function EditExpenseModal({ expense, members, groupId, onClose, o
         form={form}
         setForm={setForm}
         members={members}
+        categories={categories}
         error={error}
         saving={saving}
         onCancel={onClose}

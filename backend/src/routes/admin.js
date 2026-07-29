@@ -27,6 +27,12 @@ const updateGroupSchema = z.object({
   theme_color: z.string().trim().min(1).max(50).optional().nullable(),
 });
 
+const updateCategorySchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  icon: z.string().trim().min(1).max(50),
+  sort_order: z.number().int().min(0).optional(),
+});
+
 router.get('/users', (_req, res) => {
   const users = db.prepare(`
     SELECT u.id, u.email, u.is_admin, u.full_name, u.created_at,
@@ -143,6 +149,48 @@ router.put('/groups/:id', (req, res) => {
     ...updated,
     member_count: Number(updated.member_count),
   });
+});
+
+router.get('/categories', (_req, res) => {
+  const categories = db.prepare(`
+    SELECT id, name, icon, sort_order, created_at
+    FROM expense_categories
+    ORDER BY sort_order ASC, id ASC
+  `).all();
+  return res.json(categories);
+});
+
+router.put('/categories/:id', (req, res) => {
+  const categoryId = Number(req.params.id);
+  const parsed = updateCategorySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Ogiltig kategoridata.', details: parsed.error.flatten() });
+  }
+
+  const existing = db.prepare('SELECT id FROM expense_categories WHERE id = ?').get(categoryId);
+  if (!existing) {
+    return res.status(404).json({ error: 'Kategorin hittades inte.' });
+  }
+
+  try {
+    db.prepare(`
+      UPDATE expense_categories
+      SET name = ?, icon = ?, sort_order = COALESCE(?, sort_order)
+      WHERE id = ?
+    `).run(parsed.data.name, parsed.data.icon, parsed.data.sort_order ?? null, categoryId);
+  } catch (error) {
+    if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      return res.status(409).json({ error: 'Kategorinamnet används redan.' });
+    }
+    throw error;
+  }
+
+  const updated = db.prepare(`
+    SELECT id, name, icon, sort_order, created_at
+    FROM expense_categories
+    WHERE id = ?
+  `).get(categoryId);
+  return res.json(updated);
 });
 
 export default router;

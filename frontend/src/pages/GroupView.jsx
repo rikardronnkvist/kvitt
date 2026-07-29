@@ -88,6 +88,7 @@ export default function GroupView() {
   const currentUserId = useMemo(() => getCurrentUserId(), []);
   const [group, setGroup] = useState(null);
   const [expenses, setExpenses] = useState([]);
+  const [expenseCategories, setExpenseCategories] = useState([]);
   const [balances, setBalances] = useState([]);
   const [settlements, setSettlements] = useState([]);
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
@@ -104,14 +105,16 @@ export default function GroupView() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [groupData, expensesData, balancesData, settlementsData] = await Promise.all([
+      const [groupData, expensesData, categoriesData, balancesData, settlementsData] = await Promise.all([
         get(`/api/groups/${id}`),
         get(`/api/expenses/${id}`),
+        get('/api/expenses/categories'),
         get(`/api/settlements/${id}/balances`),
         get(`/api/settlements/${id}`),
       ]);
       setGroup(groupData);
       setExpenses(expensesData);
+      setExpenseCategories(categoriesData);
       setBalances(balancesData);
       setSettlements(settlementsData);
       setError('');
@@ -428,6 +431,7 @@ export default function GroupView() {
         <EditExpenseModal
           expense={editingExpense}
           members={members}
+          categories={expenseCategories}
           groupId={id}
           onClose={() => setEditingExpenseId(null)}
           onSave={handleSaveExpense}
@@ -450,6 +454,7 @@ export default function GroupView() {
         <NewExpenseModal
           groupId={id}
           members={members}
+          categories={expenseCategories}
           onClose={() => setIsAddingExpense(false)}
           onSuccess={loadData}
         />

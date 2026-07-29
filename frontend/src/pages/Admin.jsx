@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ShieldCheck, Users, UsersRound } from 'lucide-react';
+import { ShieldCheck, Tags, Users, UsersRound } from 'lucide-react';
 import { get, put } from '../api/client.js';
+import { CATEGORY_ICON_OPTIONS, getCategoryIcon } from '../lib/expenseCategories.js';
 import { GROUP_THEMES, getThemeForGroup } from '../lib/groupTheme.js';
 import { getUserDisplayName } from '../lib/users.js';
 
@@ -21,24 +22,29 @@ function AdminSkeleton() {
 export default function Admin() {
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [userDrafts, setUserDrafts] = useState({});
   const [groupDrafts, setGroupDrafts] = useState({});
+  const [categoryDrafts, setCategoryDrafts] = useState({});
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [savingUserId, setSavingUserId] = useState(null);
   const [savingGroupId, setSavingGroupId] = useState(null);
+  const [savingCategoryId, setSavingCategoryId] = useState(null);
   const [activeTab, setActiveTab] = useState('users');
   const [selectedGroupId, setSelectedGroupId] = useState(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [usersData, groupsData] = await Promise.all([
+      const [usersData, groupsData, categoriesData] = await Promise.all([
         get('/api/admin/users'),
         get('/api/admin/groups'),
+        get('/api/admin/categories'),
       ]);
       setUsers(usersData);
       setGroups(groupsData);
+      setCategories(categoriesData);
       setUserDrafts(Object.fromEntries(usersData.map((user) => [user.id, {
         email: user.email,
         is_admin: Boolean(user.is_admin),
@@ -47,6 +53,11 @@ export default function Admin() {
       setGroupDrafts(Object.fromEntries(groupsData.map((group) => [group.id, {
         name: group.name,
         theme_color: group.theme_color ?? null,
+      }])));
+      setCategoryDrafts(Object.fromEntries(categoriesData.map((category) => [category.id, {
+        name: category.name,
+        icon: category.icon,
+        sort_order: category.sort_order,
       }])));
       setSelectedGroupId((previous) => {
         if (!groupsData.length) return null;
@@ -76,6 +87,13 @@ export default function Admin() {
     setGroupDrafts((previous) => ({
       ...previous,
       [groupId]: { ...previous[groupId], [key]: value },
+    }));
+  };
+
+  const handleCategoryDraftChange = (categoryId, key, value) => {
+    setCategoryDrafts((previous) => ({
+      ...previous,
+      [categoryId]: { ...previous[categoryId], [key]: value },
     }));
   };
 
@@ -127,9 +145,37 @@ export default function Admin() {
     }
   };
 
+  const handleSaveCategory = async (categoryId) => {
+    const draft = categoryDrafts[categoryId];
+    if (!draft) return;
+    setSavingCategoryId(categoryId);
+    setError('');
+    try {
+      const updated = await put(`/api/admin/categories/${categoryId}`, {
+        name: draft.name,
+        icon: draft.icon,
+        sort_order: Number(draft.sort_order) || 0,
+      });
+      setCategories((previous) => previous.map((category) => (category.id === categoryId ? updated : category)));
+      setCategoryDrafts((previous) => ({
+        ...previous,
+        [categoryId]: {
+          name: updated.name,
+          icon: updated.icon,
+          sort_order: updated.sort_order,
+        },
+      }));
+    } catch (saveError) {
+      setError(saveError.message);
+    } finally {
+      setSavingCategoryId(null);
+    }
+  };
+
   const tabs = [
     { id: 'users', label: 'Användare', icon: Users, count: users.length },
     { id: 'groups', label: 'Grupper', icon: UsersRound, count: groups.length },
+    { id: 'categories', label: 'Kategorier', icon: Tags, count: categories.length },
   ];
   const selectedGroup = groups.find((group) => group.id === selectedGroupId) ?? null;
   const selectedGroupDraft = selectedGroup ? (groupDrafts[selectedGroup.id] ?? {
@@ -317,6 +363,64 @@ export default function Admin() {
                   <p className="m-0 text-sm text-[var(--text-secondary)]">Välj en grupp i listan för att redigera inställningar.</p>
                 </section>
               )}
+            </div>
+          ) : null}
+
+          {!loading && activeTab === 'categories' ? (
+            <div className="space-y-4">
+              {categories.map((category) => {
+                const draft = categoryDrafts[category.id] ?? {
+                  name: category.name,
+                  icon: category.icon,
+                  sort_order: category.sort_order,
+                };
+                const CategoryIcon = getCategoryIcon(draft.icon);
+                return (
+                  <article key={category.id} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <label className="field-label md:col-span-2">
+                        Kategorinamn
+                        <input
+                          value={draft.name}
+                          onChange={(event) => handleCategoryDraftChange(category.id, 'name', event.target.value)}
+                        />
+                      </label>
+                      <label className="field-label">
+                        Sortering
+                        <input
+                          type="number"
+                          min="0"
+                          value={draft.sort_order}
+                          onChange={(event) => handleCategoryDraftChange(category.id, 'sort_order', event.target.value)}
+                        />
+                      </label>
+
+                      <label className="field-label md:col-span-2">
+                        Ikon
+                        <select
+                          value={draft.icon}
+                          onChange={(event) => handleCategoryDraftChange(category.id, 'icon', event.target.value)}
+                        >
+                          {CATEGORY_ICON_OPTIONS.map((iconOption) => (
+                            <option key={iconOption.id} value={iconOption.id}>{iconOption.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <div className="flex items-end">
+                        <div className="inline-flex min-h-11 w-full items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-3 py-2 text-sm text-[var(--text-secondary)]">
+                          <CategoryIcon className="h-4 w-4" />
+                          <span>Förhandsvisning</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-4">
+                      <button type="button" className="btn-primary" onClick={() => handleSaveCategory(category.id)} disabled={savingCategoryId === category.id}>
+                        {savingCategoryId === category.id ? 'Sparar...' : 'Spara kategori'}
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           ) : null}
         </div>
