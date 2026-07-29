@@ -27,11 +27,7 @@ function normalizeSwishPhone(phone) {
 }
 
 function formatSwishAmount(amount) {
-  const rounded = Math.round(amount * 100) / 100;
-  if (Number.isInteger(rounded)) {
-    return String(rounded);
-  }
-  return rounded.toFixed(2);
+  return String(Math.round(amount));
 }
 
 function buildSwishLink({ phone, amount, message }) {
@@ -92,6 +88,10 @@ export default function NewSettlementModal({
       message: `Kvittar skuld (${groupName || 'Okänd grupp'})`,
     }),
     [receiverSwishPhone, parsedAmount, groupName],
+  );
+  const swishAmountText = useMemo(
+    () => (Number.isFinite(parsedAmount) && parsedAmount > 0 ? formatSwishAmount(parsedAmount) : null),
+    [parsedAmount],
   );
   const showSwishSection = Boolean(formData.receiver_id && receiverSwishPhone);
   const canSwish = Boolean(swishLink && formData.payer_id && formData.receiver_id);
@@ -218,8 +218,10 @@ export default function NewSettlementModal({
               <a
                 href={swishLink}
                 className="btn-secondary w-full justify-center"
+                target="_blank"
+                rel="noopener noreferrer"
               >
-                Swisha {getUserDisplayName(selectedReceiver)}
+                Swisha {swishAmountText} kr till {getUserDisplayName(selectedReceiver)}
               </a>
             ) : (
               <button type="button" className="btn-secondary w-full justify-center" disabled>
