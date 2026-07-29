@@ -1,5 +1,6 @@
 import express from 'express';
 import { z } from 'zod';
+import { isValidRegistrationAccessToken } from '../utils/settings.js';
 import {
   createAuthenticationOptions,
   createRegistrationOptions,
@@ -24,6 +25,13 @@ const verifyRegistrationSchema = z.object({
 const verifyLoginSchema = z.object({
   requestId: z.string().uuid(),
   response: z.record(z.unknown()),
+});
+
+router.get('/register-access', (req, res) => {
+  const token = typeof req.query.token === 'string' ? req.query.token.trim() : '';
+  return res.json({
+    allowed: token.length > 0 && isValidRegistrationAccessToken(token),
+  });
 });
 
 router.get('/available', (_req, res) => {
