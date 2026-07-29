@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { ChevronDown, FolderKanban, FolderPlus, LayoutGrid, LogOut, PlusCircle, Settings, UserCircle2 } from 'lucide-react';
+import { Outlet, useNavigate } from 'react-router-dom';
+import { ChevronDown, FolderPlus, LogOut, Settings, UserCircle2 } from 'lucide-react';
 import { parseUser } from '../lib/session.js';
 import { getUserDisplayName } from '../lib/users.js';
 import { post, put } from '../api/client.js';
@@ -8,7 +8,6 @@ import { GROUP_THEMES } from '../lib/groupTheme.js';
 
 export default function AppShell() {
   const navigate = useNavigate();
-  const location = useLocation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
   const [creatingGroup, setCreatingGroup] = useState(false);
@@ -20,15 +19,7 @@ export default function AppShell() {
   const [profileError, setProfileError] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
   const [user, setUser] = useState(() => parseUser());
-  const routeGroupId = location.pathname.match(/^\/groups\/(\d+)/)?.[1] ?? null;
-  const [lastGroupId, setLastGroupId] = useState(() => localStorage.getItem('last-group-id'));
   const dropdownRef = useRef(null);
-
-  useEffect(() => {
-    if (!routeGroupId) return;
-    localStorage.setItem('last-group-id', routeGroupId);
-    setLastGroupId(routeGroupId);
-  }, [routeGroupId]);
 
   useEffect(() => {
     if (!dropdownOpen) return;
@@ -41,13 +32,8 @@ export default function AppShell() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [dropdownOpen]);
 
-  const currentGroupId = routeGroupId || lastGroupId;
-  const addExpenseHref = currentGroupId ? `/groups/${currentGroupId}/expenses/new` : '/';
-  const isAddExpenseActive = location.pathname === addExpenseHref;
-
   const handleLogout = () => {
     localStorage.removeItem('token');
-    localStorage.removeItem('last-group-id');
     navigate('/login');
   };
 
@@ -132,16 +118,17 @@ export default function AppShell() {
               Skapa grupp
             </button>
 
-            <div className="relative hidden md:block" ref={dropdownRef}>
+            <div className="relative" ref={dropdownRef}>
               <button
                 type="button"
-                className="flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-3 text-left"
+                className="flex min-h-11 items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-3 text-left"
                 onClick={() => setDropdownOpen((prev) => !prev)}
                 aria-haspopup="menu"
                 aria-expanded={dropdownOpen}
               >
-                <UserCircle2 className="h-5 w-5 text-[var(--text-secondary)]" />
-                <div className="leading-tight">
+                <UserCircle2 className="h-5 w-5 text-[var(--text-secondary)] md:h-5 md:w-5" />
+                <span className="text-sm font-medium md:hidden">Profil</span>
+                <div className="hidden leading-tight md:block">
                   <p className="m-0 text-sm font-medium">{user ? getUserDisplayName(user) : 'Konto'}</p>
                   <p className="m-0 text-xs text-[var(--text-muted)]">{user?.email || ''}</p>
                 </div>
@@ -191,27 +178,6 @@ export default function AppShell() {
           </div>
         </div>
       </div>
-
-      <nav className="mobile-bottom-nav lg:hidden" aria-label="Primär navigering">
-        <div className="mobile-bottom-nav-grid">
-          <NavLink to="/" className={({ isActive }) => `mobile-bottom-nav-item ${isActive ? 'active' : ''}`}>
-            <LayoutGrid className="h-4 w-4" />
-            <span>Dashboard</span>
-          </NavLink>
-          <button type="button" className="mobile-bottom-nav-item" onClick={openCreateGroup}>
-            <FolderKanban className="h-4 w-4" />
-            <span>Ny grupp</span>
-          </button>
-          <NavLink to={addExpenseHref} className={`mobile-bottom-nav-item ${isAddExpenseActive ? 'active' : ''}`}>
-            <PlusCircle className="h-4 w-4" />
-            <span>Add Expense</span>
-          </NavLink>
-          <button type="button" className="mobile-bottom-nav-item" onClick={openEditProfile}>
-            <UserCircle2 className="h-4 w-4" />
-            <span>Profil</span>
-          </button>
-        </div>
-      </nav>
 
       {creatingGroup ? (
         <div className="modal-backdrop" onClick={() => setCreatingGroup(false)}>
