@@ -23,6 +23,7 @@ const loginSchema = z.object({
 const updateProfileSchema = z.object({
   full_name: z.string().trim().min(1).max(100),
   email: z.string().trim().email(),
+  initials: z.string().trim().max(3).optional(),
   current_password: z.string().optional(),
   new_password: z.string().min(8).max(100).optional(),
 }).refine((data) => !data.new_password || data.current_password, {
@@ -32,7 +33,7 @@ const updateProfileSchema = z.object({
 
 function signToken(user) {
   return jwt.sign(
-    { id: user.id, email: user.email, is_admin: Boolean(user.is_admin), full_name: user.full_name },
+    { id: user.id, email: user.email, is_admin: Boolean(user.is_admin), full_name: user.full_name, initials: user.initials || null },
     jwtSecret,
     { expiresIn: '7d' },
   );
@@ -64,7 +65,7 @@ router.post('/register', async (req, res) => {
       'INSERT INTO users (email, is_admin, password_hash, full_name) VALUES (?, ?, ?, ?)',
     ).run(normalizedEmail, isFirstUser ? 1 : 0, passwordHash, full_name);
 
-  const user = db.prepare('SELECT id, email, is_admin, full_name FROM users WHERE id = ?').get(result.lastInsertRowid);
+  const user = db.prepare('SELECT id, email, is_admin, full_name, initials FROM users WHERE id = ?').get(result.lastInsertRowid);
 
   return res.status(201).json({ token: signToken(user), user });
 });
@@ -77,7 +78,7 @@ router.post('/login', async (req, res) => {
 
   const { email, password } = parsed.data;
   const user = db.prepare(
-    'SELECT id, email, is_admin, password_hash, full_name FROM users WHERE email = ?',
+    'SELECT id, email, is_admin, password_hash, full_name, initials FROM users WHERE email = ?',
   ).get(email.toLowerCase());
 
   if (!user) {
@@ -99,8 +100,9 @@ router.put('/profile', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Ogiltig data.', details: parsed.error.flatten() });
   }
 
-  const { full_name, email, current_password, new_password } = parsed.data;
+  const { full_name, email, initials, current_password, new_password } = parsed.data;
   const normalizedEmail = email.toLowerCase();
+  const normalizedInitials = initials ? initials.toUpperCase() : null;
   const currentUser = db.prepare('SELECT id, email, password_hash, is_admin FROM users WHERE id = ?').get(req.user.id);
 
   if (!currentUser) {
@@ -123,9 +125,9 @@ router.put('/profile', requireAuth, async (req, res) => {
     db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newHash, req.user.id);
   }
 
-  db.prepare('UPDATE users SET full_name = ?, email = ? WHERE id = ?').run(full_name, normalizedEmail, req.user.id);
+  db.prepare('UPDATE users SET full_name = ?, email = ?, initials = ? WHERE id = ?').run(full_name, normalizedEmail, normalizedInitials, req.user.id);
 
-  const updatedUser = db.prepare('SELECT id, email, is_admin, full_name FROM users WHERE id = ?').get(req.user.id);
+  const updatedUser = db.prepare('SELECT id, email, is_admin, full_name, initials FROM users WHERE id = ?').get(req.user.id);
   return res.json({ token: signToken(updatedUser), user: updatedUser });
 });
 

@@ -15,3 +15,15 @@ export function getUserSearchLabel(user) {
 
   return displayName;
 }
+
+export function getUserInitials(user) {
+  if (user?.initials?.trim()) {
+    return user.initials.trim().toUpperCase();
+  }
+  const name = user?.full_name?.trim() || user?.email || '';
+  const parts = name.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}

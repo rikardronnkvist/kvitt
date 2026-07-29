@@ -96,6 +96,11 @@ export function initializeDatabase() {
     db.exec('ALTER TABLE users ADD COLUMN full_name TEXT');
   }
 
+  const hasInitialsColumn = userColumns.some((column) => column.name === 'initials');
+  if (!hasInitialsColumn) {
+    db.exec('ALTER TABLE users ADD COLUMN initials TEXT');
+  }
+
   const adminCount = db.prepare('SELECT COUNT(*) AS count FROM users WHERE is_admin = 1').get();
   if (Number(adminCount.count) === 0) {
     const firstUser = db.prepare('SELECT id FROM users ORDER BY created_at ASC, id ASC LIMIT 1').get();

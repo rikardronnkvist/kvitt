@@ -16,7 +16,7 @@ export default function AppShell() {
   const [newGroupTheme, setNewGroupTheme] = useState(GROUP_THEMES[0].id);
   const [groupError, setGroupError] = useState('');
   const [groupSaving, setGroupSaving] = useState(false);
-  const [profileForm, setProfileForm] = useState({ full_name: '', email: '', current_password: '', new_password: '' });
+  const [profileForm, setProfileForm] = useState({ full_name: '', email: '', initials: '', current_password: '', new_password: '' });
   const [profileError, setProfileError] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
   const [user, setUser] = useState(() => parseUser());
@@ -52,7 +52,7 @@ export default function AppShell() {
   };
 
   const openEditProfile = () => {
-    setProfileForm({ full_name: user?.full_name || '', email: user?.email || '', current_password: '', new_password: '' });
+    setProfileForm({ full_name: user?.full_name || '', email: user?.email || '', initials: user?.initials || '', current_password: '', new_password: '' });
     setProfileError('');
     setDropdownOpen(false);
     setEditingProfile(true);
@@ -70,7 +70,7 @@ export default function AppShell() {
     setProfileError('');
     setProfileSaving(true);
     try {
-      const body = { full_name: profileForm.full_name, email: profileForm.email };
+      const body = { full_name: profileForm.full_name, email: profileForm.email, initials: profileForm.initials || undefined };
       if (profileForm.new_password) {
         body.current_password = profileForm.current_password;
         body.new_password = profileForm.new_password;
@@ -286,6 +286,17 @@ export default function AppShell() {
                     onChange={(e) => setProfileForm((f) => ({ ...f, full_name: e.target.value }))}
                     required
                     autoComplete="name"
+                  />
+                </label>
+                <label className="field-label">
+                  <span>Initialer <span className="text-[var(--text-muted)] font-normal">(valfritt, max 3 tecken)</span></span>
+                  <input
+                    type="text"
+                    value={profileForm.initials}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, initials: e.target.value.slice(0, 3) }))}
+                    placeholder="Lämna tomt för automatiska initialer"
+                    autoComplete="off"
+                    maxLength={3}
                   />
                 </label>
                 <label className="field-label">
