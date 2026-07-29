@@ -110,7 +110,7 @@ export default function ExpenseFormFields({
 
         {isCarTripCategory ? (
           <label className="field-label">
-            Antal mil
+            <span>Antal mil <span className="text-[var(--text-muted)] font-normal">({mileageRate} kr/mil)</span></span>
             <input
               type="number"
               min="0"
@@ -130,7 +130,6 @@ export default function ExpenseFormFields({
               }}
               placeholder="0"
             />
-            <span className="text-xs text-[var(--text-muted)]">{mileageRate} kr/mil</span>
           </label>
         ) : null}
 
