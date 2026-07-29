@@ -34,10 +34,10 @@ export default function ExpenseItem({ expense, onEdit }) {
       </div>
       <div className="min-w-0 flex-1 space-y-2">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <CategoryIcon className="h-4 w-4 text-[var(--text-muted)]" />
-              <h3 className="m-0 text-base font-semibold">{expense.title}</h3>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 overflow-hidden">
+              <CategoryIcon className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
+              <h3 className="m-0 text-base font-semibold truncate">{expense.title}</h3>
             </div>
           </div>
           <div className="grid grid-cols-[9.5rem_6.5rem] items-center gap-4 self-start text-right sm:shrink-0 sm:self-center">
