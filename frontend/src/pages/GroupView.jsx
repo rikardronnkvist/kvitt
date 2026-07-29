@@ -1,34 +1,80 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import Header from '../components/Header.jsx';
+import { ArrowLeft, ArrowRight, CheckCircle2, Coins, Settings, UserPlus, Users } from 'lucide-react';
 import ExpenseItem from '../components/ExpenseItem.jsx';
 import EditExpenseModal from '../components/EditExpenseModal.jsx';
 import NewExpenseModal from '../components/NewExpenseModal.jsx';
+import EditSettlementModal from '../components/EditSettlementModal.jsx';
+import NewSettlementModal from '../components/NewSettlementModal.jsx';
 import BalanceList from '../components/BalanceList.jsx';
-import { del, get, post, put } from '../api/client.js';
+import EmptyState from '../components/EmptyState.jsx';
+import ModalShell from '../components/ModalShell.jsx';
+import { del, get, post } from '../api/client.js';
+import { computeMemberBalances } from '../lib/balances.js';
+import { formatCurrency, formatDateTime, formatMonthYear } from '../lib/format.js';
+import { getCurrentUserId } from '../lib/session.js';
 
-const tabs = ['Utgifter', 'Betalningar'];
+function GroupSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-2">
+        <div className="skeleton h-4 w-20 rounded-md" />
+        <div className="skeleton h-8 w-56 rounded-md" />
+        <div className="skeleton h-4 w-72 rounded-md" />
+      </div>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="surface-card space-y-5 p-6">
+          <div className="skeleton h-5 w-28 rounded-md" />
+          {[1, 2, 3].map((item) => (
+            <div key={item} className="space-y-3 border-b border-[var(--border-subtle)] pb-5 last:border-b-0 last:pb-0">
+              <div className="skeleton h-5 w-40 rounded-md" />
+              <div className="skeleton h-4 w-64 rounded-md" />
+              <div className="skeleton h-4 w-32 rounded-md" />
+            </div>
+          ))}
+        </div>
+        <div className="space-y-4">
+          <div className="surface-card space-y-4 p-5">
+            <div className="skeleton h-5 w-32 rounded-md" />
+            <div className="skeleton h-24 rounded-md" />
+          </div>
+          <div className="surface-card space-y-4 p-5">
+            <div className="skeleton h-5 w-28 rounded-md" />
+            <div className="skeleton h-24 rounded-md" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-function getCurrentUserId() {
-  const token = localStorage.getItem('token');
-  if (!token) return null;
-
-  try {
-    const [, payload] = token.split('.');
-    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=');
-    const data = JSON.parse(atob(padded));
-    return data?.id ? String(data.id) : null;
-  } catch {
-    return null;
-  }
+function SettlementItem({ settlement, onEdit }) {
+  return (
+    <article className="flex flex-col gap-4 border-b border-[var(--border-subtle)] px-5 py-5 last:border-b-0 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex items-start gap-3">
+        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[var(--app-surface-muted)] text-[var(--text-secondary)]">
+          <CheckCircle2 className="h-5 w-5" />
+        </div>
+        <div>
+          <h3 className="m-0 text-base font-semibold">{settlement.payer_username} betalade {settlement.receiver_username}</h3>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">Registrerad betalning</p>
+          <p className="mt-1 text-xs text-[var(--text-muted)]">{formatDateTime(settlement.settled_at)}</p>
+        </div>
+      </div>
+      <div className="flex flex-col items-start gap-3 sm:items-end">
+        <p className="m-0 text-lg font-semibold amount-neutral">{formatCurrency(settlement.amount, { precise: true })}</p>
+        <button type="button" className="btn-secondary" onClick={() => onEdit(settlement.id)}>
+          Redigera
+        </button>
+      </div>
+    </article>
+  );
 }
 
 export default function GroupView() {
   const { id } = useParams();
   const navigate = useNavigate();
   const currentUserId = useMemo(() => getCurrentUserId(), []);
-  const [activeTab, setActiveTab] = useState('Utgifter');
   const [group, setGroup] = useState(null);
   const [expenses, setExpenses] = useState([]);
   const [balances, setBalances] = useState([]);
@@ -36,21 +82,11 @@ export default function GroupView() {
   const [memberUsername, setMemberUsername] = useState('');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [editingExpenseId, setEditingExpenseId] = useState(null);
+  const [editingSettlementId, setEditingSettlementId] = useState(null);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
-  const [settlementForm, setSettlementForm] = useState({ payer_id: '', receiver_id: '', amount: '' });
+  const [isAddingSettlement, setIsAddingSettlement] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-
-  const getSuggestedSettlementAmount = useCallback((payerId, receiverId, balanceRows) => {
-    const payer = Number(payerId);
-    const receiver = Number(receiverId);
-    if (!payer || !receiver || payer === receiver) return '';
-
-    const match = balanceRows.find(
-      (row) => row.from?.id === payer && row.to?.id === receiver,
-    );
-    return match ? String(match.amount.toFixed(2)) : '';
-  }, []);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -65,99 +101,42 @@ export default function GroupView() {
       setExpenses(expensesData);
       setBalances(balancesData);
       setSettlements(settlementsData);
-      const members = groupData.members || [];
-      const isCurrentUserInGroup = currentUserId && members.some((member) => String(member.id) === currentUserId);
-      const fallbackPayerId = String(balancesData[0]?.from?.id || members[0]?.id || '');
-      const defaultPayerId = isCurrentUserInGroup ? currentUserId : fallbackPayerId;
-      const fallbackReceiverId = String(balancesData[0]?.to?.id || members.find((member) => String(member.id) !== defaultPayerId)?.id || '');
-      setSettlementForm((previous) => ({
-        payer_id: previous.payer_id || defaultPayerId,
-        receiver_id: previous.receiver_id || fallbackReceiverId,
-        amount: previous.amount || getSuggestedSettlementAmount(
-          previous.payer_id || defaultPayerId,
-          previous.receiver_id || fallbackReceiverId,
-          balancesData,
-        ),
-      }));
       setError('');
     } catch (loadError) {
       setError(loadError.message);
     } finally {
       setLoading(false);
     }
-  }, [currentUserId, getSuggestedSettlementAmount, id]);
+  }, [id]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
   const members = group?.members ?? [];
-  const memberOptions = useMemo(() => members.map((member) => ({ value: String(member.id), label: member.username })), [members]);
-  const payerOptions = useMemo(
-    () => memberOptions.filter((option) => option.value !== settlementForm.receiver_id),
-    [memberOptions, settlementForm.receiver_id],
+  const editingExpense = expenses.find((expense) => expense.id === editingExpenseId);
+  const editingSettlement = settlements.find((settlement) => settlement.id === editingSettlementId);
+
+  const timeline = useMemo(() => {
+    return [
+      ...expenses.map((expense) => ({ ...expense, kind: 'expense', activityDate: expense.created_at })),
+      ...settlements.map((settlement) => ({ ...settlement, kind: 'settlement', activityDate: settlement.settled_at })),
+    ].sort((a, b) => new Date(b.activityDate) - new Date(a.activityDate));
+  }, [expenses, settlements]);
+
+  const memberBalances = useMemo(
+    () => computeMemberBalances(members, expenses, settlements),
+    [members, expenses, settlements],
   );
-  const receiverOptions = useMemo(
-    () => memberOptions.filter((option) => option.value !== settlementForm.payer_id),
-    [memberOptions, settlementForm.payer_id],
-  );
 
-  useEffect(() => {
-    if (!memberOptions.length) return;
-
-    setSettlementForm((previous) => {
-      let payerId = previous.payer_id;
-      let receiverId = previous.receiver_id;
-
-      if (!payerId || !memberOptions.some((option) => option.value === payerId)) {
-        payerId = memberOptions.find((option) => option.value === currentUserId)?.value || memberOptions[0]?.value || '';
-      }
-
-      if (!receiverId || receiverId === payerId || !memberOptions.some((option) => option.value === receiverId)) {
-        receiverId = memberOptions.find((option) => option.value !== payerId)?.value || '';
-      }
-
-      const suggestedAmount = getSuggestedSettlementAmount(payerId, receiverId, balances);
-      if (payerId === previous.payer_id && receiverId === previous.receiver_id && suggestedAmount === previous.amount) {
-        return previous;
-      }
-
-      return {
-        ...previous,
-        payer_id: payerId,
-        receiver_id: receiverId,
-        amount: suggestedAmount,
-      };
-    });
-  }, [balances, currentUserId, getSuggestedSettlementAmount, memberOptions]);
-
-  const handlePayerChange = (value) => {
-    setSettlementForm((previous) => {
-      const nextReceiverId = previous.receiver_id === value
-        ? memberOptions.find((option) => option.value !== value)?.value || ''
-        : previous.receiver_id;
-      return {
-        ...previous,
-        payer_id: value,
-        receiver_id: nextReceiverId,
-        amount: getSuggestedSettlementAmount(value, nextReceiverId, balances),
-      };
-    });
-  };
-
-  const handleReceiverChange = (value) => {
-    setSettlementForm((previous) => {
-      const nextPayerId = previous.payer_id === value
-        ? memberOptions.find((option) => option.value !== value)?.value || ''
-        : previous.payer_id;
-      return {
-        ...previous,
-        payer_id: nextPayerId,
-        receiver_id: value,
-        amount: getSuggestedSettlementAmount(nextPayerId, value, balances),
-      };
-    });
-  };
+  const summary = useMemo(() => {
+    const currentMember = memberBalances.find((member) => String(member.id) === currentUserId);
+    return {
+      totalExpenses: expenses.reduce((sum, expense) => sum + expense.amount, 0),
+      activityCount: timeline.length,
+      currentUserBalance: currentMember?.balance || 0,
+    };
+  }, [currentUserId, expenses, memberBalances, timeline.length]);
 
   const handleAddMember = async (event) => {
     event.preventDefault();
@@ -188,221 +167,225 @@ export default function GroupView() {
     }
   };
 
-  const handleEditExpense = (expenseId) => {
-    setEditingExpenseId(expenseId);
-  };
-
   const handleSaveExpense = (updated) => {
     setExpenses((previous) => previous.map((expense) => (expense.id === updated.id ? updated : expense)));
+    loadData();
   };
 
-  const editingExpense = expenses.find((expense) => expense.id === editingExpenseId);
+  const handleSaveSettlement = (updated) => {
+    setSettlements((previous) => previous.map((settlement) => (settlement.id === updated.id ? updated : settlement)));
+    loadData();
+  };
 
-  const sortedTimeline = useMemo(() => {
-    const combined = [
-      ...expenses.map((e) => ({ ...e, type: 'expense', date: new Date(e.created_at) })),
-      ...settlements.map((s) => ({ ...s, type: 'settlement', date: new Date(s.settled_at) })),
-    ];
-    return combined.sort((a, b) => b.date - a.date);
-  }, [expenses, settlements]);
-
-  const handleSettlement = async (event) => {
-    event.preventDefault();
-
-    if (!settlementForm.payer_id || !settlementForm.receiver_id || settlementForm.payer_id === settlementForm.receiver_id) {
-      setError('Betalare och mottagare måste vara olika personer.');
-      return;
-    }
-
-    try {
-      await post(`/api/settlements/${id}`, {
-        payer_id: Number(settlementForm.payer_id),
-        receiver_id: Number(settlementForm.receiver_id),
-        amount: Number(settlementForm.amount),
-      });
-      setSettlementForm((previous) => ({ ...previous, amount: '' }));
-      await loadData();
-    } catch (submitError) {
-      setError(submitError.message);
-    }
+  const handleDeleteSettlement = (settlementId) => {
+    setSettlements((previous) => previous.filter((settlement) => settlement.id !== settlementId));
+    loadData();
   };
 
   if (loading) {
-    return (
-      <>
-        <Header />
-        <main className="page-layout"><p>Laddar grupp...</p></main>
-      </>
-    );
+    return <GroupSkeleton />;
   }
 
   return (
-    <>
-      <Header />
-      <main className="page-layout">
-        <section className="group-header">
-          <div>
-            <h2>{group?.name}</h2>
-            <p>Medlemmar: {members.map((member) => member.username).join(', ')}</p>
-          </div>
-          <div className="button-row">
-            <button type="button" onClick={() => setIsAddingExpense(true)}>Lägg till utgift</button>
-            <button type="button" className="secondary" onClick={() => setIsSettingsOpen(true)}>Gruppinställningar</button>
-          </div>
-        </section>
+    <div className="space-y-8">
+      <section className="space-y-4">
+        <button type="button" className="btn-secondary" onClick={() => navigate('/')}>
+          <ArrowLeft className="h-4 w-4" />
+          Tillbaka till dashboard
+        </button>
 
-        {error ? <p className="error-text">{error}</p> : null}
-
-        <section>
-          <div className="tab-row">
-            {tabs.map((tab) => (
-              <button key={tab} type="button" className={activeTab === tab ? 'active' : ''} onClick={() => setActiveTab(tab)}>
-                {tab}
+        <div className="surface-card space-y-6 p-6 sm:p-7">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="space-y-2">
+              <p className="section-eyebrow">Grupp</p>
+              <h1 className="page-title">{group?.name}</h1>
+              <p className="page-copy">{members.map((member) => member.username).join(', ')}</p>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <button type="button" className="btn-primary" onClick={() => setIsAddingExpense(true)}>
+                Lägg till utgift
               </button>
-            ))}
+              <button type="button" className="btn-secondary" onClick={() => setIsAddingSettlement(true)}>
+                Registrera betalning
+              </button>
+              <button type="button" className="btn-secondary" onClick={() => setIsSettingsOpen(true)}>
+                <Settings className="h-4 w-4" />
+                Inställningar
+              </button>
+            </div>
           </div>
 
-          {activeTab === 'Utgifter' ? (
-            <div className="group-overview">
-              <div className="timeline-section">
-                {(expenses.length > 0 || settlements.length > 0) && (
-                  <div className="month-summary">
-                    <div>
-                      <h3>{new Date().toLocaleString('sv-SE', { month: 'long', year: 'numeric' })}</h3>
-                    </div>
-                    <div className="summary-stats">
-                      <span className="total-amount">SEK {expenses.reduce((sum, e) => sum + e.amount, 0).toFixed(0)}</span>
-                      <span className="total-count">total spent | {expenses.length} expenses | {settlements.length} payments</span>
-                    </div>
-                  </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <article className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
+              <p className="section-eyebrow">Månad</p>
+              <p className="m-0 text-lg font-semibold capitalize">{formatMonthYear()}</p>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">{summary.activityCount} aktiviteter registrerade</p>
+            </article>
+            <article className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
+              <p className="section-eyebrow">Totala utgifter</p>
+              <p className="m-0 text-lg font-semibold amount-neutral">{formatCurrency(summary.totalExpenses, { precise: true })}</p>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">{expenses.length} utgifter i gruppen</p>
+            </article>
+            <article className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
+              <p className="section-eyebrow">Din position</p>
+              <p className={`m-0 text-lg font-semibold ${summary.currentUserBalance > 0 ? 'amount-positive' : summary.currentUserBalance < 0 ? 'amount-negative' : 'amount-neutral'}`}>
+                {formatCurrency(Math.abs(summary.currentUserBalance), { precise: true })}
+              </p>
+              <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                {summary.currentUserBalance > 0 ? 'Du ska få tillbaka pengar' : summary.currentUserBalance < 0 ? 'Du är skyldig pengar' : 'Du är helt kvitt'}
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+        <section className="surface-card overflow-hidden">
+          <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-5 py-4">
+            <div>
+              <p className="section-eyebrow">Aktivitet</p>
+              <h2 className="m-0 text-lg font-semibold">Utgifter och betalningar</h2>
+            </div>
+          </div>
+
+          {timeline.length ? (
+            <div>
+              {timeline.map((item) => (
+                item.kind === 'expense' ? (
+                  <ExpenseItem key={`expense-${item.id}`} expense={item} onEdit={setEditingExpenseId} />
+                ) : (
+                  <SettlementItem key={`settlement-${item.id}`} settlement={item} onEdit={setEditingSettlementId} />
+                )
+              ))}
+            </div>
+          ) : (
+            <div className="p-5">
+              <EmptyState
+                icon={Coins}
+                title="Ingen aktivitet ännu"
+                description="Lägg till den första utgiften eller registrera en betalning så fylls flödet här."
+                action={(
+                  <button type="button" className="btn-primary" onClick={() => setIsAddingExpense(true)}>
+                    Lägg till första utgiften
+                  </button>
                 )}
-                <div className="timeline-list">
-                  {expenses.length === 0 && settlements.length === 0 ? (
-                    <p>Ingen aktivitet ännu.</p>
-                  ) : (
-                    <>
-                      {sortedTimeline.map((item) => 
-                        item.type === 'expense' ? (
-                          <ExpenseItem key={`expense-${item.id}`} expense={item} onDelete={handleDeleteExpense} onEdit={handleEditExpense} />
-                        ) : (
-                          <article key={`settlement-${item.id}`} className="settlement-row">
-                            <div className="settlement-avatar">✓</div>
-                            <div className="settlement-details">
-                              <div className="settlement-title-row">
-                                <h3>{item.payer_username} → {item.receiver_username}</h3>
-                              </div>
-                              <p className="settlement-description">Payment settled</p>
-                              <p className="settlement-date">{new Date(item.settled_at).toLocaleString('sv-SE', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
-                            </div>
-                            <div className="settlement-amount-display">
-                              <span className="amount-value">{item.amount.toFixed(0)} SEK</span>
-                            </div>
-                            <div className="settlement-participants" />
-                          </article>
-                        )
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {balances && balances.length > 0 && (
-                <div className="balances-section">
-                  <h3>Skuldsammanfattning</h3>
-                  <BalanceList balances={balances} nested />
-                </div>
-              )}
+              />
             </div>
-          ) : null}
-
-          {activeTab === 'Betalningar' ? (
-            <div className="stack">
-              <form onSubmit={handleSettlement} className="card form-grid">
-                <h3>Markera som betald</h3>
-                <label>
-                  Betalare
-                  <select value={settlementForm.payer_id} onChange={(event) => handlePayerChange(event.target.value)}>
-                    {payerOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                  </select>
-                </label>
-                <label>
-                  Mottagare
-                  <select value={settlementForm.receiver_id} onChange={(event) => handleReceiverChange(event.target.value)}>
-                    {receiverOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                  </select>
-                </label>
-                <label>
-                  Belopp
-                  <input type="number" step="0.01" min="0" value={settlementForm.amount} onChange={(event) => setSettlementForm((previous) => ({ ...previous, amount: event.target.value }))} required />
-                </label>
-                <button type="submit">Markera som betald</button>
-              </form>
-
-              <div className="card">
-                <h3>Kvittenser/Betalningar</h3>
-                <ul className="list-reset">
-                  {settlements.map((settlement) => (
-                    <li key={settlement.id}>
-                      {settlement.payer_username} betalade {settlement.receiver_username} {settlement.amount.toFixed(2)} SEK den {new Date(settlement.settled_at).toLocaleString('sv-SE')}
-                    </li>
-                  ))}
-                </ul>
-                {!settlements.length ? <p>Inga betalningar registrerade ännu.</p> : null}
-              </div>
-            </div>
-          ) : null}
+          )}
         </section>
 
-        {isSettingsOpen ? (
-          <div className="modal-backdrop" role="presentation" onClick={() => setIsSettingsOpen(false)}>
-            <section
-              className="card modal-card"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Gruppinställningar"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className="modal-header">
-                <h3>Gruppinställningar</h3>
-                <button type="button" className="secondary" onClick={() => setIsSettingsOpen(false)}>Stäng</button>
-              </div>
-              <h4>Lägg till medlem</h4>
-              <form onSubmit={handleAddMember} className="form-inline">
-                <input value={memberUsername} onChange={(event) => setMemberUsername(event.target.value)} placeholder="Användarnamn" required />
-                <button type="submit">Spara</button>
-              </form>
-              <ul>
-                {members.map((member) => (
-                  <li key={member.id} className="member-row">
-                    <span>{member.username} ({member.email})</span>
-                    <button type="button" className="danger" onClick={() => handleRemoveMember(member.id)}>Ta bort</button>
-                  </li>
-                ))}
-              </ul>
-            </section>
+        <aside className="space-y-4">
+          <section className="surface-card p-5">
+            <div className="mb-4 flex items-center gap-2">
+              <Users className="h-4 w-4 text-[var(--text-secondary)]" />
+              <h2 className="m-0 text-lg font-semibold">Medlemsbalanser</h2>
+            </div>
+            <div className="space-y-3">
+              {memberBalances.map((member) => (
+                <div key={member.id} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-3 py-3">
+                  <div>
+                    <p className="m-0 text-sm font-medium">{member.full_name || member.username}</p>
+                    <p className="mt-1 text-xs text-[var(--text-muted)]">
+                      {member.balance > 0 ? 'Ska få tillbaka' : member.balance < 0 ? 'Är skyldig' : 'I balans'}
+                    </p>
+                  </div>
+                  <span className={`text-sm font-semibold ${member.balance > 0 ? 'amount-positive' : member.balance < 0 ? 'amount-negative' : 'amount-neutral'}`}>
+                    {formatCurrency(Math.abs(member.balance), { precise: true })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="surface-card p-5">
+            <div className="mb-4 flex items-center gap-2">
+              <ArrowRight className="h-4 w-4 text-[var(--text-secondary)]" />
+              <h2 className="m-0 text-lg font-semibold">Föreslagna regleringar</h2>
+            </div>
+            <BalanceList balances={balances} nested />
+          </section>
+        </aside>
+      </div>
+
+      {isSettingsOpen ? (
+        <ModalShell
+          title="Gruppinställningar"
+          description="Bjud in fler personer eller ta bort medlemmar som inte längre ska vara kvar i gruppen."
+          onClose={() => setIsSettingsOpen(false)}
+        >
+          <div className="space-y-6">
+            <form onSubmit={handleAddMember} className="space-y-3">
+              <label className="field-label">
+                Lägg till medlem via användarnamn
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <input value={memberUsername} onChange={(event) => setMemberUsername(event.target.value)} placeholder="Användarnamn" required />
+                  <button type="submit" className="btn-primary shrink-0">
+                    <UserPlus className="h-4 w-4" />
+                    Lägg till
+                  </button>
+                </div>
+              </label>
+            </form>
+
+            <div className="space-y-3">
+              {members.map((member) => (
+                <div key={member.id} className="flex flex-col gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="m-0 text-sm font-medium">{member.full_name || member.username}</p>
+                    <p className="mt-1 text-sm text-[var(--text-secondary)]">{member.email}</p>
+                  </div>
+                  <button type="button" className="btn-danger" onClick={() => handleRemoveMember(member.id)}>
+                    Ta bort
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
-        ) : null}
+        </ModalShell>
+      ) : null}
 
-        {editingExpense && (
-          <EditExpenseModal
-            expense={editingExpense}
-            members={members}
-            groupId={id}
-            onClose={() => setEditingExpenseId(null)}
-            onSave={handleSaveExpense}
-            onDelete={handleDeleteExpense}
-          />
-        )}
+      {editingExpense ? (
+        <EditExpenseModal
+          expense={editingExpense}
+          members={members}
+          groupId={id}
+          onClose={() => setEditingExpenseId(null)}
+          onSave={handleSaveExpense}
+          onDelete={handleDeleteExpense}
+        />
+      ) : null}
 
-        {isAddingExpense && (
-          <NewExpenseModal
-            groupId={id}
-            members={members}
-            onClose={() => setIsAddingExpense(false)}
-            onSuccess={loadData}
-          />
-        )}
-      </main>
-    </>
+      {editingSettlement ? (
+        <EditSettlementModal
+          settlement={editingSettlement}
+          members={members}
+          groupId={id}
+          onClose={() => setEditingSettlementId(null)}
+          onSave={handleSaveSettlement}
+          onDelete={handleDeleteSettlement}
+        />
+      ) : null}
+
+      {isAddingExpense ? (
+        <NewExpenseModal
+          groupId={id}
+          members={members}
+          onClose={() => setIsAddingExpense(false)}
+          onSuccess={loadData}
+        />
+      ) : null}
+
+      {isAddingSettlement ? (
+        <NewSettlementModal
+          groupId={id}
+          members={members}
+          balances={balances}
+          onClose={() => setIsAddingSettlement(false)}
+          onSuccess={loadData}
+        />
+      ) : null}
+    </div>
   );
 }

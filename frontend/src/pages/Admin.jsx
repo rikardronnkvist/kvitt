@@ -1,6 +1,25 @@
 import { useCallback, useEffect, useState } from 'react';
-import Header from '../components/Header.jsx';
+import { ShieldCheck, Users, UsersRound } from 'lucide-react';
 import { get, put } from '../api/client.js';
+
+function AdminSkeleton() {
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      {[1, 2].map((column) => (
+        <section key={column} className="surface-card space-y-5 p-6">
+          <div className="skeleton h-5 w-32 rounded-md" />
+          {[1, 2, 3].map((item) => (
+            <div key={item} className="space-y-3 rounded-lg border border-[var(--border-subtle)] p-4">
+              <div className="skeleton h-11 rounded-lg" />
+              <div className="skeleton h-11 rounded-lg" />
+              <div className="skeleton h-11 rounded-lg" />
+            </div>
+          ))}
+        </section>
+      ))}
+    </div>
+  );
+}
 
 export default function Admin() {
   const [users, setUsers] = useState([]);
@@ -113,40 +132,51 @@ export default function Admin() {
   };
 
   return (
-    <>
-      <Header />
-      <main className="page-layout">
-        <section className="card">
-          <h2>Admin</h2>
-          <p>Hantera alla användare och grupper.</p>
-          {error ? <p className="error-text">{error}</p> : null}
-          {loading ? <p>Laddar admin-data...</p> : null}
-        </section>
+    <div className="space-y-8">
+      <section className="surface-card flex flex-col gap-4 p-6 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-2">
+          <p className="section-eyebrow">Administration</p>
+          <h1 className="page-title">Hantera användare och grupper</h1>
+          <p className="page-copy">Ett avskalat arbetsflöde för att uppdatera användardata och gruppnamn utan att lämna överblicken.</p>
+        </div>
+        <div className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-3 py-2 text-sm text-[var(--text-secondary)]">
+          <ShieldCheck className="h-4 w-4" />
+          Endast admin
+        </div>
+      </section>
 
-        {!loading ? (
-          <div className="admin-grid">
-            <section className="card">
-              <h3>Användare</h3>
-              <div className="stack">
-                {users.map((user) => {
-                  const draft = userDrafts[user.id] || { username: '', email: '', is_admin: false };
-                  return (
-                    <article key={user.id} className="card admin-item">
-                      <label>
+      {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
+
+      {loading ? <AdminSkeleton /> : null}
+
+      {!loading ? (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <section className="surface-card space-y-5 p-6">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-[var(--text-secondary)]" />
+              <h2 className="m-0 text-lg font-semibold">Användare</h2>
+            </div>
+            <div className="space-y-4">
+              {users.map((user) => {
+                const draft = userDrafts[user.id] || { username: '', email: '', is_admin: false, full_name: '' };
+                return (
+                  <article key={user.id} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
+                    <div className="grid gap-4">
+                      <label className="field-label">
                         Användarnamn
                         <input
                           value={draft.username}
                           onChange={(event) => handleUserDraftChange(user.id, 'username', event.target.value)}
                         />
                       </label>
-                      <label>
+                      <label className="field-label">
                         Fullständigt namn
                         <input
                           value={draft.full_name}
                           onChange={(event) => handleUserDraftChange(user.id, 'full_name', event.target.value)}
                         />
                       </label>
-                      <label>
+                      <label className="field-label">
                         E-post
                         <input
                           type="email"
@@ -154,7 +184,7 @@ export default function Admin() {
                           onChange={(event) => handleUserDraftChange(user.id, 'email', event.target.value)}
                         />
                       </label>
-                      <label className="checkbox-row">
+                      <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-3 py-3 text-sm font-medium text-[var(--text-secondary)]">
                         <input
                           type="checkbox"
                           checked={Boolean(draft.is_admin)}
@@ -162,43 +192,50 @@ export default function Admin() {
                         />
                         Administratör
                       </label>
-                      <p>Antal grupper: {user.group_count}</p>
-                      <button type="button" onClick={() => handleSaveUser(user.id)} disabled={savingUserId === user.id}>
+                      <p className="m-0 text-sm text-[var(--text-secondary)]">Antal grupper: {user.group_count}</p>
+                      <button type="button" className="btn-primary" onClick={() => handleSaveUser(user.id)} disabled={savingUserId === user.id}>
                         {savingUserId === user.id ? 'Sparar...' : 'Spara användare'}
                       </button>
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
 
-            <section className="card">
-              <h3>Grupper</h3>
-              <div className="stack">
-                {groups.map((group) => {
-                  const draft = groupDrafts[group.id] || { name: '' };
-                  return (
-                    <article key={group.id} className="card admin-item">
-                      <label>
+          <section className="surface-card space-y-5 p-6">
+            <div className="flex items-center gap-2">
+              <UsersRound className="h-4 w-4 text-[var(--text-secondary)]" />
+              <h2 className="m-0 text-lg font-semibold">Grupper</h2>
+            </div>
+            <div className="space-y-4">
+              {groups.map((group) => {
+                const draft = groupDrafts[group.id] || { name: '' };
+                return (
+                  <article key={group.id} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
+                    <div className="grid gap-4">
+                      <label className="field-label">
                         Gruppnamn
                         <input
                           value={draft.name}
                           onChange={(event) => handleGroupDraftChange(group.id, event.target.value)}
                         />
                       </label>
-                      <p>Skapad av: {group.created_by_username}</p>
-                      <p>Antal medlemmar: {group.member_count}</p>
-                      <button type="button" onClick={() => handleSaveGroup(group.id)} disabled={savingGroupId === group.id}>
+                      <div className="space-y-1 text-sm text-[var(--text-secondary)]">
+                        <p className="m-0">Skapad av: {group.created_by_username}</p>
+                        <p className="m-0">Antal medlemmar: {group.member_count}</p>
+                      </div>
+                      <button type="button" className="btn-primary" onClick={() => handleSaveGroup(group.id)} disabled={savingGroupId === group.id}>
                         {savingGroupId === group.id ? 'Sparar...' : 'Spara grupp'}
                       </button>
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-          </div>
-        ) : null}
-      </main>
-    </>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        </div>
+      ) : null}
+    </div>
   );
 }
