@@ -202,7 +202,6 @@ export default function ExpenseFormFields({
             rows="3"
             value={form.notes}
             onChange={(event) => setForm((previous) => ({ ...previous, notes: event.target.value }))}
-            placeholder="Valfritt sammanhang eller kvittodetaljer"
           />
         </label>
       </div>
