@@ -106,7 +106,7 @@ router.get('/:id', requireMembership, (req, res) => {
   }
 
   const members = db.prepare(`
-    SELECT u.id, u.username, u.full_name, gm.joined_at
+    SELECT u.id, u.username, u.full_name, u.phone, gm.joined_at
     FROM group_members gm
     JOIN users u ON u.id = gm.user_id
     WHERE gm.group_id = ?

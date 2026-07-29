@@ -6,6 +6,36 @@ import ModalShell from './ModalShell.jsx';
 import { formatCurrency } from '../lib/format.js';
 import { getUserDisplayName } from '../lib/users.js';
 
+function normalizeSwishPhone(phone) {
+  if (!phone) return null;
+  const digits = String(phone).replace(/[^\d+]/g, '');
+  if (!digits) return null;
+  if (digits.startsWith('+')) {
+    return digits.slice(1);
+  }
+  if (digits.startsWith('00')) {
+    return digits.slice(2);
+  }
+  if (digits.startsWith('0')) {
+    return `46${digits.slice(1)}`;
+  }
+  return digits;
+}
+
+function buildSwishLink({ phone, amount, message }) {
+  const swishPhone = normalizeSwishPhone(phone);
+  if (!swishPhone || !Number.isFinite(amount) || amount <= 0) {
+    return null;
+  }
+
+  const params = new URLSearchParams({
+    phone: swishPhone,
+    amount: amount.toFixed(2),
+    message,
+  });
+  return `swish://payment?${params.toString()}`;
+}
+
 export default function NewSettlementModal({ groupId, members, balances, currentUserId, onClose, onSuccess }) {
   const defaultPayerId = members.some((member) => String(member.id) === String(currentUserId)) ? String(currentUserId) : '';
 
@@ -25,6 +55,26 @@ export default function NewSettlementModal({ groupId, members, balances, current
     const match = balances.find((row) => row.from?.id === payer && row.to?.id === receiver);
     return match ? String(match.amount.toFixed(2)) : '';
   }, [formData.payer_id, formData.receiver_id, balances]);
+
+  const selectedReceiver = useMemo(
+    () => members.find((member) => String(member.id) === String(formData.receiver_id)) || null,
+    [members, formData.receiver_id],
+  );
+  const parsedAmount = Number(formData.amount);
+  const receiverSwishPhone = useMemo(
+    () => normalizeSwishPhone(selectedReceiver?.phone || null),
+    [selectedReceiver],
+  );
+  const swishLink = useMemo(
+    () => buildSwishLink({
+      phone: receiverSwishPhone,
+      amount: parsedAmount,
+      message: 'Kvitt skuld',
+    }),
+    [receiverSwishPhone, parsedAmount],
+  );
+  const showSwishSection = Boolean(formData.receiver_id && receiverSwishPhone);
+  const canSwish = Boolean(swishLink && formData.payer_id && formData.receiver_id);
 
   useEffect(() => {
     const handleEscape = (event) => {
@@ -130,6 +180,26 @@ export default function NewSettlementModal({ groupId, members, balances, current
             </span>
             <span className="amount-neutral">{formatCurrency(suggestedAmount, { precise: true })}</span>
           </button>
+        ) : null}
+
+        {showSwishSection ? (
+          <div className="space-y-2">
+            {canSwish ? (
+              <a
+                href={swishLink}
+                className="btn-secondary w-full justify-center"
+              >
+                Swisha {getUserDisplayName(selectedReceiver)}
+              </a>
+            ) : (
+              <button type="button" className="btn-secondary w-full justify-center" disabled>
+                Swisha {getUserDisplayName(selectedReceiver)}
+              </button>
+            )}
+            {!canSwish ? (
+              <p className="m-0 text-xs text-[var(--text-muted)]">Fyll i belopp för att starta Swish.</p>
+            ) : null}
+          </div>
         ) : null}
 
         <section className="space-y-3">

@@ -11,7 +11,7 @@ export function calculateMemberBalances(groupId) {
   }
 
   const members = db.prepare(`
-    SELECT u.id, u.full_name, u.username
+    SELECT u.id, u.full_name, u.username, u.phone
     FROM group_members gm
     JOIN users u ON u.id = gm.user_id
     WHERE gm.group_id = ?
@@ -99,8 +99,18 @@ export function calculateBalances(groupId) {
 
     if (roundedAmount > EPSILON) {
       transactions.push({
-        from: { id: debtor.id, full_name: debtor.full_name, username: debtor.username },
-        to: { id: creditor.id, full_name: creditor.full_name, username: creditor.username },
+        from: {
+          id: debtor.id,
+          full_name: debtor.full_name,
+          username: debtor.username,
+          phone: debtor.phone ?? null,
+        },
+        to: {
+          id: creditor.id,
+          full_name: creditor.full_name,
+          username: creditor.username,
+          phone: creditor.phone ?? null,
+        },
         amount: roundedAmount,
       });
     }
