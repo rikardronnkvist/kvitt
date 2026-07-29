@@ -6,6 +6,10 @@ services:
       - JWT_SECRET=${JWT_SECRET:-changeme-use-a-strong-secret}
       - PORT=${PORT:-3000}
       - DB_PATH=/app/data/kvitt.db
+      - PASSKEY_RP_ID=${PASSKEY_RP_ID:-localhost}
+      - PASSKEY_RP_NAME=${PASSKEY_RP_NAME:-Kvitt}
+      - PASSKEY_ORIGIN=${PASSKEY_ORIGIN:-http://localhost:8080}
+      - DEVBOX=${DEVBOX:-false}
     volumes:
       - kvitt_data:/app/data
     restart: unless-stopped
