@@ -91,12 +91,18 @@ export default function EditExpenseModal({ expense, members, groupId, onClose, o
     }
   };
 
+  const handleKeyDown = (event) => {
+    if (event.key === 'Escape') {
+      onClose();
+    }
+  };
+
   if (!expense) return null;
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop" onClick={onClose} onKeyDown={handleKeyDown}>
       <section
-        className="card modal-card"
+        className="modal-card"
         role="dialog"
         aria-modal="true"
         aria-label="Redigera utgift"
