@@ -44,13 +44,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8">
-      <section>
-        <div className="space-y-2">
-          <p className="section-eyebrow">Översikt</p>
-          <h1 className="page-title">Dina grupper</h1>
-          <p className="page-copy">Håll koll på varje grupps saldo och skapa nya kostnadsytor utan extra brus.</p>
-        </div>
-      </section>
+
 
       {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
 
