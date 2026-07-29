@@ -136,6 +136,7 @@ export default function GroupView() {
   }, [group]);
 
   const members = group?.members ?? [];
+  const isGroupOwner = Number(group?.created_by) === Number(currentUserId);
   const theme = getThemeForGroup(group);
   const mileageRate = Number(group?.mileage_rate) > 0 ? Number(group.mileage_rate) : 20;
   const editingExpense = expenses.find((expense) => expense.id === editingExpenseId);
@@ -308,10 +309,12 @@ export default function GroupView() {
                 <button type="button" className="btn-secondary" onClick={() => setIsAddingSettlement(true)}>
                   Kvitta skuld
                 </button>
-                <button type="button" className="btn-secondary" onClick={() => setIsSettingsOpen(true)}>
-                  <Settings className="h-4 w-4" />
-                  Inställningar
-                </button>
+                {isGroupOwner ? (
+                  <button type="button" className="btn-secondary" onClick={() => setIsSettingsOpen(true)}>
+                    <Settings className="h-4 w-4" />
+                    Inställningar
+                  </button>
+                ) : null}
               </div>
             </div>
 
@@ -393,7 +396,7 @@ export default function GroupView() {
         </section>
       </div>
 
-      {isSettingsOpen ? (
+      {isSettingsOpen && isGroupOwner ? (
         <ModalShell
           title="Gruppinställningar"
           description="Bjud in fler personer, ta bort medlemmar eller välj gruppens färgtema."
