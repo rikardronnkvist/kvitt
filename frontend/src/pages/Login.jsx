@@ -216,7 +216,7 @@ export default function Login() {
                   value={registerForm.phone}
                   onChange={(event) => setRegisterForm((previous) => ({ ...previous, phone: event.target.value }))}
                   disabled={!hasValidRegistrationToken}
-                  placeholder="T.ex. +46 70 123 45 67"
+                  placeholder="T.ex. 070 123 45 67"
                   autoComplete="tel"
                 />
               </label>
