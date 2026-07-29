@@ -171,7 +171,7 @@ export default function ExpenseFormFields({
           </label>
         ) : <div className="hidden md:block" aria-hidden="true" />}
 
-        <label className="field-label">
+        <label className="field-label md:col-span-2">
           Betald av
           <select
             value={form.paid_by_user_id}
