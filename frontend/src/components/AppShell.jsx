@@ -15,7 +15,7 @@ export default function AppShell() {
   const [newGroupTheme, setNewGroupTheme] = useState(GROUP_THEMES[0].id);
   const [groupError, setGroupError] = useState('');
   const [groupSaving, setGroupSaving] = useState(false);
-  const [profileForm, setProfileForm] = useState({ full_name: '', initials: '' });
+  const [profileForm, setProfileForm] = useState({ full_name: '', phone: '', initials: '' });
   const [profileError, setProfileError] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
   const [user, setUser] = useState(() => parseUser());
@@ -38,7 +38,7 @@ export default function AppShell() {
   };
 
   const openEditProfile = () => {
-    setProfileForm({ full_name: user?.full_name || '', initials: user?.initials || '' });
+    setProfileForm({ full_name: user?.full_name || '', phone: user?.phone || '', initials: user?.initials || '' });
     setProfileError('');
     setDropdownOpen(false);
     setEditingProfile(true);
@@ -58,7 +58,11 @@ export default function AppShell() {
     setProfileSaving(true);
     try {
       const trimmedInitials = profileForm.initials.trim();
-      const body = { full_name: profileForm.full_name, initials: trimmedInitials.length === 2 ? trimmedInitials : '' };
+      const body = {
+        full_name: profileForm.full_name,
+        phone: profileForm.phone.trim(),
+        initials: trimmedInitials.length === 2 ? trimmedInitials : '',
+      };
       const data = await put('/api/auth/profile', body);
       localStorage.setItem('token', data.token);
       setUser(parseUser());
@@ -249,6 +253,16 @@ export default function AppShell() {
                     onChange={(e) => setProfileForm((f) => ({ ...f, full_name: e.target.value }))}
                     required
                     autoComplete="name"
+                  />
+                </label>
+                <label className="field-label">
+                  Telefonnummer
+                  <input
+                    type="tel"
+                    value={profileForm.phone}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, phone: e.target.value }))}
+                    placeholder="T.ex. +46 70 123 45 67"
+                    autoComplete="tel"
                   />
                 </label>
                 <label className="field-label">

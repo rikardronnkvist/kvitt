@@ -50,12 +50,12 @@ function getFirstUserAdminFlag() {
   return Number(userCount.count) === 0 ? 1 : 0;
 }
 
-function createPasskeyUser(displayName, userHandle) {
+function createPasskeyUser(displayName, phone, userHandle) {
   const insertUser = db.prepare(`
-    INSERT INTO users (username, is_admin, full_name, user_handle)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO users (username, is_admin, full_name, phone, user_handle)
+    VALUES (?, ?, ?, ?, ?)
   `);
-  const result = insertUser.run(null, getFirstUserAdminFlag(), displayName, userHandle);
+  const result = insertUser.run(null, getFirstUserAdminFlag(), displayName, phone, userHandle);
   return Number(result.lastInsertRowid);
 }
 
@@ -98,7 +98,7 @@ function updatePasskeyCounter(passkeyId, newCounter) {
   `).run(newCounter, passkeyId);
 }
 
-export async function createRegistrationOptions(displayName, registrationToken) {
+export async function createRegistrationOptions(displayName, phone, registrationToken) {
   if (!isValidRegistrationAccessToken(registrationToken)) {
     throw createHttpError(403, 'Registrering är inte tillgänglig med den här länken.');
   }
@@ -127,6 +127,7 @@ export async function createRegistrationOptions(displayName, registrationToken) 
     challenge: options.challenge,
     userHandle,
     displayName,
+    phone: phone && phone.trim().length > 0 ? phone.trim() : null,
     expiresAt: Date.now() + config.challengeTtlMs,
   });
 
@@ -166,7 +167,9 @@ export async function verifyRegistration({ requestId, response }) {
 
   const userId = db.transaction(() => {
     const existingUser = db.prepare('SELECT id FROM users WHERE user_handle = ?').get(challengeEntry.userHandle);
-    const resolvedUserId = existingUser ? Number(existingUser.id) : createPasskeyUser(challengeEntry.displayName, challengeEntry.userHandle);
+    const resolvedUserId = existingUser
+      ? Number(existingUser.id)
+      : createPasskeyUser(challengeEntry.displayName, challengeEntry.phone ?? null, challengeEntry.userHandle);
     savePasskey({
       userId: resolvedUserId,
       credentialID: credential.id,

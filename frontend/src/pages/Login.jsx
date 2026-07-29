@@ -4,7 +4,7 @@ import { post } from '../api/client.js';
 import PasskeyButton from '../components/PasskeyButton.jsx';
 import { usePasskeyAuth } from '../hooks/usePasskeyAuth.js';
 
-const registerInitialState = { full_name: '' };
+const registerInitialState = { full_name: '', phone: '' };
 
 export default function Login() {
   const navigate = useNavigate();
@@ -100,7 +100,7 @@ export default function Login() {
     }
 
     setRegisterForm((current) => ({ ...current, full_name: displayName }));
-    await handlePasskeySignup(displayName, registrationToken);
+    await handlePasskeySignup(displayName, registerForm.phone.trim(), registrationToken);
   };
 
   const handleDevboxUserLogin = async (userId) => {
@@ -158,6 +158,18 @@ export default function Login() {
                   onChange={(event) => setRegisterForm((previous) => ({ ...previous, full_name: event.target.value }))}
                   disabled={!hasRegistrationToken}
                   minLength={3}
+                />
+              </label>
+              <label className="field-label">
+                Telefonnummer
+                <input
+                  name="phone"
+                  type="tel"
+                  value={registerForm.phone}
+                  onChange={(event) => setRegisterForm((previous) => ({ ...previous, phone: event.target.value }))}
+                  disabled={!hasRegistrationToken}
+                  placeholder="T.ex. +46 70 123 45 67"
+                  autoComplete="tel"
                 />
               </label>
             </>

@@ -12,6 +12,7 @@ const router = express.Router();
 
 const registerOptionsSchema = z.object({
   displayName: z.string().trim().min(1).max(100),
+  phone: z.string().trim().max(30).optional().or(z.literal('')),
   registration_token: z.string().trim().min(1),
 });
 
@@ -36,7 +37,7 @@ router.post('/register/options', async (req, res, next) => {
   }
 
   try {
-    const data = await createRegistrationOptions(parsed.data.displayName, parsed.data.registration_token);
+    const data = await createRegistrationOptions(parsed.data.displayName, parsed.data.phone, parsed.data.registration_token);
     return res.json(data);
   } catch (error) {
     return next(error);

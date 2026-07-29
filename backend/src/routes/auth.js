@@ -14,6 +14,7 @@ const devboxLoginSchema = z.object({
 
 const updateProfileSchema = z.object({
   full_name: z.string().trim().min(1).max(100),
+  phone: z.string().trim().max(30).optional().or(z.literal('')),
   initials: z.string().trim().length(2).optional().or(z.literal('')),
 });
 
@@ -75,15 +76,16 @@ router.put('/profile', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Ogiltig data.', details: parsed.error.flatten() });
   }
 
-  const { full_name, initials } = parsed.data;
+  const { full_name, phone, initials } = parsed.data;
   const normalizedInitials = initials && initials.trim().length === 2 ? initials.trim().toUpperCase() : null;
+  const normalizedPhone = phone && phone.trim().length > 0 ? phone.trim() : null;
   const currentUser = db.prepare('SELECT id, is_admin FROM users WHERE id = ?').get(req.user.id);
 
   if (!currentUser) {
     return res.status(404).json({ error: 'Användaren hittades inte.' });
   }
 
-  db.prepare('UPDATE users SET full_name = ?, initials = ? WHERE id = ?').run(full_name, normalizedInitials, req.user.id);
+  db.prepare('UPDATE users SET full_name = ?, phone = ?, initials = ? WHERE id = ?').run(full_name, normalizedPhone, normalizedInitials, req.user.id);
 
   const updatedUser = getAuthUserById(req.user.id);
   return res.json({ token: signToken(updatedUser), user: updatedUser });
