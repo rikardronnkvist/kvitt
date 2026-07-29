@@ -529,6 +529,7 @@ export default function GroupView() {
       {isAddingSettlement ? (
         <NewSettlementModal
           groupId={id}
+          groupName={group?.name}
           members={members}
           balances={balances}
           currentUserId={currentUserId}
