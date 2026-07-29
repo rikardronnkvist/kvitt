@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
-import { ChevronDown, FolderPlus, LogOut, Settings, UserCircle2 } from 'lucide-react';
+import { ChevronDown, FolderPlus, KeyRound, LogOut, Settings, UserCircle2 } from 'lucide-react';
 import { parseUser } from '../lib/session.js';
 import { getUserDisplayName } from '../lib/users.js';
 import { post, put } from '../api/client.js';
 import { GROUP_THEMES } from '../lib/groupTheme.js';
+import { addPasskeyToAccount, getPasskeyErrorMessage, listMyPasskeys } from '../auth/passkey.js';
+import { formatDateTime } from '../lib/format.js';
 
 export default function AppShell() {
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
   const [creatingGroup, setCreatingGroup] = useState(false);
+  const [managingPasskeys, setManagingPasskeys] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupTheme, setNewGroupTheme] = useState(GROUP_THEMES[0].id);
   const [groupError, setGroupError] = useState('');
@@ -18,6 +21,10 @@ export default function AppShell() {
   const [profileForm, setProfileForm] = useState({ full_name: '', phone: '', initials: '' });
   const [profileError, setProfileError] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
+  const [passkeys, setPasskeys] = useState([]);
+  const [passkeysLoading, setPasskeysLoading] = useState(false);
+  const [passkeysSaving, setPasskeysSaving] = useState(false);
+  const [passkeysError, setPasskeysError] = useState('');
   const [user, setUser] = useState(() => parseUser());
   const dropdownRef = useRef(null);
 
@@ -50,6 +57,38 @@ export default function AppShell() {
     setNewGroupTheme(randomTheme.id);
     setGroupError('');
     setCreatingGroup(true);
+  };
+
+  const openPasskeys = async () => {
+    setDropdownOpen(false);
+    setPasskeysError('');
+    setPasskeysLoading(true);
+    setManagingPasskeys(true);
+    try {
+      const data = await listMyPasskeys();
+      setPasskeys(data);
+    } catch (err) {
+      setPasskeysError(err.message || 'Kunde inte ladda passkeys.');
+      setPasskeys([]);
+    } finally {
+      setPasskeysLoading(false);
+    }
+  };
+
+  const handleAddPasskey = async () => {
+    setPasskeysError('');
+    setPasskeysSaving(true);
+    try {
+      const data = await addPasskeyToAccount();
+      localStorage.setItem('token', data.token);
+      setUser(parseUser());
+      const updatedPasskeys = await listMyPasskeys();
+      setPasskeys(updatedPasskeys);
+    } catch (err) {
+      setPasskeysError(getPasskeyErrorMessage(err, 'register'));
+    } finally {
+      setPasskeysSaving(false);
+    }
   };
 
   const handleSaveProfile = async (event) => {
@@ -144,6 +183,14 @@ export default function AppShell() {
                   >
                     <UserCircle2 className="h-4 w-4 text-[var(--text-secondary)]" />
                     Redigera profil
+                  </button>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
+                    onClick={openPasskeys}
+                  >
+                    <KeyRound className="h-4 w-4 text-[var(--text-secondary)]" />
+                    Mina Passkeys
                   </button>
                   {user?.is_admin ? (
                     <button
@@ -289,6 +336,54 @@ export default function AppShell() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      ) : null}
+
+      {managingPasskeys ? (
+        <div className="modal-backdrop app-shell-modal-backdrop" onClick={() => setManagingPasskeys(false)}>
+          <div className="modal-sheet app-shell-modal-sheet md:w-[480px]" onClick={(event) => event.stopPropagation()}>
+            <div className="space-y-5 p-5 sm:p-6">
+              <div className="space-y-1">
+                <p className="section-eyebrow">Säkerhet</p>
+                <h2 className="m-0 text-xl font-semibold">Mina Passkeys</h2>
+              </div>
+
+              {passkeysLoading ? (
+                <p className="m-0 text-sm text-[var(--text-secondary)]">Laddar passkeys...</p>
+              ) : passkeys.length ? (
+                <div className="space-y-2">
+                  {passkeys.map((passkey) => (
+                    <div key={passkey.id} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-3 py-2.5">
+                      <p className="m-0 text-sm font-semibold">
+                        Passkey {passkey.id}
+                      </p>
+                      <p className="m-0 text-xs text-[var(--text-secondary)]">
+                        Skapad: {formatDateTime(passkey.created_at)}
+                      </p>
+                      <p className="m-0 text-xs text-[var(--text-secondary)]">
+                        Senast använd: {passkey.last_used_at ? formatDateTime(passkey.last_used_at) : 'Aldrig'}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="m-0 text-sm text-[var(--text-secondary)]">Inga passkeys registrerade ännu.</p>
+              )}
+
+              {passkeysError ? (
+                <p className="m-0 rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{passkeysError}</p>
+              ) : null}
+
+              <div className="flex gap-3">
+                <button type="button" className="btn-secondary flex-1" onClick={() => setManagingPasskeys(false)}>
+                  Stäng
+                </button>
+                <button type="button" className="btn-primary flex-1" onClick={handleAddPasskey} disabled={passkeysLoading || passkeysSaving}>
+                  {passkeysSaving ? 'Startar...' : 'Lägg till Passkey'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       ) : null}

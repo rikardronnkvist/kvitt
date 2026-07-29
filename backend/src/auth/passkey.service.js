@@ -98,6 +98,31 @@ function updatePasskeyCounter(passkeyId, newCounter) {
   `).run(newCounter, passkeyId);
 }
 
+function getUserForPasskeyEnrollment(userId) {
+  return db.prepare(`
+    SELECT id, full_name, username, user_handle
+    FROM users
+    WHERE id = ?
+  `).get(userId);
+}
+
+function getPasskeysForUser(userId) {
+  return db.prepare(`
+    SELECT id, credential_id, device_type, backed_up, transports, created_at, last_used_at
+    FROM passkeys
+    WHERE user_id = ?
+    ORDER BY created_at DESC, id DESC
+  `).all(userId).map((passkey) => ({
+    id: passkey.id,
+    credential_id: passkey.credential_id,
+    device_type: passkey.device_type,
+    backed_up: Boolean(passkey.backed_up),
+    transports: parseStoredTransports(passkey.transports) || [],
+    created_at: passkey.created_at,
+    last_used_at: passkey.last_used_at,
+  }));
+}
+
 export async function createRegistrationOptions(displayName, phone, registrationToken) {
   if (!isValidRegistrationAccessToken(registrationToken)) {
     throw createHttpError(403, 'Registrering är inte tillgänglig med den här länken.');
@@ -181,6 +206,101 @@ export async function verifyRegistration({ requestId, response }) {
     });
     return resolvedUserId;
   })();
+
+  const user = getAuthUserById(userId);
+  return { token: signToken(user), user };
+}
+
+export function listUserPasskeys(userId) {
+  const user = getAuthUserById(userId);
+  if (!user) {
+    throw createHttpError(404, 'Användaren hittades inte.');
+  }
+  return getPasskeysForUser(userId);
+}
+
+export async function createUserPasskeyOptions(userId) {
+  const config = getWebAuthnConfig();
+  const user = getUserForPasskeyEnrollment(userId);
+  if (!user) {
+    throw createHttpError(404, 'Användaren hittades inte.');
+  }
+
+  const displayName = user.full_name || user.username || `Användare ${user.id}`;
+  const userPasskeys = getPasskeysForUser(userId);
+  const requestId = randomUUID();
+
+  const options = await generateRegistrationOptions({
+    rpName: config.rpName,
+    rpID: config.rpID,
+    userName: `passkey-${user.user_handle}`,
+    userDisplayName: displayName,
+    userID: new TextEncoder().encode(user.user_handle),
+    attestationType: 'none',
+    authenticatorSelection: {
+      residentKey: config.residentKey,
+      userVerification: config.userVerification,
+    },
+    excludeCredentials: userPasskeys.map((passkey) => ({
+      id: passkey.credential_id,
+      type: 'public-key',
+      transports: passkey.transports,
+    })),
+  });
+
+  challengeStore.set({
+    requestId,
+    purpose: 'register-existing',
+    challenge: options.challenge,
+    userId,
+    expiresAt: Date.now() + config.challengeTtlMs,
+  });
+
+  return { requestId, options };
+}
+
+export async function verifyUserPasskeyRegistration({ requestId, response, userId }) {
+  const config = getWebAuthnConfig();
+  const challengeEntry = challengeStore.consume({ requestId, purpose: 'register-existing' });
+  if (!challengeEntry) {
+    throw createHttpError(400, 'Utmaningen har gått ut. Försök igen.');
+  }
+  if (Number(challengeEntry.userId) !== Number(userId)) {
+    throw createHttpError(403, 'Registreringsutmaningen matchar inte användaren.');
+  }
+
+  let verification;
+  try {
+    verification = await verifyRegistrationResponse({
+      response,
+      expectedChallenge: challengeEntry.challenge,
+      expectedOrigin: config.origins,
+      expectedRPID: config.rpID,
+      requireUserVerification: true,
+    });
+  } catch (error) {
+    throw createHttpError(400, error.message || 'Registreringen misslyckades.');
+  }
+
+  if (!verification.verified || !verification.registrationInfo) {
+    throw createHttpError(400, 'Registreringen kunde inte verifieras.');
+  }
+
+  const { credential, credentialDeviceType, credentialBackedUp } = verification.registrationInfo;
+  const existingPasskey = getPasskeyByCredentialId(credential.id);
+  if (existingPasskey) {
+    throw createHttpError(409, 'Den här Passkeyn finns redan registrerad.');
+  }
+
+  savePasskey({
+    userId,
+    credentialID: credential.id,
+    publicKey: credential.publicKey,
+    counter: credential.counter,
+    deviceType: credentialDeviceType,
+    backedUp: credentialBackedUp,
+    transports: credential.transports,
+  });
 
   const user = getAuthUserById(userId);
   return { token: signToken(user), user };
