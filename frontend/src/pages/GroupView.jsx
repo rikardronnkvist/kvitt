@@ -317,7 +317,7 @@ export default function GroupView() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <article className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
+              <article className="rounded-lg border p-4" style={{ background: theme.bgSoft, borderColor: theme.borderSoft }}>
                 <div className="mt-2 space-y-1.5">
                   {summary.byCategory.map((category) => {
                     const CategoryIcon = getCategoryIcon(category.icon);
@@ -332,12 +332,12 @@ export default function GroupView() {
                     );
                   })}
                 </div>
-                <div className="mt-3 flex items-center justify-between gap-3 border-t border-[var(--border-subtle)] pt-2">
+                <div className="mt-3 flex items-center justify-between gap-3 border-t pt-2" style={{ borderColor: theme.borderSoft }}>
                   <span className="text-sm text-[var(--text-secondary)]">Totalt</span>
                   <span className="m-0 text-lg font-semibold amount-neutral">{formatCurrency(summary.totalExpenses, { precise: true })}</span>
                 </div>
               </article>
-              <article className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
+              <article className="rounded-lg border p-4" style={{ background: theme.bgSoft, borderColor: theme.borderSoft }}>
                 <p className="section-eyebrow">Balans</p>
                 <div className="mt-2 space-y-1.5">
                   {memberBalances.map((member) => (
