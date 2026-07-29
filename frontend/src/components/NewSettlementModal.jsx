@@ -217,14 +217,16 @@ export default function NewSettlementModal({
             {canSwish ? (
               <a
                 href={swishLink}
-                className="btn-secondary w-full justify-center"
+                className="btn-secondary w-full justify-center gap-2"
                 target="_blank"
                 rel="noopener noreferrer"
               >
+                <img src="/swish.png" alt="" className="h-5 w-5" aria-hidden="true" />
                 Swisha {swishAmountText} kr till {getUserDisplayName(selectedReceiver)}
               </a>
             ) : (
-              <button type="button" className="btn-secondary w-full justify-center" disabled>
+              <button type="button" className="btn-secondary w-full justify-center gap-2" disabled>
+                <img src="/swish.png" alt="" className="h-5 w-5" aria-hidden="true" />
                 Swisha {getUserDisplayName(selectedReceiver)}
               </button>
             )}
