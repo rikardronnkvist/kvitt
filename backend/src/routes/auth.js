@@ -1,13 +1,13 @@
 import express from 'express';
 import { randomUUID } from 'node:crypto';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import { z } from 'zod';
-import { db, usersTableHasUsernameColumn } from '../db/database.js';
+import { db } from '../db/database.js';
 import requireAuth from '../middleware/auth.js';
+import passkeyRoutes from '../auth/passkey.routes.js';
+import { getAuthUserById, signToken } from '../auth/token.js';
 
 const router = express.Router();
-const jwtSecret = process.env.JWT_SECRET || 'changeme-use-a-strong-secret';
 
 const registerSchema = z.object({
   email: z.string().trim().email(),
@@ -31,13 +31,7 @@ const updateProfileSchema = z.object({
   path: ['current_password'],
 });
 
-function signToken(user) {
-  return jwt.sign(
-    { id: user.id, email: user.email, is_admin: Boolean(user.is_admin), full_name: user.full_name, initials: user.initials || null },
-    jwtSecret,
-    { expiresIn: '7d' },
-  );
-}
+router.use('/passkey', passkeyRoutes);
 
 router.post('/register', async (req, res) => {
   const parsed = registerSchema.safeParse(req.body);
@@ -57,15 +51,11 @@ router.post('/register', async (req, res) => {
   const userCount = db.prepare('SELECT COUNT(*) AS count FROM users').get();
   const isFirstUser = Number(userCount.count) === 0;
   const passwordHash = await bcrypt.hash(password, 10);
-  const result = usersTableHasUsernameColumn()
-    ? db.prepare(
-      'INSERT INTO users (username, email, is_admin, password_hash, full_name) VALUES (?, ?, ?, ?, ?)',
-    ).run(`legacy-${randomUUID()}`, normalizedEmail, isFirstUser ? 1 : 0, passwordHash, full_name)
-    : db.prepare(
-      'INSERT INTO users (email, is_admin, password_hash, full_name) VALUES (?, ?, ?, ?)',
-    ).run(normalizedEmail, isFirstUser ? 1 : 0, passwordHash, full_name);
+  const result = db.prepare(
+    'INSERT INTO users (username, email, is_admin, password_hash, full_name, user_handle) VALUES (?, ?, ?, ?, ?, ?)',
+  ).run(null, normalizedEmail, isFirstUser ? 1 : 0, passwordHash, full_name, randomUUID());
 
-  const user = db.prepare('SELECT id, email, is_admin, full_name, initials FROM users WHERE id = ?').get(result.lastInsertRowid);
+  const user = getAuthUserById(result.lastInsertRowid);
 
   return res.status(201).json({ token: signToken(user), user });
 });
@@ -78,7 +68,7 @@ router.post('/login', async (req, res) => {
 
   const { email, password } = parsed.data;
   const user = db.prepare(
-    'SELECT id, email, is_admin, password_hash, full_name, initials FROM users WHERE email = ?',
+    'SELECT id, username, email, is_admin, password_hash, full_name, initials, user_handle FROM users WHERE email = ?',
   ).get(email.toLowerCase());
 
   if (!user) {
@@ -92,6 +82,18 @@ router.post('/login', async (req, res) => {
 
   const { password_hash: _passwordHash, ...safeUser } = user;
   return res.json({ token: signToken(safeUser), user: safeUser });
+});
+
+router.get('/me', requireAuth, (req, res) => {
+  const user = getAuthUserById(req.user.id);
+  if (!user) {
+    return res.status(404).json({ error: 'Användaren hittades inte.' });
+  }
+  return res.json({ user });
+});
+
+router.post('/logout', (_req, res) => {
+  return res.status(204).send();
 });
 
 router.put('/profile', requireAuth, async (req, res) => {
@@ -127,7 +129,7 @@ router.put('/profile', requireAuth, async (req, res) => {
 
   db.prepare('UPDATE users SET full_name = ?, email = ?, initials = ? WHERE id = ?').run(full_name, normalizedEmail, normalizedInitials, req.user.id);
 
-  const updatedUser = db.prepare('SELECT id, email, is_admin, full_name, initials FROM users WHERE id = ?').get(req.user.id);
+  const updatedUser = getAuthUserById(req.user.id);
   return res.json({ token: signToken(updatedUser), user: updatedUser });
 });
 
