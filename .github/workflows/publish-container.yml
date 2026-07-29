@@ -19,6 +19,9 @@ env:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [backend, frontend]
 
     steps:
       - name: Check out repository
@@ -38,7 +41,7 @@ jobs:
         id: metadata
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.service }}
           tags: |
             type=ref,event=branch
             type=ref,event=tag
@@ -48,7 +51,8 @@ jobs:
       - name: Build and publish container image
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ${{ matrix.service }}
+          dockerfile: ${{ matrix.service }}/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.metadata.outputs.tags }}
