@@ -8,6 +8,7 @@ import passkeyRoutes from '../auth/passkey.routes.js';
 import { getAuthUserById, signToken } from '../auth/token.js';
 
 const router = express.Router();
+const isDevboxMode = process.env.DEVBOX === 'true' || process.env.NODE_ENV === 'development';
 
 const registerSchema = z.object({
   email: z.string().trim().email(),
@@ -18,6 +19,10 @@ const registerSchema = z.object({
 const loginSchema = z.object({
   email: z.string().trim().email(),
   password: z.string().min(1),
+});
+
+const devboxLoginSchema = z.object({
+  user_id: z.coerce.number().int().positive(),
 });
 
 const updateProfileSchema = z.object({
@@ -82,6 +87,44 @@ router.post('/login', async (req, res) => {
 
   const { password_hash: _passwordHash, ...safeUser } = user;
   return res.json({ token: signToken(safeUser), user: safeUser });
+});
+
+router.get('/devbox/users', (_req, res) => {
+  if (!isDevboxMode) {
+    return res.status(404).json({ error: 'Hittades inte.' });
+  }
+
+  const users = db.prepare(`
+    SELECT id, username, email, full_name
+    FROM users
+    ORDER BY COALESCE(NULLIF(full_name, ''), NULLIF(username, ''), NULLIF(email, ''), id)
+  `).all();
+
+  return res.json({
+    users: users.map((user) => ({
+      id: user.id,
+      name: user.full_name || user.username || user.email || `Användare ${user.id}`,
+      subtitle: user.email || user.username || null,
+    })),
+  });
+});
+
+router.post('/devbox/login', (req, res) => {
+  if (!isDevboxMode) {
+    return res.status(404).json({ error: 'Hittades inte.' });
+  }
+
+  const parsed = devboxLoginSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Ogiltig användare.', details: parsed.error.flatten() });
+  }
+
+  const user = getAuthUserById(parsed.data.user_id);
+  if (!user) {
+    return res.status(404).json({ error: 'Användaren hittades inte.' });
+  }
+
+  return res.json({ token: signToken(user), user });
 });
 
 router.get('/me', requireAuth, (req, res) => {

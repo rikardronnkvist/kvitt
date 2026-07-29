@@ -32,6 +32,7 @@ The frontend is available on `http://localhost:8080` by default and proxies API 
 | `PASSKEY_RP_ID` | `localhost` | WebAuthn relying party ID. Use your domain in production. |
 | `PASSKEY_RP_NAME` | `Kvitt` | Displayed relying party name for passkey prompts. |
 | `PASSKEY_ORIGIN` | `http://localhost:5173` | Allowed WebAuthn origin(s), comma-separated if needed. |
+| `DEVBOX` | `false` | Enables devbox-only quick-login endpoints and user picker on login screen. |
 
 ### Passkey setup notes (local vs production)
 - **Local development**: use `PASSKEY_RP_ID=localhost` and `PASSKEY_ORIGIN=http://localhost:5173`.
@@ -115,6 +116,7 @@ Frontend finns som standard på `http://localhost:8080` och proxar API-anrop til
 | `PASSKEY_RP_ID` | `localhost` | WebAuthn RP-ID. Använd din domän i produktion. |
 | `PASSKEY_RP_NAME` | `Kvitt` | Visningsnamn för RP i passkey-dialogen. |
 | `PASSKEY_ORIGIN` | `http://localhost:5173` | Tillåtna WebAuthn-origin(s), kommaseparerade vid behov. |
+| `DEVBOX` | `false` | Aktiverar devbox-endpoints för snabbinloggning och användarlista på inloggningssidan. |
 
 ### Passkey-konfiguration (lokalt vs produktion)
 - **Lokal utveckling**: använd `PASSKEY_RP_ID=localhost` och `PASSKEY_ORIGIN=http://localhost:5173`.
