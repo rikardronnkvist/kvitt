@@ -173,7 +173,7 @@ export default function EditExpenseModal({ expense, members, groupId, onClose, o
               <option value="">-- Välj --</option>
               {members.map((member) => (
                 <option key={member.id} value={member.id}>
-                  {member.username}
+                  {member.full_name || member.username}
                 </option>
               ))}
             </select>
@@ -204,7 +204,7 @@ export default function EditExpenseModal({ expense, members, groupId, onClose, o
                       },
                     }))}
                   />
-                  {member.username}
+                  {member.full_name || member.username}
                 </label>
               ))}
             </div>
