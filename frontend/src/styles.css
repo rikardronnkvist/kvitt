@@ -176,7 +176,7 @@ textarea {
   background: transparent;
   border: none;
   box-shadow: none;
-  padding: 0;
+  padding: 1rem;
 }
 
 .modal-header {
