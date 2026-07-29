@@ -297,6 +297,23 @@ export default function GroupView() {
                   <BalanceList balances={balances} nested />
                 </div>
               )}
+
+              {settlements && settlements.length > 0 && (
+                <div className="settlements-section">
+                  <h3>Kvittenser/Betalningar</h3>
+                  <ul className="list-reset settlements-list">
+                    {settlements.map((settlement) => (
+                      <li key={settlement.id} className="settlement-item">
+                        <div className="settlement-payer">{settlement.payer_username}</div>
+                        <div className="settlement-arrow">→</div>
+                        <div className="settlement-receiver">{settlement.receiver_username}</div>
+                        <div className="settlement-amount">{settlement.amount.toFixed(2)} SEK</div>
+                        <div className="settlement-date">{new Date(settlement.settled_at).toLocaleDateString('sv-SE')}</div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           ) : null}
 
