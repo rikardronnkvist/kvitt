@@ -124,6 +124,32 @@ export default function ExpenseFormFields({
           />
         </label>
 
+        {isCarTripCategory ? (
+          <label className="field-label">
+            <span>Antal mil <span className="text-[var(--text-muted)] font-normal">({mileageRate} kr/mil)</span></span>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={form.distance_mil || ''}
+              onChange={(event) => {
+                const distanceMil = sanitizeIntegerInput(event.target.value);
+                const numericDistance = Number(distanceMil);
+                const calculatedAmount = Number.isFinite(numericDistance) && numericDistance >= 0
+                  ? String(Math.round(numericDistance * mileageRate))
+                  : '';
+                setForm((previous) => ({
+                  ...previous,
+                  distance_mil: distanceMil,
+                  amount: calculatedAmount,
+                  title: getCarTripTitle(distanceMil || 0),
+                }));
+              }}
+              placeholder="0"
+            />
+          </label>
+        ) : null}
+
         <label className="field-label">
           Belopp
           <input
@@ -149,31 +175,7 @@ export default function ExpenseFormFields({
           />
         </label>
 
-        {isCarTripCategory ? (
-          <label className="field-label">
-            <span>Antal mil <span className="text-[var(--text-muted)] font-normal">({mileageRate} kr/mil)</span></span>
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              value={form.distance_mil || ''}
-              onChange={(event) => {
-                const distanceMil = sanitizeIntegerInput(event.target.value);
-                const numericDistance = Number(distanceMil);
-                const calculatedAmount = Number.isFinite(numericDistance) && numericDistance >= 0
-                  ? String(Math.round(numericDistance * mileageRate))
-                  : '';
-                setForm((previous) => ({
-                  ...previous,
-                  distance_mil: distanceMil,
-                  amount: calculatedAmount,
-                  title: getCarTripTitle(distanceMil || 0),
-                }));
-              }}
-              placeholder="0"
-            />
-          </label>
-        ) : <div className="hidden md:block" aria-hidden="true" />}
+        {!isCarTripCategory ? <div className="hidden md:block" aria-hidden="true" /> : null}
 
         <label className="field-label md:col-span-2">
           Betald av
