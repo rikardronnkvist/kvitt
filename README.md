@@ -69,6 +69,7 @@ npm run dev
 ```
 
 The backend starts on `http://localhost:3000` and the frontend Vite dev server starts on `http://localhost:5173`, proxying `/api` requests to the backend.
+Local npm dev/start scripts now default to `DEVBOX=true`.
 
 Alternatively, run each in a separate terminal:
 
@@ -157,6 +158,7 @@ npm run dev
 ```
 
 Backend startar på `http://localhost:3000` och Vites utvecklingsserver startar på `http://localhost:5173` och proxar `/api` till backend.
+Lokala npm-skript för dev/start kör nu som standard med `DEVBOX=true`.
 
 Alternativt, kör var och en i ett eget terminalfönster:
 

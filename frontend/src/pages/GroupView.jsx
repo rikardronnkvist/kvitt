@@ -189,8 +189,8 @@ export default function GroupView() {
         ...settlement,
         kind: 'settlement',
         activityDate: settlement.settled_at,
-        payer_display_name: getUserDisplayName({ full_name: settlement.payer_full_name, email: settlement.payer_email }),
-        receiver_display_name: getUserDisplayName({ full_name: settlement.receiver_full_name, email: settlement.receiver_email }),
+        payer_display_name: getUserDisplayName({ full_name: settlement.payer_full_name, username: settlement.payer_username }),
+        receiver_display_name: getUserDisplayName({ full_name: settlement.receiver_full_name, username: settlement.receiver_username }),
       })),
     ].sort((a, b) => new Date(b.activityDate) - new Date(a.activityDate));
   }, [expenses, settlements]);
@@ -445,11 +445,11 @@ export default function GroupView() {
 
             <div className="space-y-3">
               <label className="field-label">
-                Lägg till medlem via namn eller e-post
+                Lägg till medlem via namn
                 <input
                   value={memberSearchQuery}
                   onChange={(event) => setMemberSearchQuery(event.target.value)}
-                  placeholder="Sök på fullständigt namn eller e-post"
+                  placeholder="Sök på fullständigt namn"
                 />
               </label>
               {memberSearchQuery.trim() ? (
@@ -462,7 +462,6 @@ export default function GroupView() {
                     <div key={candidate.id} className="flex flex-col gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p className="m-0 text-sm font-medium">{getUserSearchLabel(candidate)}</p>
-                        {candidate.full_name ? <p className="mt-1 text-sm text-[var(--text-secondary)]">{candidate.email}</p> : null}
                       </div>
                       <button type="button" className="btn-primary" onClick={() => handleAddMember(candidate.id)}>
                         <UserPlus className="h-4 w-4" />
@@ -481,7 +480,6 @@ export default function GroupView() {
                 <div key={member.id} className="flex flex-col gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="m-0 text-sm font-medium">{getUserDisplayName(member)}</p>
-                    <p className="mt-1 text-sm text-[var(--text-secondary)]">{member.email}</p>
                   </div>
                   <button type="button" className="btn-danger" onClick={() => handleRemoveMember(member.id)}>
                     Ta bort

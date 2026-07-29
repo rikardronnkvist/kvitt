@@ -5,7 +5,7 @@ import { getUserDisplayName, getUserInitials } from '../lib/users.js';
 export default function ExpenseItem({ expense, onEdit }) {
   const uniqueParticipants = Array.from(
     new Map(
-      [{ user_id: expense.paid_by_user_id, full_name: expense.paid_by_full_name, email: expense.paid_by_email, initials: expense.paid_by_initials }, ...expense.splits].map((item) => [
+      [{ user_id: expense.paid_by_user_id, full_name: expense.paid_by_full_name, username: expense.paid_by_username, initials: expense.paid_by_initials }, ...expense.splits].map((item) => [
         item.user_id,
         item,
       ]),
@@ -15,7 +15,7 @@ export default function ExpenseItem({ expense, onEdit }) {
     const initialsB = getUserInitials(b);
     return initialsA.localeCompare(initialsB, 'sv');
   });
-  const payer = { full_name: expense.paid_by_full_name, email: expense.paid_by_email, initials: expense.paid_by_initials };
+  const payer = { full_name: expense.paid_by_full_name, username: expense.paid_by_username, initials: expense.paid_by_initials };
   const CategoryIcon = getCategoryIcon(expense.category_icon);
 
   const handleKeyDown = (event) => {

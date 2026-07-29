@@ -52,10 +52,10 @@ function getFirstUserAdminFlag() {
 
 function createPasskeyUser(displayName, userHandle) {
   const insertUser = db.prepare(`
-    INSERT INTO users (username, email, password_hash, is_admin, full_name, user_handle)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO users (username, password_hash, is_admin, full_name, user_handle)
+    VALUES (?, ?, ?, ?, ?)
   `);
-  const result = insertUser.run(null, null, null, getFirstUserAdminFlag(), displayName, userHandle);
+  const result = insertUser.run(null, null, getFirstUserAdminFlag(), displayName, userHandle);
   return Number(result.lastInsertRowid);
 }
 
@@ -112,7 +112,7 @@ export async function createRegistrationOptions(displayName, registrationToken) 
     rpID: config.rpID,
     userName: `passkey-${userHandle}`,
     userDisplayName: displayName,
-    // Persisting a stable user handle lets us identify accounts independently of email/username.
+    // Persisting a stable user handle lets us identify accounts independently of user profile fields.
     userID: new TextEncoder().encode(userHandle),
     attestationType: 'none',
     authenticatorSelection: {
