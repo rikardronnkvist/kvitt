@@ -7,11 +7,25 @@ function sanitizeIntegerInput(value) {
   return String(value ?? '').replace(/\D/g, '');
 }
 
+function toLocalDateTimeInputValue(input) {
+  const raw = String(input || '').trim();
+  const directMatch = raw.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})(?::\d{2})?$/);
+  if (directMatch) {
+    return `${directMatch[1]}T${directMatch[2]}`;
+  }
+
+  const date = input ? new Date(input) : new Date();
+  const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${safeDate.getFullYear()}-${pad(safeDate.getMonth() + 1)}-${pad(safeDate.getDate())}T${pad(safeDate.getHours())}:${pad(safeDate.getMinutes())}`;
+}
+
 export default function EditSettlementModal({ settlement, members, groupId, onClose, onSave, onDelete }) {
   const [formData, setFormData] = useState({
     payer_id: '',
     receiver_id: '',
     amount: '',
+    settled_at: '',
   });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -26,6 +40,7 @@ export default function EditSettlementModal({ settlement, members, groupId, onCl
         payer_id: String(settlement.payer_id),
         receiver_id: String(settlement.receiver_id),
         amount: String(Math.round(settlement.amount)),
+        settled_at: toLocalDateTimeInputValue(settlement.settled_at),
       });
     }
   }, [settlement]);
@@ -79,6 +94,7 @@ export default function EditSettlementModal({ settlement, members, groupId, onCl
         payer_id: Number(formData.payer_id),
         receiver_id: Number(formData.receiver_id),
         amount,
+        settled_at: formData.settled_at,
       });
       onSave(updated);
       onClose();
@@ -144,6 +160,18 @@ export default function EditSettlementModal({ settlement, members, groupId, onCl
             pattern="[0-9]*"
             value={formData.amount}
             onChange={(event) => setFormData((previous) => ({ ...previous, amount: sanitizeIntegerInput(event.target.value) }))}
+            required
+          />
+        </label>
+
+        <label className="field-label">
+          Datum och tid för betalningen
+          <input
+            type="datetime-local"
+            value={formData.settled_at}
+            onChange={(event) => setFormData((previous) => ({ ...previous, settled_at: event.target.value }))}
+            step="60"
+            lang="sv-SE"
             required
           />
         </label>
