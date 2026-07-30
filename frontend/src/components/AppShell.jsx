@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronDown, FolderPlus, KeyRound, LogOut, Settings, UserCircle2 } from 'lucide-react';
 import { parseUser } from '../lib/session.js';
 import { getUserDisplayName } from '../lib/users.js';
@@ -17,6 +17,8 @@ import { formatSwedishPhone, sanitizePhoneInput } from '../lib/phone.js';
 
 export default function AppShell() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isDashboard = location.pathname === '/';
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
   const [creatingGroup, setCreatingGroup] = useState(false);
@@ -192,6 +194,7 @@ export default function AppShell() {
             <button
               type="button"
               className="hidden min-h-11 items-center gap-2 rounded-lg border border-[var(--border-subtle)] px-3 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--app-surface-muted)] hover:text-[var(--text-primary)] md:inline-flex"
+              style={{ display: isDashboard ? undefined : 'none' }}
               onClick={openCreateGroup}
             >
               <FolderPlus className="h-4 w-4" />
