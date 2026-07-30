@@ -16,6 +16,9 @@ import { getCurrentUserId } from '../lib/session.js';
 import { getUserDisplayName, getUserSearchLabel } from '../lib/users.js';
 import { GROUP_THEMES, getThemeForGroup } from '../lib/groupTheme.js';
 
+const INITIAL_TIMELINE_VISIBLE_COUNT = 25;
+const TIMELINE_LOAD_STEP = 25;
+
 function sanitizeIntegerInput(value) {
   return String(value ?? '').replace(/\D/g, '');
 }
@@ -131,6 +134,7 @@ export default function GroupView() {
   const [editingSettlementId, setEditingSettlementId] = useState(null);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [isAddingSettlement, setIsAddingSettlement] = useState(false);
+  const [visibleTimelineCount, setVisibleTimelineCount] = useState(INITIAL_TIMELINE_VISIBLE_COUNT);
   const [groupActionSaving, setGroupActionSaving] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -254,6 +258,16 @@ export default function GroupView() {
       return Number(b.id) - Number(a.id);
     });
   }, [expenses, settlements]);
+
+  useEffect(() => {
+    setVisibleTimelineCount(INITIAL_TIMELINE_VISIBLE_COUNT);
+  }, [id, timeline.length]);
+
+  const visibleTimeline = useMemo(
+    () => timeline.slice(0, visibleTimelineCount),
+    [timeline, visibleTimelineCount],
+  );
+  const hasMoreTimeline = timeline.length > visibleTimelineCount;
 
   const memberBalances = useMemo(
     () => computeMemberBalances(members, expenses, settlements),
@@ -548,13 +562,24 @@ export default function GroupView() {
 
           {timeline.length ? (
             <div>
-              {timeline.map((item) => (
+              {visibleTimeline.map((item) => (
                 item.kind === 'expense' ? (
                   <ExpenseItem key={`expense-${item.id}`} expense={item} onEdit={setEditingExpenseId} readOnly={isArchived} />
                 ) : (
                   <SettlementItem key={`settlement-${item.id}`} settlement={item} onEdit={setEditingSettlementId} readOnly={isArchived} />
                 )
               ))}
+              {hasMoreTimeline ? (
+                <div className="flex justify-center border-t border-[var(--border-subtle)] px-5 py-4">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() => setVisibleTimelineCount((previous) => previous + TIMELINE_LOAD_STEP)}
+                  >
+                    Ladda fler händelser
+                  </button>
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="p-5">
