@@ -169,6 +169,34 @@ export default function GroupView() {
     loadData();
   }, [loadData]);
 
+  // Poll for new activity while the tab is visible — avoids requiring a manual reload
+  useEffect(() => {
+    const POLL_INTERVAL = 20_000;
+    let timerId = null;
+
+    const schedule = () => {
+      timerId = window.setTimeout(() => {
+        if (!document.hidden) {
+          loadData();
+        }
+        schedule();
+      }, POLL_INTERVAL);
+    };
+
+    const onVisibilityChange = () => {
+      if (!document.hidden) {
+        loadData();
+      }
+    };
+
+    schedule();
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.clearTimeout(timerId);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [loadData]);
+
   useEffect(() => {
     if (!group) return;
     setMileageRateDraft(String(Number(group.mileage_rate) > 0 ? Number(group.mileage_rate) : 20));
