@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Archive, CheckCircle2, Coins, RotateCcw, Settings, Trash2, UserPlus } from 'lucide-react';
+import { Archive, BarChart3, CheckCircle2, Coins, RotateCcw, Settings, Trash2, UserPlus } from 'lucide-react';
 import ExpenseItem from '../components/ExpenseItem.jsx';
 import EditExpenseModal from '../components/EditExpenseModal.jsx';
 import NewExpenseModal from '../components/NewExpenseModal.jsx';
@@ -465,6 +465,10 @@ export default function GroupView() {
                     Kvitta skuld
                   </button>
                 ) : null}
+                <button type="button" className="btn-secondary" onClick={() => navigate(`/groups/${id}/statistics`)}>
+                  <BarChart3 className="h-4 w-4" />
+                  Statistik
+                </button>
                 {isGroupOwner && !isArchived ? (
                   <button type="button" className="btn-secondary" onClick={() => setIsSettingsOpen(true)}>
                     <Settings className="h-4 w-4" />

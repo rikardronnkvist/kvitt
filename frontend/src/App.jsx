@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard.jsx';
 import GroupView from './pages/GroupView.jsx';
 import AddExpense from './pages/AddExpense.jsx';
 import Admin from './pages/Admin.jsx';
+import GroupStatistics from './pages/GroupStatistics.jsx';
 import AppShell from './components/AppShell.jsx';
 import { parseUser } from './lib/session.js';
 
@@ -35,6 +36,7 @@ export default function App() {
         <Route element={<AppShell />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/groups/:id" element={<GroupView />} />
+          <Route path="/groups/:id/statistics" element={<GroupStatistics />} />
           <Route path="/groups/:id/expenses/new" element={<AddExpense />} />
           <Route element={<AdminRoute />}>
             <Route path="/admin" element={<Admin />} />
