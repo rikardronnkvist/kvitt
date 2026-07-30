@@ -121,6 +121,39 @@ function formatPeriodLabel(date, granularity) {
   return `v.${iso.week} ${iso.year}`;
 }
 
+function getAutomaticTimelineGranularity(expenses, settlements) {
+  const timestamps = [
+    ...expenses.map((expense) => expense.occurred_at || expense.created_at),
+    ...settlements.map((settlement) => settlement.settled_at),
+  ]
+    .map((value) => new Date(value))
+    .filter((date) => !Number.isNaN(date.getTime()))
+    .map((date) => date.getTime());
+
+  if (!timestamps.length) {
+    return 'month';
+  }
+
+  const oldestTimestamp = Math.min(...timestamps);
+  const now = new Date();
+
+  const threeMonthsAgo = new Date(now);
+  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+  if (oldestTimestamp >= threeMonthsAgo.getTime()) {
+    return 'week';
+  }
+
+  const oneYearAgo = new Date(now);
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+  if (oldestTimestamp >= oneYearAgo.getTime()) {
+    return 'month';
+  }
+
+  return 'year';
+}
+
 function toPieData(entries) {
   return entries
     .filter((entry) => Number(entry.value) > 0)
@@ -149,7 +182,7 @@ function StatisticsSkeleton() {
   );
 }
 
-function TimelineChart({ periods, granularity, onGranularityChange }) {
+function TimelineChart({ periods, granularity, onGranularityChange, theme }) {
   const width = 760;
   const height = 280;
   const margin = { top: 14, right: 12, bottom: 44, left: 58 };
@@ -191,7 +224,13 @@ function TimelineChart({ periods, granularity, onGranularityChange }) {
           </select>
         </label>
       </div>
-      <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
+      <div
+        className="rounded-lg border p-3"
+        style={{
+          borderColor: theme?.borderSoft || 'var(--border-subtle)',
+          background: theme?.bgSoft || 'var(--app-surface-muted)',
+        }}
+      >
         <svg viewBox={`0 0 ${width} ${height}`} className="h-[250px] w-full" role="img" aria-label="Utgiftstidslinje">
           {yTicks.map((tick) => {
             const y = margin.top + (1 - tick) * chartHeight;
@@ -395,6 +434,10 @@ export default function GroupStatistics() {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    setTimelineGranularity(getAutomaticTimelineGranularity(expenses, settlements));
+  }, [id, expenses, settlements]);
+
   const members = group?.members ?? [];
   const theme = getThemeForGroup(group);
 
@@ -449,15 +492,6 @@ export default function GroupStatistics() {
       (expense) => Number(expense.amount || 0),
     );
 
-    const spentByMap = new Map();
-    for (const expense of expenses) {
-      for (const split of expense.splits || []) {
-        const member = members.find((item) => Number(item.id) === Number(split.user_id));
-        const label = getUserDisplayName(member || { id: split.user_id });
-        spentByMap.set(label, (spentByMap.get(label) || 0) + Number(split.amount_owed || 0));
-      }
-    }
-
     const periodDates = [
       ...expenses.map((expense) => expense.occurred_at || expense.created_at),
       ...settlements.map((settlement) => settlement.settled_at),
@@ -466,38 +500,77 @@ export default function GroupStatistics() {
       .filter((date) => !Number.isNaN(date.getTime()))
       .sort((a, b) => a.getTime() - b.getTime());
 
+    const balanceMap = new Map(members.map((member) => [member.id, 0]));
+    expenses.forEach((expense) => {
+      balanceMap.set(
+        expense.paid_by_user_id,
+        (balanceMap.get(expense.paid_by_user_id) || 0) + Number(expense.amount || 0),
+      );
+
+      (expense.splits || []).forEach((split) => {
+        balanceMap.set(
+          split.user_id,
+          (balanceMap.get(split.user_id) || 0) - Number(split.amount_owed || 0),
+        );
+      });
+    });
+
+    settlements.forEach((settlement) => {
+      balanceMap.set(
+        settlement.payer_id,
+        (balanceMap.get(settlement.payer_id) || 0) + Number(settlement.amount || 0),
+      );
+      balanceMap.set(
+        settlement.receiver_id,
+        (balanceMap.get(settlement.receiver_id) || 0) - Number(settlement.amount || 0),
+      );
+    });
+
     const memberRows = members.map((member) => {
+      const expenseCount = expenses
+        .filter((expense) => Number(expense.paid_by_user_id) === Number(member.id))
+        .length;
+
       const paid = expenses
         .filter((expense) => Number(expense.paid_by_user_id) === Number(member.id))
         .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
 
-      const spent = expenses
-        .flatMap((expense) => expense.splits || [])
-        .filter((split) => Number(split.user_id) === Number(member.id))
-        .reduce((sum, split) => sum + Number(split.amount_owed || 0), 0);
+      const transferCount = settlements
+        .filter((settlement) => Number(settlement.payer_id) === Number(member.id))
+        .length;
 
       const transfers = settlements
-        .filter((settlement) => Number(settlement.payer_id) === Number(member.id) || Number(settlement.receiver_id) === Number(member.id))
+        .filter((settlement) => Number(settlement.payer_id) === Number(member.id))
         .reduce((sum, settlement) => sum + Number(settlement.amount || 0), 0);
 
       return {
         ...member,
+        expenseCount,
         paid,
-        spent,
+        transferCount,
         transfers,
+        balance: Math.round(balanceMap.get(member.id) || 0),
       };
     });
+
+    const transfersByMemberData = toPieData(
+      memberRows.map((member) => ({
+        label: getUserDisplayName(member),
+        value: Number(member.transfers || 0),
+      })),
+    );
 
     return {
       totalSpent: expenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0),
       totalTransfers: settlements.reduce((sum, settlement) => sum + Number(settlement.amount || 0), 0),
       membersCount: members.length,
       expensesCount: expenses.length,
+      transfersCount: settlements.length,
       periodRange: formatRangeLabel(periodDates[0], periodDates[periodDates.length - 1]),
       timelinePeriods,
       categoryData: toPieData(Array.from(categoryMap.entries()).map(([label, value]) => ({ label, value }))),
-      spentByData: toPieData(Array.from(spentByMap.entries()).map(([label, value]) => ({ label, value }))),
       paidByData: toPieData(Array.from(paidByMap.entries()).map(([label, value]) => ({ label, value }))),
+      transfersByMemberData,
       memberRows,
     };
   }, [expenses, members, settlements, timelineGranularity]);
@@ -531,29 +604,35 @@ export default function GroupStatistics() {
                   periods={statistics.timelinePeriods}
                   granularity={timelineGranularity}
                   onGranularityChange={setTimelineGranularity}
+                  theme={theme}
                 />
               </div>
             </article>
 
             <aside className="rounded-lg border p-4" style={{ background: theme.bgSoft, borderColor: theme.borderSoft }}>
               <p className="m-0 text-sm font-semibold">Översikt</p>
-              <div className="mt-3 space-y-2 text-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-[var(--text-secondary)]">Totalt spenderat</span>
-                  <span className="font-semibold">{formatCurrency(statistics.totalSpent, { precise: true })}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-[var(--text-secondary)]">Medlemmar</span>
-                  <span className="font-semibold">{statistics.membersCount}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-[var(--text-secondary)]">Utgifter</span>
-                  <span className="font-semibold">{statistics.expensesCount}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-[var(--text-secondary)]">Överföringar</span>
-                  <span className="font-semibold">{formatCurrency(statistics.totalTransfers, { precise: true })}</span>
-                </div>
+              <div className="mt-3 space-y-1.5 text-sm">
+                {[
+                  { label: 'Totalt spenderat', value: formatCurrency(statistics.totalSpent, { precise: true }) },
+                  { label: 'Antal medlemmar', value: `${statistics.membersCount} st` },
+                  { label: 'Antal utgifter', value: `${statistics.expensesCount} st` },
+                  { label: 'Totala utgifter', value: formatCurrency(statistics.totalSpent, { precise: true }) },
+                  { label: 'Antal överföringar', value: `${statistics.transfersCount} st` },
+                  { label: 'Totala överföringar', value: formatCurrency(statistics.totalTransfers, { precise: true }) },
+                ].map((row, index) => (
+                  <div
+                    key={row.label}
+                    className="flex items-center justify-between gap-3 rounded-md px-2.5 py-1.5"
+                    style={{
+                      background: index % 2 === 0
+                        ? 'color-mix(in srgb, var(--app-surface-strong) 80%, transparent)'
+                        : 'color-mix(in srgb, var(--app-surface-muted) 70%, transparent)',
+                    }}
+                  >
+                    <span className="text-[var(--text-secondary)]">{row.label}</span>
+                    <span className="font-semibold">{row.value}</span>
+                  </div>
+                ))}
               </div>
             </aside>
           </div>
@@ -564,7 +643,12 @@ export default function GroupStatistics() {
         <p className="m-0 text-base font-semibold">Medlemmar</p>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           {statistics.memberRows.map((member) => (
-            <article key={member.id} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] p-4">
+            <article key={member.id} className="relative rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] p-4">
+              {Number(member.id) === Number(group?.created_by) ? (
+                <span className="absolute right-4 top-4 inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-2 py-0.5 text-xs font-medium text-[var(--text-secondary)]">
+                  Ägare
+                </span>
+              ) : null}
               <div className="flex items-center gap-3">
                 <div className="grid h-11 w-11 place-items-center rounded-full bg-[var(--app-surface-muted)] text-sm font-semibold text-[var(--text-secondary)]">
                   {getUserInitials(member)}
@@ -573,16 +657,27 @@ export default function GroupStatistics() {
               </div>
               <div className="mt-3 space-y-1.5 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-[var(--text-secondary)]">Betalat</span>
+                  <span className="text-[var(--text-secondary)]">Antal utgifter</span>
+                  <span className="font-semibold">{member.expenseCount} st</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[var(--text-secondary)]">Totala utgifter</span>
                   <span className="font-semibold">{formatCurrency(member.paid, { precise: true })}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[var(--text-secondary)]">Spenderat</span>
-                  <span className="font-semibold">{formatCurrency(member.spent, { precise: true })}</span>
+                  <span className="text-[var(--text-secondary)]">Antal överföringar</span>
+                  <span className="font-semibold">{member.transferCount} st</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[var(--text-secondary)]">Överföringar</span>
+                  <span className="text-[var(--text-secondary)]">Totala överföringar</span>
                   <span className="font-semibold">{formatCurrency(member.transfers, { precise: true })}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[var(--text-secondary)]">Nuvarande balans</span>
+                  <span className={`font-semibold ${member.balance > 0 ? 'amount-positive' : member.balance < 0 ? 'amount-negative' : 'amount-neutral'}`}>
+                    {member.balance < 0 ? '-' : ''}
+                    {formatCurrency(Math.abs(member.balance), { precise: true })}
+                  </span>
                 </div>
               </div>
             </article>
@@ -591,9 +686,9 @@ export default function GroupStatistics() {
       </section>
 
       <section className="grid gap-6 lg:grid-cols-2">
+        <PieCard title="Utgifter per medlem" entries={statistics.paidByData} />
+        <PieCard title="Överföringar per medlem" entries={statistics.transfersByMemberData} />
         <PieCard title="Utgifter per kategori" entries={statistics.categoryData} />
-        <PieCard title="Utgifter per medlem" entries={statistics.spentByData} />
-        <PieCard title="Betalat per medlem" entries={statistics.paidByData} />
       </section>
 
       {!statistics.expensesCount ? (
