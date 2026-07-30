@@ -3,6 +3,7 @@ import { z } from 'zod';
 import authMiddleware from '../middleware/auth.js';
 import { db } from '../db/database.js';
 import { calculateMemberBalances } from '../utils/balance.js';
+import { createUniqueSlug, slugifyGroupName } from '../utils/slug.js';
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -31,6 +32,24 @@ function getMembership(groupId, userId) {
   return db.prepare('SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?').get(groupId, userId);
 }
 
+function resolveGroupId(identifier) {
+  if (!identifier) {
+    return null;
+  }
+
+  const bySlug = db.prepare('SELECT id FROM groups WHERE slug = ?').get(identifier);
+  if (bySlug) {
+    return Number(bySlug.id);
+  }
+
+  if (/^\d+$/.test(String(identifier))) {
+    const byId = db.prepare('SELECT id FROM groups WHERE id = ?').get(Number(identifier));
+    return byId ? Number(byId.id) : null;
+  }
+
+  return null;
+}
+
 function getGroupState(groupId) {
   return db.prepare('SELECT id, created_by, archived_at FROM groups WHERE id = ?').get(groupId);
 }
@@ -48,16 +67,23 @@ function ensureGroupWritable(groupId) {
 
 function requireMembership(req, res, next) {
   const { id } = req.params;
-  const membership = getMembership(Number(id), req.user.id);
+  const groupId = resolveGroupId(id);
+  if (!groupId) {
+    return res.status(404).json({ error: 'Gruppen hittades inte.' });
+  }
+
+  const membership = getMembership(groupId, req.user.id);
   if (!membership) {
     return res.status(403).json({ error: 'Du har inte åtkomst till den här gruppen.' });
   }
+
+  req.groupId = groupId;
   return next();
 }
 
 router.get('/', (req, res) => {
   const groups = db.prepare(`
-    SELECT g.id, g.name, g.theme_color, g.mileage_rate, g.created_at, g.archived_at,
+    SELECT g.id, g.name, g.slug, g.theme_color, g.mileage_rate, g.created_at, g.archived_at,
            COUNT(gm2.user_id) AS member_count,
            COALESCE(
              (SELECT MAX(COALESCE(e.occurred_at, e.created_at)) FROM expenses e WHERE e.group_id = g.id),
@@ -93,25 +119,28 @@ router.post('/', (req, res) => {
   }
 
   const tx = db.transaction(() => {
+    const baseSlug = slugifyGroupName(parsed.data.name);
+    const slug = createUniqueSlug(baseSlug, (candidate) => Boolean(db.prepare('SELECT 1 FROM groups WHERE slug = ?').get(candidate)));
     const result = db.prepare('INSERT INTO groups (name, theme_color, mileage_rate, created_by) VALUES (?, ?, ?, ?)').run(
       parsed.data.name,
       parsed.data.theme_color ?? null,
       parsed.data.mileage_rate ?? 20,
       req.user.id,
     );
+    db.prepare('UPDATE groups SET slug = ? WHERE id = ?').run(slug, result.lastInsertRowid);
     db.prepare('INSERT INTO group_members (group_id, user_id) VALUES (?, ?)').run(result.lastInsertRowid, req.user.id);
     return result.lastInsertRowid;
   });
 
   const groupId = tx();
-  const group = db.prepare('SELECT id, name, theme_color, mileage_rate, created_by, created_at, archived_at FROM groups WHERE id = ?').get(groupId);
+  const group = db.prepare('SELECT id, name, slug, theme_color, mileage_rate, created_by, created_at, archived_at FROM groups WHERE id = ?').get(groupId);
   return res.status(201).json(group);
 });
 
 router.get('/:id', requireMembership, (req, res) => {
-  const groupId = Number(req.params.id);
+  const groupId = req.groupId;
   const group = db.prepare(`
-    SELECT g.id, g.name, g.theme_color, g.mileage_rate, g.created_by, g.created_at, g.archived_at,
+    SELECT g.id, g.name, g.slug, g.theme_color, g.mileage_rate, g.created_by, g.created_at, g.archived_at,
            u.full_name AS created_by_full_name
     FROM groups g
     JOIN users u ON u.id = g.created_by
@@ -139,7 +168,7 @@ router.get('/:id/member-search', requireMembership, (req, res) => {
     return res.status(400).json({ error: 'Ogiltig sökfråga.', details: parsed.error.flatten() });
   }
 
-  const groupId = Number(req.params.id);
+  const groupId = req.groupId;
   const searchTerm = parsed.data.query.toLowerCase();
   const pattern = `%${searchTerm}%`;
   const candidates = db.prepare(`
@@ -172,7 +201,7 @@ router.post('/:id/members', requireMembership, (req, res) => {
     return res.status(400).json({ error: 'Ogiltig användare.', details: parsed.error.flatten() });
   }
 
-  const groupId = Number(req.params.id);
+  const groupId = req.groupId;
   const writable = ensureGroupWritable(groupId);
   if (!writable.ok) {
     return res.status(writable.status).json({ error: writable.error });
@@ -192,7 +221,7 @@ router.post('/:id/members', requireMembership, (req, res) => {
 });
 
 router.delete('/:id/members/:userId', requireMembership, (req, res) => {
-  const groupId = Number(req.params.id);
+  const groupId = req.groupId;
   const userId = Number(req.params.userId);
   const writable = ensureGroupWritable(groupId);
   if (!writable.ok) {
@@ -222,7 +251,7 @@ router.patch('/:id', requireMembership, (req, res) => {
     return res.status(400).json({ error: 'Ogiltig data.', details: parsed.error.flatten() });
   }
 
-  const groupId = Number(req.params.id);
+  const groupId = req.groupId;
   const writable = ensureGroupWritable(groupId);
   if (!writable.ok) {
     return res.status(writable.status).json({ error: writable.error });
@@ -239,12 +268,12 @@ router.patch('/:id', requireMembership, (req, res) => {
     db.prepare('UPDATE groups SET mileage_rate = ? WHERE id = ?').run(mileage_rate, groupId);
   }
 
-  const group = db.prepare('SELECT id, name, theme_color, mileage_rate, created_by, created_at, archived_at FROM groups WHERE id = ?').get(groupId);
+  const group = db.prepare('SELECT id, name, slug, theme_color, mileage_rate, created_by, created_at, archived_at FROM groups WHERE id = ?').get(groupId);
   return res.json(group);
 });
 
 router.post('/:id/archive', requireMembership, (req, res) => {
-  const groupId = Number(req.params.id);
+  const groupId = req.groupId;
   const group = getGroupState(groupId);
   if (!group) {
     return res.status(404).json({ error: 'Gruppen hittades inte.' });
@@ -261,12 +290,12 @@ router.post('/:id/archive', requireMembership, (req, res) => {
     db.prepare("UPDATE groups SET archived_at = datetime('now', 'localtime') WHERE id = ?").run(groupId);
   }
 
-  const archivedGroup = db.prepare('SELECT id, name, theme_color, mileage_rate, created_by, created_at, archived_at FROM groups WHERE id = ?').get(groupId);
+  const archivedGroup = db.prepare('SELECT id, name, slug, theme_color, mileage_rate, created_by, created_at, archived_at FROM groups WHERE id = ?').get(groupId);
   return res.json(archivedGroup);
 });
 
 router.post('/:id/unarchive', requireMembership, (req, res) => {
-  const groupId = Number(req.params.id);
+  const groupId = req.groupId;
   const group = getGroupState(groupId);
   if (!group) {
     return res.status(404).json({ error: 'Gruppen hittades inte.' });
@@ -278,12 +307,12 @@ router.post('/:id/unarchive', requireMembership, (req, res) => {
     db.prepare('UPDATE groups SET archived_at = NULL WHERE id = ?').run(groupId);
   }
 
-  const unarchivedGroup = db.prepare('SELECT id, name, theme_color, mileage_rate, created_by, created_at, archived_at FROM groups WHERE id = ?').get(groupId);
+  const unarchivedGroup = db.prepare('SELECT id, name, slug, theme_color, mileage_rate, created_by, created_at, archived_at FROM groups WHERE id = ?').get(groupId);
   return res.json(unarchivedGroup);
 });
 
 router.delete('/:id', requireMembership, (req, res) => {
-  const groupId = Number(req.params.id);
+  const groupId = req.groupId;
   const group = getGroupState(groupId);
   if (!group) {
     return res.status(404).json({ error: 'Gruppen hittades inte.' });

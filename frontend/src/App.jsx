@@ -35,9 +35,9 @@ export default function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/groups/:id" element={<GroupView />} />
-          <Route path="/groups/:id/statistics" element={<GroupStatistics />} />
-          <Route path="/groups/:id/expenses/new" element={<AddExpense />} />
+          <Route path="/groups/:slug" element={<GroupView />} />
+          <Route path="/groups/:slug/statistics" element={<GroupStatistics />} />
+          <Route path="/groups/:slug/expenses/new" element={<AddExpense />} />
           <Route element={<AdminRoute />}>
             <Route path="/admin" element={<Admin />} />
           </Route>

@@ -7,7 +7,7 @@ import { createExpenseForm } from '../lib/expenseForm.js';
 import { getCurrentUserId } from '../lib/session.js';
 
 export default function AddExpense() {
-  const { id } = useParams();
+  const { slug } = useParams();
   const navigate = useNavigate();
   const [group, setGroup] = useState(null);
   const [categories, setCategories] = useState([]);
@@ -22,7 +22,7 @@ export default function AddExpense() {
       setLoading(true);
       try {
         const [groupData, categoriesData] = await Promise.all([
-          get(`/api/groups/${id}`),
+          get(`/api/groups/${slug}`),
           get('/api/expenses/categories'),
         ]);
         setGroup(groupData);
@@ -37,14 +37,25 @@ export default function AddExpense() {
     };
 
     loadGroup();
-  }, [id]);
+  }, [slug]);
+
+  const groupSlug = group?.slug || slug;
+  const groupId = Number(group?.id);
+
+  useEffect(() => {
+    if (!group?.name) return undefined;
+    document.title = `Kvitt | ${group.name}`;
+    return () => {
+      document.title = 'Kvitt';
+    };
+  }, [group?.name]);
 
   const handleSubmit = async (payload) => {
     setSaving(true);
     setError('');
     try {
-      await post(`/api/expenses/${id}`, payload);
-      navigate(`/groups/${id}`);
+      await post(`/api/expenses/${groupId}`, payload);
+      navigate(`/groups/${groupSlug}`);
     } catch (submitError) {
       setError(submitError.message);
     } finally {
@@ -75,7 +86,7 @@ export default function AddExpense() {
   return (
     <div className="space-y-6">
       <div className="space-y-3">
-        <button type="button" className="btn-secondary" onClick={() => navigate(`/groups/${id}`)}>
+        <button type="button" className="btn-secondary" onClick={() => navigate(`/groups/${groupSlug}`)}>
           <ArrowLeft className="h-4 w-4" />
           Tillbaka till {group?.name}
         </button>
@@ -100,7 +111,7 @@ export default function AddExpense() {
             mileageRate={Number(group?.mileage_rate) > 0 ? Number(group.mileage_rate) : 20}
             error={error}
             saving={saving}
-            onCancel={() => navigate(`/groups/${id}`)}
+            onCancel={() => navigate(`/groups/${groupSlug}`)}
             onError={setError}
             onSubmit={handleSubmit}
             submitLabel="Spara utgift"

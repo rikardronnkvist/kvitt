@@ -577,7 +577,7 @@ function PieCard({ title, entries }) {
 
 export default function GroupStatistics() {
   const navigate = useNavigate();
-  const { id } = useParams();
+  const { slug } = useParams();
   const [group, setGroup] = useState(null);
   const [expenses, setExpenses] = useState([]);
   const [settlements, setSettlements] = useState([]);
@@ -589,10 +589,10 @@ export default function GroupStatistics() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [groupData, expensesData, settlementsData] = await Promise.all([
-        get(`/api/groups/${id}`),
-        get(`/api/expenses/${id}`),
-        get(`/api/settlements/${id}`),
+      const groupData = await get(`/api/groups/${slug}`);
+      const [expensesData, settlementsData] = await Promise.all([
+        get(`/api/expenses/${groupData.id}`),
+        get(`/api/settlements/${groupData.id}`),
       ]);
       setGroup(groupData);
       setExpenses(expensesData);
@@ -603,7 +603,17 @@ export default function GroupStatistics() {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [slug]);
+
+  const groupSlug = group?.slug || slug;
+
+  useEffect(() => {
+    if (!group?.name) return undefined;
+    document.title = `Kvitt | ${group.name}`;
+    return () => {
+      document.title = 'Kvitt';
+    };
+  }, [group?.name]);
 
   useEffect(() => {
     loadData();
@@ -611,7 +621,7 @@ export default function GroupStatistics() {
 
   useEffect(() => {
     setTimelineGranularity(getAutomaticTimelineGranularity(expenses, settlements, timelineDataMode));
-  }, [id, expenses, settlements, timelineDataMode]);
+  }, [slug, expenses, settlements, timelineDataMode]);
 
   const members = group?.members ?? [];
   const theme = getThemeForGroup(group);
@@ -824,7 +834,7 @@ export default function GroupStatistics() {
               <p className="section-eyebrow">Gruppstatistik</p>
               <h1 className="page-title">{group?.name}</h1>
             </div>
-            <button type="button" className="btn-secondary" onClick={() => navigate(`/groups/${id}`)}>
+            <button type="button" className="btn-secondary" onClick={() => navigate(`/groups/${groupSlug}`)}>
               <ArrowLeft className="h-4 w-4" />
               Tillbaka till gruppen
             </button>
