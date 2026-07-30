@@ -11,7 +11,43 @@ const settlementSchema = z.object({
   payer_id: z.number().int().positive(),
   receiver_id: z.number().int().positive(),
   amount: z.number().int().positive(),
+  settled_at: z.string().trim().optional(),
 });
+
+function formatLocalDateTime(date) {
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+function normalizeSettledAt(input) {
+  if (!input) return null;
+  const text = String(input).trim();
+  const match = text.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (!match) return null;
+
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText = '0'] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText);
+
+  const parsed = new Date(year, month - 1, day, hour, minute, second, 0);
+  if (
+    Number.isNaN(parsed.getTime())
+    || parsed.getFullYear() !== year
+    || parsed.getMonth() !== month - 1
+    || parsed.getDate() !== day
+    || parsed.getHours() !== hour
+    || parsed.getMinutes() !== minute
+    || parsed.getSeconds() !== second
+  ) {
+    return null;
+  }
+
+  return formatLocalDateTime(parsed);
+}
 
 function requireMembership(groupId, userId) {
   return db.prepare('SELECT 1 FROM group_members WHERE group_id = ? AND user_id = ?').get(groupId, userId);
@@ -60,8 +96,12 @@ router.post('/:groupId', (req, res) => {
   }
 
   const { payer_id, receiver_id, amount } = parsed.data;
+  const settledAt = parsed.data.settled_at ? normalizeSettledAt(parsed.data.settled_at) : null;
   if (payer_id === receiver_id) {
     return res.status(400).json({ error: 'Betalare och mottagare måste vara olika personer.' });
+  }
+  if (parsed.data.settled_at && !settledAt) {
+    return res.status(400).json({ error: 'Ogiltigt datum eller tid för betalningen.' });
   }
 
   const members = db.prepare('SELECT user_id FROM group_members WHERE group_id = ?').all(groupId).map((row) => row.user_id);
@@ -72,8 +112,8 @@ router.post('/:groupId', (req, res) => {
 
   const result = db.prepare(`
     INSERT INTO settlements (group_id, payer_id, receiver_id, amount, settled_at)
-    VALUES (?, ?, ?, ?, datetime('now', 'localtime'))
-  `).run(groupId, payer_id, receiver_id, amount);
+    VALUES (?, ?, ?, ?, COALESCE(?, datetime('now', 'localtime')))
+  `).run(groupId, payer_id, receiver_id, amount, settledAt);
 
   const settlement = db.prepare(`
     SELECT s.id, s.group_id, s.payer_id, s.receiver_id, s.amount, s.settled_at,
@@ -105,8 +145,12 @@ router.put('/:groupId/:settlementId', (req, res) => {
   }
 
   const { payer_id, receiver_id, amount } = parsed.data;
+  const settledAt = parsed.data.settled_at ? normalizeSettledAt(parsed.data.settled_at) : null;
   if (payer_id === receiver_id) {
     return res.status(400).json({ error: 'Betalare och mottagare måste vara olika personer.' });
+  }
+  if (parsed.data.settled_at && !settledAt) {
+    return res.status(400).json({ error: 'Ogiltigt datum eller tid för betalningen.' });
   }
 
   const members = db.prepare('SELECT user_id FROM group_members WHERE group_id = ?').all(groupId).map((row) => row.user_id);
@@ -122,9 +166,9 @@ router.put('/:groupId/:settlementId', (req, res) => {
 
   db.prepare(`
     UPDATE settlements
-    SET payer_id = ?, receiver_id = ?, amount = ?
+    SET payer_id = ?, receiver_id = ?, amount = ?, settled_at = COALESCE(?, settled_at)
     WHERE id = ?
-  `).run(payer_id, receiver_id, amount, settlementId);
+  `).run(payer_id, receiver_id, amount, settledAt, settlementId);
 
   const settlement = db.prepare(`
     SELECT s.id, s.group_id, s.payer_id, s.receiver_id, s.amount, s.settled_at,

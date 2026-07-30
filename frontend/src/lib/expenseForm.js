@@ -5,7 +5,7 @@ function toLocalDateTimeInputValue(input) {
   const date = input ? new Date(input) : new Date();
   const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
   const pad = (value) => String(value).padStart(2, '0');
-  return `${safeDate.getFullYear()}-${pad(safeDate.getMonth() + 1)}-${pad(safeDate.getDate())} ${pad(safeDate.getHours())}:${pad(safeDate.getMinutes())}`;
+  return `${safeDate.getFullYear()}-${pad(safeDate.getMonth() + 1)}-${pad(safeDate.getDate())}T${pad(safeDate.getHours())}:${pad(safeDate.getMinutes())}`;
 }
 
 function parseLocalDateTimeInput(value) {
@@ -159,7 +159,7 @@ export function buildExpensePayload(form, members) {
     occurred_at: (() => {
       const occurredAt = parseLocalDateTimeInput(form.occurred_at);
       if (!occurredAt) {
-        throw new Error('Ange datum och tid som YYYY-MM-DD HH:MM.');
+        throw new Error('Ange ett giltigt datum och tid.');
       }
       return occurredAt.toISOString();
     })(),

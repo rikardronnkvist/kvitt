@@ -5,6 +5,13 @@ import MemberDropdown from './MemberDropdown.jsx';
 import ModalShell from './ModalShell.jsx';
 import { getUserDisplayName } from '../lib/users.js';
 
+function toLocalDateTimeInputValue(input) {
+  const date = input ? new Date(input) : new Date();
+  const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
+  const pad = (value) => String(value).padStart(2, '0');
+  return `${safeDate.getFullYear()}-${pad(safeDate.getMonth() + 1)}-${pad(safeDate.getDate())}T${pad(safeDate.getHours())}:${pad(safeDate.getMinutes())}`;
+}
+
 function normalizeSwishPhone(phone) {
   if (!phone) return null;
   const digits = String(phone).replace(/[^\d+]/g, '');
@@ -58,6 +65,7 @@ export default function NewSettlementModal({
     payer_id: defaultPayerId,
     receiver_id: '',
     amount: '',
+    settled_at: toLocalDateTimeInputValue(),
   });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -146,6 +154,7 @@ export default function NewSettlementModal({
         payer_id: Number(formData.payer_id),
         receiver_id: Number(formData.receiver_id),
         amount,
+        settled_at: formData.settled_at,
       });
       await onSuccess();
       onClose();
@@ -210,6 +219,18 @@ export default function NewSettlementModal({
             value={formData.amount}
             onChange={(event) => handleFieldChange('amount', event.target.value)}
             placeholder="0"
+            required
+          />
+        </label>
+
+        <label className="field-label">
+          Datum och tid för betalningen
+          <input
+            type="datetime-local"
+            value={formData.settled_at}
+            onChange={(event) => handleFieldChange('settled_at', event.target.value)}
+            step="60"
+            lang="sv-SE"
             required
           />
         </label>
