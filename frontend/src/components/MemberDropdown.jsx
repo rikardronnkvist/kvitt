@@ -88,7 +88,12 @@ export default function MemberDropdown({
                 <span className="grid h-7 w-7 place-items-center rounded-full bg-[var(--app-surface-muted)] text-xs font-semibold text-[var(--text-secondary)]">
                   {getUserInitials(member)}
                 </span>
-                <span>{getUserDisplayName(member)}</span>
+                <span className="flex flex-col">
+                  <span>{getUserDisplayName(member)}</span>
+                  {member.is_placeholder ? (
+                    <span className="text-xs text-[var(--text-muted)]">Ej ansluten</span>
+                  ) : null}
+                </span>
               </button>
             );
           })}

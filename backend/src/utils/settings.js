@@ -45,3 +45,12 @@ export function isValidRegistrationAccessToken(token) {
   }
   return token === expected;
 }
+
+export function isValidInviteToken(token) {
+  if (!token) return false;
+  const row = db.prepare(`
+    SELECT 1 FROM group_invites
+    WHERE token = ? AND datetime(expires_at) > datetime('now')
+  `).get(token);
+  return Boolean(row);
+}

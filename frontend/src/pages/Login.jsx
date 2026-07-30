@@ -4,6 +4,7 @@ import { get, post } from '../api/client.js';
 import PasskeyButton from '../components/PasskeyButton.jsx';
 import { usePasskeyAuth } from '../hooks/usePasskeyAuth.js';
 import { formatSwedishPhone, sanitizePhoneInput } from '../lib/phone.js';
+import { PENDING_INVITE_TOKEN_KEY } from './InvitePage.jsx';
 
 const registerInitialState = { full_name: '', phone: '' };
 
@@ -152,7 +153,13 @@ export default function Login() {
     try {
       const response = await post('/api/auth/devbox/login', { user_id: userId });
       localStorage.setItem('token', response.token);
-      navigate('/');
+      const pendingInvite = sessionStorage.getItem(PENDING_INVITE_TOKEN_KEY);
+      if (pendingInvite) {
+        sessionStorage.removeItem(PENDING_INVITE_TOKEN_KEY);
+        navigate(`/invite/${pendingInvite}`);
+      } else {
+        navigate('/');
+      }
     } catch (loginError) {
       setError(loginError.message || 'Kunde inte logga in testanvändare.');
     } finally {

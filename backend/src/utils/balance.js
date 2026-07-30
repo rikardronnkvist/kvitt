@@ -9,7 +9,7 @@ export function calculateMemberBalances(groupId) {
   }
 
   const members = db.prepare(`
-    SELECT u.id, u.full_name, u.phone
+    SELECT u.id, u.full_name, u.phone, u.is_placeholder
     FROM group_members gm
     JOIN users u ON u.id = gm.user_id
     WHERE gm.group_id = ?
@@ -101,11 +101,13 @@ export function calculateBalances(groupId) {
           id: debtor.id,
           full_name: debtor.full_name,
           phone: debtor.phone ?? null,
+          is_placeholder: debtor.is_placeholder ?? 0,
         },
         to: {
           id: creditor.id,
           full_name: creditor.full_name,
           phone: creditor.phone ?? null,
+          is_placeholder: creditor.is_placeholder ?? 0,
         },
         amount: roundedAmount,
       });
