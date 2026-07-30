@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link2, RefreshCw, ShieldCheck, Tags, Users, UsersRound } from 'lucide-react';
+import { Link2, RefreshCw, Settings, ShieldCheck, Tags, Users, UsersRound } from 'lucide-react';
 import { get, post, put } from '../api/client.js';
 import { CATEGORY_ICON_OPTIONS, getCategoryIcon } from '../lib/expenseCategories.js';
 import { GROUP_THEMES, getThemeForGroup } from '../lib/groupTheme.js';
@@ -31,7 +31,7 @@ export default function Admin() {
   const [savingUserId, setSavingUserId] = useState(null);
   const [savingGroupId, setSavingGroupId] = useState(null);
   const [savingCategoryId, setSavingCategoryId] = useState(null);
-  const [activeTab, setActiveTab] = useState('users');
+  const [activeTab, setActiveTab] = useState('admin');
   const [selectedGroupId, setSelectedGroupId] = useState(null);
   const [registrationToken, setRegistrationToken] = useState('');
   const [registrationUrl, setRegistrationUrl] = useState('');
@@ -221,6 +221,7 @@ export default function Admin() {
   };
 
   const tabs = [
+    { id: 'admin', label: 'Admin', icon: Settings, count: null },
     { id: 'users', label: 'Användare', icon: Users, count: users.length },
     { id: 'groups', label: 'Grupper', icon: UsersRound, count: groups.length },
     { id: 'categories', label: 'Kategorier', icon: Tags, count: categories.length },
@@ -236,46 +237,11 @@ export default function Admin() {
     <div className="space-y-8">
       <section className="surface-card flex flex-col gap-4 p-6 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-2">
-          <p className="section-eyebrow">Administration</p>
-          <h1 className="page-title">Hantera användare och grupper</h1>
-          <p className="page-copy">Ett avskalat arbetsflöde för att uppdatera användardata och gruppnamn utan att lämna överblicken.</p>
+          <p className="page-title">Administration</p>
         </div>
         <div className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-3 py-2 text-sm text-[var(--text-secondary)]">
           <ShieldCheck className="h-4 w-4" />
           Endast admin
-        </div>
-      </section>
-
-      <section className="surface-card space-y-4 p-6">
-        <div className="space-y-1">
-          <p className="section-eyebrow">Registrering</p>
-          <h2 className="m-0 text-lg font-semibold">Registreringslänk</h2>
-          <p className="m-0 text-sm text-[var(--text-secondary)]">Endast besökare med denna länk kan skapa konto.</p>
-        </div>
-        <label className="field-label">
-          Registreringsnyckel
-          <input
-            value={registrationToken}
-            onChange={(event) => setRegistrationToken(event.target.value)}
-            placeholder="Lång unik nyckel"
-          />
-        </label>
-        <label className="field-label">
-          Registrerings-URL
-          <input value={registrationUrl} readOnly />
-        </label>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className="btn-primary" onClick={handleSaveRegistrationToken} disabled={savingRegistration || resettingRegistration || registrationToken.trim().length < 16}>
-            {savingRegistration ? 'Sparar...' : 'Spara nyckel'}
-          </button>
-          <button type="button" className="btn-secondary" onClick={handleResetRegistrationToken} disabled={savingRegistration || resettingRegistration}>
-            <RefreshCw className="h-4 w-4" />
-            {resettingRegistration ? 'Återställer...' : 'Återställ nyckel'}
-          </button>
-          <button type="button" className="btn-secondary" onClick={handleCopyRegistrationUrl} disabled={!registrationUrl}>
-            <Link2 className="h-4 w-4" />
-            Kopiera länk
-          </button>
         </div>
       </section>
 
@@ -297,7 +263,7 @@ export default function Admin() {
             >
               <tab.icon className="h-4 w-4" />
               {tab.label}
-              {!loading ? (
+              {!loading && tab.count !== null ? (
                 <span className={[
                   'rounded-full px-2 py-0.5 text-xs font-semibold',
                   activeTab === tab.id
@@ -313,6 +279,40 @@ export default function Admin() {
 
         <div className="p-6">
           {loading ? <AdminSkeleton /> : null}
+
+          {!loading && activeTab === 'admin' ? (
+            <div className="space-y-6">
+              <div className="space-y-1">
+                <h2 className="m-0 text-base font-semibold">Registreringslänk</h2>
+                <p className="m-0 text-sm text-[var(--text-secondary)]">Endast besökare med denna länk kan skapa konto.</p>
+              </div>
+              <label className="field-label">
+                Registreringsnyckel
+                <input
+                  value={registrationToken}
+                  onChange={(event) => setRegistrationToken(event.target.value)}
+                  placeholder="Lång unik nyckel"
+                />
+              </label>
+              <label className="field-label">
+                Registrerings-URL
+                <input value={registrationUrl} readOnly />
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className="btn-primary" onClick={handleSaveRegistrationToken} disabled={savingRegistration || resettingRegistration || registrationToken.trim().length < 16}>
+                  {savingRegistration ? 'Sparar...' : 'Spara nyckel'}
+                </button>
+                <button type="button" className="btn-secondary" onClick={handleResetRegistrationToken} disabled={savingRegistration || resettingRegistration}>
+                  <RefreshCw className="h-4 w-4" />
+                  {resettingRegistration ? 'Återställer...' : 'Återställ nyckel'}
+                </button>
+                <button type="button" className="btn-secondary" onClick={handleCopyRegistrationUrl} disabled={!registrationUrl}>
+                  <Link2 className="h-4 w-4" />
+                  Kopiera länk
+                </button>
+              </div>
+            </div>
+          ) : null}
 
           {!loading && activeTab === 'users' ? (
             <div className="space-y-4">
