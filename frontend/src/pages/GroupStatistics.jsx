@@ -12,6 +12,11 @@ const TIMELINE_GRANULARITY_OPTIONS = [
   { value: 'month', label: 'Månad' },
   { value: 'week', label: 'Vecka' },
 ];
+const TIMELINE_DATA_OPTIONS = [
+  { value: 'both', label: 'Båda' },
+  { value: 'expenses', label: 'Utgifter' },
+  { value: 'transfers', label: 'Överföringar' },
+];
 
 function hexToRgba(hex, alpha) {
   const normalized = String(hex || '').replace('#', '');
@@ -32,10 +37,32 @@ function toTimestamp(value) {
 
 function formatShortSek(value) {
   const amount = Number(value) || 0;
-  if (amount >= 1000) {
-    return `SEK ${Math.round(amount / 1000)}k`;
+  return `${Math.round(amount).toLocaleString('sv-SE')} kr`;
+}
+
+function getNiceAxisMax(value, { allowOnePointFive = false } = {}) {
+  const numeric = Number(value) || 0;
+  if (numeric <= 0) {
+    return 1;
   }
-  return `SEK ${Math.round(amount)}`;
+
+  const magnitude = 10 ** Math.floor(Math.log10(numeric));
+  const normalized = numeric / magnitude;
+  let niceNormalized = 1;
+
+  if (normalized <= 1) {
+    niceNormalized = 1;
+  } else if (allowOnePointFive && normalized <= 1.5) {
+    niceNormalized = 1.5;
+  } else if (normalized <= 2) {
+    niceNormalized = 2;
+  } else if (normalized <= 5) {
+    niceNormalized = 5;
+  } else {
+    niceNormalized = 10;
+  }
+
+  return niceNormalized * magnitude;
 }
 
 function formatRangeLabel(minDate, maxDate) {
@@ -121,10 +148,13 @@ function formatPeriodLabel(date, granularity) {
   return `v.${iso.week} ${iso.year}`;
 }
 
-function getAutomaticTimelineGranularity(expenses, settlements) {
+function getAutomaticTimelineGranularity(expenses, settlements, dataMode = 'both') {
+  const includeExpenses = dataMode === 'both' || dataMode === 'expenses';
+  const includeTransfers = dataMode === 'both' || dataMode === 'transfers';
+
   const timestamps = [
-    ...expenses.map((expense) => expense.occurred_at || expense.created_at),
-    ...settlements.map((settlement) => settlement.settled_at),
+    ...(includeExpenses ? expenses.map((expense) => expense.occurred_at || expense.created_at) : []),
+    ...(includeTransfers ? settlements.map((settlement) => settlement.settled_at) : []),
   ]
     .map((value) => new Date(value))
     .filter((date) => !Number.isNaN(date.getTime()))
@@ -182,13 +212,16 @@ function StatisticsSkeleton() {
   );
 }
 
-function TimelineChart({ periods, granularity, onGranularityChange, theme }) {
+function TimelineChart({ periods, granularity, onGranularityChange, dataMode, onDataModeChange, theme }) {
   const width = 760;
   const height = 280;
   const margin = { top: 14, right: 12, bottom: 44, left: 58 };
   const chartWidth = width - margin.left - margin.right;
   const chartHeight = height - margin.top - margin.bottom;
-  const maxValue = Math.max(...periods.map((item) => item.amount), 1);
+  const rawMaxAmount = Math.max(...periods.map((item) => item.amount), 1);
+  const maxAmount = getNiceAxisMax(rawMaxAmount, { allowOnePointFive: true });
+  const rawMaxCount = Math.max(...periods.map((item) => item.count || 0), 1);
+  const maxCount = getNiceAxisMax(rawMaxCount);
   const barWidth = Math.min(40, chartWidth / Math.max(periods.length * 1.8, 1));
   const stepX = chartWidth / Math.max(periods.length, 1);
   const minLabelSpacing = granularity === 'week' ? 90 : granularity === 'month' ? 70 : 48;
@@ -205,24 +238,56 @@ function TimelineChart({ periods, granularity, onGranularityChange, theme }) {
   }
 
   const yTicks = [0, 0.25, 0.5, 0.75, 1];
+  const countPoints = periods.map((item, index) => {
+    const x = margin.left + stepX * index + (stepX / 2);
+    const y = margin.top + chartHeight - ((Number(item.count || 0) / maxCount) * chartHeight);
+    return { x, y, value: Number(item.count || 0), key: item.key };
+  });
+  const countPath = countPoints.map((point) => `${point.x},${point.y}`).join(' ');
+  const isCombinedMode = dataMode === 'both';
+  const amountAxisLabel = dataMode === 'expenses'
+    ? 'Totala utgifter'
+    : dataMode === 'transfers'
+      ? 'Totala överföringar'
+      : 'Utgifter + överföringar';
+  const countAxisLabel = dataMode === 'expenses'
+    ? 'Antal utgifter'
+    : dataMode === 'transfers'
+      ? 'Antal överföringar'
+      : 'Antal händelser';
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <p className="m-0 text-sm font-semibold">Tidslinje</p>
-        <label className="inline-flex items-center gap-2 text-xs text-[var(--text-muted)]">
-          Visa:
-          <select
-            className="w-auto min-w-[8rem] rounded-md border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-2 py-1 text-xs text-[var(--text-primary)]"
-            value={granularity}
-            onChange={(event) => onGranularityChange(event.target.value)}
-            aria-label="Välj upplösning för tidslinjen"
-          >
-            {TIMELINE_GRANULARITY_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
-        </label>
+        <div className="flex items-center gap-2">
+          <label className="inline-flex items-center gap-2 text-xs text-[var(--text-muted)]">
+            Data:
+            <select
+              className="w-auto min-w-[9rem] rounded-md border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-2 py-1 text-xs text-[var(--text-primary)]"
+              value={dataMode}
+              onChange={(event) => onDataModeChange(event.target.value)}
+              aria-label="Välj typ av data för tidslinjen"
+            >
+              {TIMELINE_DATA_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="inline-flex items-center gap-2 text-xs text-[var(--text-muted)]">
+            Visa:
+            <select
+              className="w-auto min-w-[8rem] rounded-md border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-2 py-1 text-xs text-[var(--text-primary)]"
+              value={granularity}
+              onChange={(event) => onGranularityChange(event.target.value)}
+              aria-label="Välj upplösning för tidslinjen"
+            >
+              {TIMELINE_GRANULARITY_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
       <div
         className="rounded-lg border p-3"
@@ -231,61 +296,151 @@ function TimelineChart({ periods, granularity, onGranularityChange, theme }) {
           background: theme?.bgSoft || 'var(--app-surface-muted)',
         }}
       >
-        <svg viewBox={`0 0 ${width} ${height}`} className="h-[250px] w-full" role="img" aria-label="Utgiftstidslinje">
-          {yTicks.map((tick) => {
-            const y = margin.top + (1 - tick) * chartHeight;
-            const value = tick * maxValue;
-            return (
-              <g key={tick}>
-                <line
-                  x1={margin.left}
-                  x2={width - margin.right}
-                  y1={y}
-                  y2={y}
-                  stroke="rgba(17, 24, 39, 0.12)"
-                  strokeDasharray={tick === 0 ? '0' : '4 5'}
+        <div className="grid grid-cols-[40px_minmax(0,1fr)_40px] items-stretch gap-2">
+          <div className="flex items-center justify-center text-[11px] text-[var(--text-secondary)]" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
+            {isCombinedMode ? (
+              <span className="inline-flex flex-col items-start gap-1 leading-tight">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-sm bg-[rgba(17,24,39,0.68)]" aria-hidden="true" />
+                  Utgifter
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-sm bg-[rgba(15,118,110,0.72)]" aria-hidden="true" />
+                  Överföringar
+                </span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                <span
+                  className={`h-2.5 w-2.5 rounded-sm ${dataMode === 'expenses' ? 'bg-[rgba(17,24,39,0.68)]' : 'bg-[rgba(15,118,110,0.72)]'}`}
+                  aria-hidden="true"
                 />
-                <text
-                  x={margin.left - 10}
-                  y={y + 4}
-                  textAnchor="end"
-                  className="fill-[var(--text-muted)] text-[11px]"
-                >
-                  {formatShortSek(value)}
-                </text>
-              </g>
-            );
-          })}
-
-          {periods.map((item, index) => {
-            const xCenter = margin.left + stepX * index + (stepX / 2);
-            const barHeight = Math.max(3, (item.amount / maxValue) * chartHeight);
-            const y = margin.top + chartHeight - barHeight;
-            const shouldShowLabel = shownLabelIndexes.has(index);
-            return (
-              <g key={item.key}>
-                <rect
-                  x={xCenter - (barWidth / 2)}
-                  y={y}
-                  width={barWidth}
-                  height={barHeight}
-                  rx="3"
-                  fill="rgba(17, 24, 39, 0.68)"
-                />
-                {shouldShowLabel ? (
+                {amountAxisLabel}
+              </span>
+            )}
+          </div>
+          <svg viewBox={`0 0 ${width} ${height}`} className="h-[250px] w-full" role="img" aria-label="Utgiftstidslinje med antal utgifter">
+            {yTicks.map((tick) => {
+              const y = margin.top + (1 - tick) * chartHeight;
+              const value = tick * maxAmount;
+              return (
+                <g key={tick}>
+                  <line
+                    x1={margin.left}
+                    x2={width - margin.right}
+                    y1={y}
+                    y2={y}
+                    stroke="rgba(17, 24, 39, 0.12)"
+                    strokeDasharray={tick === 0 ? '0' : '4 5'}
+                  />
                   <text
-                    x={xCenter}
-                    y={height - 18}
-                    textAnchor="middle"
-                    className="fill-[var(--text-secondary)] text-[12px]"
+                    x={margin.left - 10}
+                    y={y + 4}
+                    textAnchor="end"
+                    className="fill-[var(--text-muted)] text-[11px]"
                   >
-                    {item.label}
+                    {formatShortSek(value)}
                   </text>
-                ) : null}
+                  <text
+                    x={width - margin.right + 10}
+                    y={y + 4}
+                    textAnchor="start"
+                    className="fill-[var(--text-muted)] text-[11px]"
+                  >
+                    {Math.round(tick * maxCount)} st
+                  </text>
+                </g>
+              );
+            })}
+
+            {periods.map((item, index) => {
+              const xCenter = margin.left + stepX * index + (stepX / 2);
+              const barHeight = Math.max(3, (item.amount / maxAmount) * chartHeight);
+              const y = margin.top + chartHeight - barHeight;
+              const shouldShowLabel = shownLabelIndexes.has(index);
+              const safeTotal = item.amount > 0 ? item.amount : 0;
+              const expenseSegmentHeight = safeTotal > 0 ? (barHeight * (item.expenseAmount / safeTotal)) : 0;
+              const transferSegmentHeight = safeTotal > 0 ? (barHeight * (item.transferAmount / safeTotal)) : 0;
+              const transferY = y;
+              const expenseY = y + transferSegmentHeight;
+              return (
+                <g key={item.key}>
+                  {isCombinedMode ? (
+                    <>
+                      {transferSegmentHeight > 0 ? (
+                        <rect
+                          x={xCenter - (barWidth / 2)}
+                          y={transferY}
+                          width={barWidth}
+                          height={transferSegmentHeight}
+                          rx="3"
+                          fill="rgba(15, 118, 110, 0.72)"
+                        />
+                      ) : null}
+                      {expenseSegmentHeight > 0 ? (
+                        <rect
+                          x={xCenter - (barWidth / 2)}
+                          y={expenseY}
+                          width={barWidth}
+                          height={expenseSegmentHeight}
+                          rx="3"
+                          fill="rgba(17, 24, 39, 0.68)"
+                        />
+                      ) : null}
+                    </>
+                  ) : (
+                    <rect
+                      x={xCenter - (barWidth / 2)}
+                      y={y}
+                      width={barWidth}
+                      height={barHeight}
+                      rx="3"
+                      fill={dataMode === 'expenses' ? 'rgba(17, 24, 39, 0.68)' : 'rgba(15, 118, 110, 0.72)'}
+                    />
+                  )}
+                  {shouldShowLabel ? (
+                    <text
+                      x={xCenter}
+                      y={height - 18}
+                      textAnchor="middle"
+                      className="fill-[var(--text-secondary)] text-[12px]"
+                    >
+                      {item.label}
+                    </text>
+                  ) : null}
+                </g>
+              );
+            })}
+
+            {countPath ? (
+              <g>
+                <polyline
+                  points={countPath}
+                  fill="none"
+                  stroke="rgba(95, 125, 78, 0.95)"
+                  strokeWidth="2.5"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                />
+                {countPoints.map((point) => (
+                  <circle
+                    key={point.key}
+                    cx={point.x}
+                    cy={point.y}
+                    r="2.8"
+                    fill="rgba(95, 125, 78, 1)"
+                  />
+                ))}
               </g>
-            );
-          })}
-        </svg>
+            ) : null}
+          </svg>
+          <div className="flex items-center justify-center text-[11px] text-[var(--text-secondary)]" style={{ writingMode: 'vertical-rl' }}>
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+              <span className="h-[2px] w-4 rounded-full bg-[rgba(95,125,78,0.95)]" aria-hidden="true" />
+              {countAxisLabel}
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -408,6 +563,7 @@ export default function GroupStatistics() {
   const [expenses, setExpenses] = useState([]);
   const [settlements, setSettlements] = useState([]);
   const [timelineGranularity, setTimelineGranularity] = useState('month');
+  const [timelineDataMode, setTimelineDataMode] = useState('both');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -435,38 +591,93 @@ export default function GroupStatistics() {
   }, [loadData]);
 
   useEffect(() => {
-    setTimelineGranularity(getAutomaticTimelineGranularity(expenses, settlements));
-  }, [id, expenses, settlements]);
+    setTimelineGranularity(getAutomaticTimelineGranularity(expenses, settlements, timelineDataMode));
+  }, [id, expenses, settlements, timelineDataMode]);
 
   const members = group?.members ?? [];
   const theme = getThemeForGroup(group);
 
   const statistics = useMemo(() => {
-    const expenseDates = expenses
-      .map((expense) => new Date(expense.occurred_at || expense.created_at))
+    const includeExpenses = timelineDataMode === 'both' || timelineDataMode === 'expenses';
+    const includeTransfers = timelineDataMode === 'both' || timelineDataMode === 'transfers';
+
+    const timelineDates = [
+      ...(includeExpenses ? expenses.map((expense) => new Date(expense.occurred_at || expense.created_at)) : []),
+      ...(includeTransfers ? settlements.map((settlement) => new Date(settlement.settled_at)) : []),
+    ]
       .filter((date) => !Number.isNaN(date.getTime()));
 
     const timelineTotals = new Map();
-    for (const expense of expenses) {
-      const expenseDate = new Date(expense.occurred_at || expense.created_at);
-      if (Number.isNaN(expenseDate.getTime())) {
-        continue;
+    if (includeExpenses) {
+      for (const expense of expenses) {
+        const expenseDate = new Date(expense.occurred_at || expense.created_at);
+        if (Number.isNaN(expenseDate.getTime())) {
+          continue;
+        }
+        const periodStart = startOfPeriod(expenseDate, timelineGranularity);
+        const key = periodKey(periodStart);
+        const current = timelineTotals.get(key) || {
+          amount: 0,
+          count: 0,
+          expenseAmount: 0,
+          transferAmount: 0,
+          expenseCount: 0,
+          transferCount: 0,
+        };
+        const amount = Number(expense.amount || 0);
+        timelineTotals.set(key, {
+          ...current,
+          amount: current.amount + amount,
+          count: current.count + 1,
+          expenseAmount: current.expenseAmount + amount,
+          expenseCount: current.expenseCount + 1,
+        });
       }
-      const periodStart = startOfPeriod(expenseDate, timelineGranularity);
-      const key = periodKey(periodStart);
-      timelineTotals.set(key, (timelineTotals.get(key) || 0) + Number(expense.amount || 0));
+    }
+
+    if (includeTransfers) {
+      for (const settlement of settlements) {
+        const transferDate = new Date(settlement.settled_at);
+        if (Number.isNaN(transferDate.getTime())) {
+          continue;
+        }
+        const periodStart = startOfPeriod(transferDate, timelineGranularity);
+        const key = periodKey(periodStart);
+        const current = timelineTotals.get(key) || {
+          amount: 0,
+          count: 0,
+          expenseAmount: 0,
+          transferAmount: 0,
+          expenseCount: 0,
+          transferCount: 0,
+        };
+        const amount = Number(settlement.amount || 0);
+        timelineTotals.set(key, {
+          ...current,
+          amount: current.amount + amount,
+          count: current.count + 1,
+          transferAmount: current.transferAmount + amount,
+          transferCount: current.transferCount + 1,
+        });
+      }
     }
 
     let timelinePeriods = [];
-    if (expenseDates.length) {
-      const minDate = startOfPeriod(new Date(Math.min(...expenseDates.map((date) => date.getTime()))), timelineGranularity);
-      const maxDate = startOfPeriod(new Date(Math.max(...expenseDates.map((date) => date.getTime()))), timelineGranularity);
+    if (timelineDates.length) {
+      const minDate = startOfPeriod(new Date(Math.min(...timelineDates.map((date) => date.getTime()))), timelineGranularity);
+      const maxDate = startOfPeriod(new Date(Math.max(...timelineDates.map((date) => date.getTime()))), timelineGranularity);
       for (let cursor = new Date(minDate); cursor <= maxDate; cursor = addPeriod(cursor, timelineGranularity)) {
         const key = periodKey(cursor);
+        const totals = timelineTotals.get(key);
         timelinePeriods.push({
           key,
           label: formatPeriodLabel(cursor, timelineGranularity),
-          amount: timelineTotals.get(key) || 0,
+          amount: totals?.amount || 0,
+          count: totals?.count || 0,
+          expenseAmount: totals?.expenseAmount || 0,
+          transferAmount: totals?.transferAmount || 0,
+          expenseCount: totals?.expenseCount || 0,
+          transferCount: totals?.transferCount || 0,
         });
       }
     }
@@ -477,6 +688,11 @@ export default function GroupStatistics() {
         key: periodKey(now),
         label: formatPeriodLabel(now, timelineGranularity),
         amount: 0,
+        count: 0,
+        expenseAmount: 0,
+        transferAmount: 0,
+        expenseCount: 0,
+        transferCount: 0,
       }];
     }
 
@@ -573,7 +789,7 @@ export default function GroupStatistics() {
       transfersByMemberData,
       memberRows,
     };
-  }, [expenses, members, settlements, timelineGranularity]);
+  }, [expenses, members, settlements, timelineDataMode, timelineGranularity]);
 
   if (loading) {
     return <StatisticsSkeleton />;
@@ -604,6 +820,8 @@ export default function GroupStatistics() {
                   periods={statistics.timelinePeriods}
                   granularity={timelineGranularity}
                   onGranularityChange={setTimelineGranularity}
+                  dataMode={timelineDataMode}
+                  onDataModeChange={setTimelineDataMode}
                   theme={theme}
                 />
               </div>
