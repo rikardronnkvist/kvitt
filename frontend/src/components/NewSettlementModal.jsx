@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { post } from '../api/client.js';
 import BalanceList from './BalanceList.jsx';
+import MemberDropdown from './MemberDropdown.jsx';
 import ModalShell from './ModalShell.jsx';
 import { getUserDisplayName } from '../lib/users.js';
 
@@ -180,26 +181,24 @@ export default function NewSettlementModal({
 
         <label className="field-label">
           Betalare
-          <select value={formData.payer_id} onChange={(event) => handleFieldChange('payer_id', event.target.value)} required>
-            <option value="">Välj betalare</option>
-            {members.map((member) => (
-              <option key={member.id} value={member.id}>
-                {getUserDisplayName(member)}
-              </option>
-            ))}
-          </select>
+          <MemberDropdown
+            value={formData.payer_id}
+            options={members}
+            placeholder="Välj betalare"
+            onChange={(selectedValue) => handleFieldChange('payer_id', selectedValue)}
+            ariaLabel="Välj betalare"
+          />
         </label>
 
         <label className="field-label">
           Mottagare
-          <select value={formData.receiver_id} onChange={(event) => handleFieldChange('receiver_id', event.target.value)} required>
-            <option value="">Välj mottagare</option>
-            {availableReceivers.map((member) => (
-              <option key={member.id} value={member.id}>
-                {getUserDisplayName(member)}
-              </option>
-            ))}
-          </select>
+          <MemberDropdown
+            value={formData.receiver_id}
+            options={availableReceivers}
+            placeholder="Välj mottagare"
+            onChange={(selectedValue) => handleFieldChange('receiver_id', selectedValue)}
+            ariaLabel="Välj mottagare"
+          />
         </label>
 
         <label className="field-label">

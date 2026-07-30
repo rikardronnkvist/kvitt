@@ -259,6 +259,10 @@ export default function GroupView() {
     () => computeMemberBalances(members, expenses, settlements),
     [members, expenses, settlements],
   );
+  const memberBalancesAscending = useMemo(
+    () => [...memberBalances].sort((a, b) => Number(a.balance) - Number(b.balance)),
+    [memberBalances],
+  );
   const canArchiveGroup = isGroupOwner && !isArchived && memberBalances.every((member) => Number(member.balance) === 0);
 
   const summary = useMemo(() => {
@@ -516,7 +520,7 @@ export default function GroupView() {
               <article className="rounded-lg border p-4" style={{ background: theme.bgSoft, borderColor: theme.borderSoft }}>
                 <p className="section-eyebrow">Balans</p>
                 <div className="mt-2 space-y-1.5">
-                  {memberBalances.map((member) => (
+                  {memberBalancesAscending.map((member) => (
                     <div key={member.id} className="flex items-center justify-between gap-3 text-sm">
                       <span className="font-medium">{getUserDisplayName(member)}</span>
                       <span className={`font-semibold ${member.balance > 0 ? 'amount-positive' : member.balance < 0 ? 'amount-negative' : 'amount-neutral'}`}>

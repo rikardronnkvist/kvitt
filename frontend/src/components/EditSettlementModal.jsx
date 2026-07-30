@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { del, put } from '../api/client.js';
+import MemberDropdown from './MemberDropdown.jsx';
 import ModalShell from './ModalShell.jsx';
-import { getUserDisplayName } from '../lib/users.js';
 
 function sanitizeIntegerInput(value) {
   return String(value ?? '').replace(/\D/g, '');
@@ -62,6 +62,11 @@ export default function EditSettlementModal({ settlement, members, groupId, onCl
       return;
     }
 
+    if (!formData.payer_id || !formData.receiver_id) {
+      setError('Välj både betalare och mottagare.');
+      return;
+    }
+
     if (formData.payer_id === formData.receiver_id) {
       setError('Betalare och mottagare måste vara olika personer.');
       return;
@@ -111,26 +116,24 @@ export default function EditSettlementModal({ settlement, members, groupId, onCl
       <form onSubmit={handleSubmit} className="space-y-5">
         <label className="field-label">
           Betalare
-          <select value={formData.payer_id} onChange={(event) => setFormData((previous) => ({ ...previous, payer_id: event.target.value }))} required>
-            <option value="">Välj betalare</option>
-            {members.map((member) => (
-              <option key={member.id} value={member.id}>
-                {getUserDisplayName(member)}
-              </option>
-            ))}
-          </select>
+          <MemberDropdown
+            value={formData.payer_id}
+            options={members}
+            placeholder="Välj betalare"
+            onChange={(selectedValue) => setFormData((previous) => ({ ...previous, payer_id: selectedValue }))}
+            ariaLabel="Välj betalare"
+          />
         </label>
 
         <label className="field-label">
           Mottagare
-          <select value={formData.receiver_id} onChange={(event) => setFormData((previous) => ({ ...previous, receiver_id: event.target.value }))} required>
-            <option value="">Välj mottagare</option>
-            {availableReceivers.map((member) => (
-              <option key={member.id} value={member.id}>
-                {getUserDisplayName(member)}
-              </option>
-            ))}
-          </select>
+          <MemberDropdown
+            value={formData.receiver_id}
+            options={availableReceivers}
+            placeholder="Välj mottagare"
+            onChange={(selectedValue) => setFormData((previous) => ({ ...previous, receiver_id: selectedValue }))}
+            ariaLabel="Välj mottagare"
+          />
         </label>
 
         <label className="field-label">

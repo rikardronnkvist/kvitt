@@ -3,6 +3,7 @@ import { buildExpensePayload, getSplitSummary } from '../lib/expenseForm.js';
 import { getCategoryIcon } from '../lib/expenseCategories.js';
 import { formatCurrency } from '../lib/format.js';
 import { getUserDisplayName } from '../lib/users.js';
+import MemberDropdown from './MemberDropdown.jsx';
 
 function SplitTypeButton({ active, children, onClick }) {
   return (
@@ -179,17 +180,13 @@ export default function ExpenseFormFields({
 
         <label className="field-label md:col-span-2">
           Betald av
-          <select
+          <MemberDropdown
             value={form.paid_by_user_id}
-            onChange={(event) => setForm((previous) => ({ ...previous, paid_by_user_id: event.target.value }))}
-            required
-          >
-            {members.map((member) => (
-              <option key={member.id} value={member.id}>
-                {getUserDisplayName(member)}
-              </option>
-            ))}
-          </select>
+            options={members}
+            placeholder="Välj betalare"
+            onChange={(selectedValue) => setForm((previous) => ({ ...previous, paid_by_user_id: selectedValue }))}
+            ariaLabel="Välj vem som betalade"
+          />
         </label>
 
         <label className="field-label md:col-span-2">
