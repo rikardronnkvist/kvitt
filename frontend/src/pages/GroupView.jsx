@@ -609,12 +609,7 @@ export default function GroupView() {
               <EmptyState
                 icon={Coins}
                 title="Ingen aktivitet ännu"
-                description="Lägg till den första utgiften eller registrera en betalning så fylls flödet här."
-                action={(
-                  <button type="button" className="btn-primary" onClick={() => setIsAddingExpense(true)} disabled={isArchived}>
-                    Lägg till första utgiften
-                  </button>
-                )}
+                description="Lägg till medlemmar i gruppen och börja sedan att registrera utgifter..."
               />
             </div>
           )}
