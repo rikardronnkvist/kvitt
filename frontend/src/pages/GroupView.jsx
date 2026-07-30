@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Archive, BarChart3, CheckCircle2, Coins, RotateCcw, Settings, Trash2, UserPlus } from 'lucide-react';
+import { Archive, BarChart3, CheckCircle2, Coins, Plus, RotateCcw, Settings, Trash2, UserPlus } from 'lucide-react';
 import ExpenseItem from '../components/ExpenseItem.jsx';
 import EditExpenseModal from '../components/EditExpenseModal.jsx';
 import NewExpenseModal from '../components/NewExpenseModal.jsx';
@@ -457,11 +457,13 @@ export default function GroupView() {
               <div className="flex flex-col gap-3 sm:flex-row">
                 {!isArchived ? (
                   <button type="button" className="btn-primary" style={{ background: theme.base, borderColor: theme.base }} onClick={() => setIsAddingExpense(true)} disabled={members.length < 2}>
+                    <Plus className="h-4 w-4" />
                     Lägg till utgift
                   </button>
                 ) : null}
                 {!isArchived ? (
                   <button type="button" className="btn-secondary" onClick={() => setIsAddingSettlement(true)}>
+                    <Coins className="h-4 w-4" />
                     Kvitta skuld
                   </button>
                 ) : null}
