@@ -61,7 +61,7 @@ export default function Dashboard() {
                 <section className="space-y-4">
                   <div className="grid gap-4 md:grid-cols-2">
                     {activeGroups.map((group) => (
-                      <GroupCard key={group.id} group={group} onOpen={(groupId) => navigate(`/groups/${groupId}`)} />
+                      <GroupCard key={group.id} group={group} onOpen={(groupSlug) => navigate(`/groups/${groupSlug}`)} />
                     ))}
                   </div>
                 </section>
@@ -71,7 +71,7 @@ export default function Dashboard() {
                 <section className="space-y-4 pt-5">
                   <div className="grid gap-4 md:grid-cols-2">
                     {archivedGroups.map((group) => (
-                      <GroupCard key={group.id} group={group} onOpen={(groupId) => navigate(`/groups/${groupId}`)} />
+                      <GroupCard key={group.id} group={group} onOpen={(groupSlug) => navigate(`/groups/${groupSlug}`)} />
                     ))}
                   </div>
                 </section>

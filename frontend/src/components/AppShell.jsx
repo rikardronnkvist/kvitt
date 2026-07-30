@@ -160,7 +160,7 @@ export default function AppShell() {
     try {
       const group = await post('/api/groups', { name: newGroupName, theme_color: newGroupTheme });
       setCreatingGroup(false);
-      navigate(`/groups/${group.id}`);
+      navigate(`/groups/${group.slug || group.id}`);
     } catch (err) {
       setGroupError(err.message || 'Något gick fel.');
     } finally {

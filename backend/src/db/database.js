@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { ensureRegistrationAccessToken } from '../utils/settings.js';
+import { createUniqueSlug, slugifyGroupName } from '../utils/slug.js';
 
 function resolveDbPath() {
   const preferredPath = process.env.DB_PATH || '/app/data/kvitt.db';
@@ -129,6 +130,7 @@ export function initializeDatabase() {
     CREATE TABLE IF NOT EXISTS groups (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
+      slug TEXT UNIQUE,
       theme_color TEXT,
       mileage_rate REAL NOT NULL DEFAULT 20,
       created_by INTEGER NOT NULL REFERENCES users(id),
@@ -248,12 +250,32 @@ export function initializeDatabase() {
   if (!groupColumns.some((c) => c.name === 'theme_color')) {
     db.exec('ALTER TABLE groups ADD COLUMN theme_color TEXT');
   }
+  if (!groupColumns.some((c) => c.name === 'slug')) {
+    db.exec('ALTER TABLE groups ADD COLUMN slug TEXT');
+  }
   if (!groupColumns.some((c) => c.name === 'mileage_rate')) {
     db.exec('ALTER TABLE groups ADD COLUMN mileage_rate REAL NOT NULL DEFAULT 20');
   }
   if (!groupColumns.some((c) => c.name === 'archived_at')) {
     db.exec('ALTER TABLE groups ADD COLUMN archived_at DATETIME');
   }
+
+  const usedSlugs = new Set(
+    db.prepare("SELECT slug FROM groups WHERE slug IS NOT NULL AND TRIM(slug) != ''")
+      .all()
+      .map((row) => row.slug)
+  );
+  const groupsMissingSlug = db.prepare("SELECT id, name FROM groups WHERE slug IS NULL OR TRIM(slug) = '' ORDER BY id ASC").all();
+  const updateGroupSlug = db.prepare('UPDATE groups SET slug = ? WHERE id = ?');
+
+  for (const group of groupsMissingSlug) {
+    const baseSlug = slugifyGroupName(group.name);
+    const uniqueSlug = createUniqueSlug(baseSlug, (candidate) => usedSlugs.has(candidate));
+    updateGroupSlug.run(uniqueSlug, group.id);
+    usedSlugs.add(uniqueSlug);
+  }
+
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_groups_slug ON groups(slug)');
   db.exec('UPDATE groups SET mileage_rate = 20 WHERE mileage_rate IS NULL OR mileage_rate <= 0');
 
   const expenseColumns = db.prepare('PRAGMA table_info(expenses)').all();

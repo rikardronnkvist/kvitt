@@ -28,11 +28,12 @@ export default function GroupCard({ group, onOpen }) {
     ? { background: '#374151', borderColor: '#4b5563' }
     : { background: theme.bgSoft, borderColor: theme.borderSoft };
   const topBarStyle = { background: isArchived ? '#6b7280' : theme.base };
+  const groupIdentifier = group.slug || group.id;
   return (
     <button
       type="button"
       className="surface-card flex w-full flex-col gap-5 overflow-hidden p-0 text-left transition hover:-translate-y-0.5"
-      onClick={() => onOpen(group.id)}
+      onClick={() => onOpen(groupIdentifier)}
       style={cardStyle}
     >
       <div

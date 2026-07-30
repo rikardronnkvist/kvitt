@@ -118,7 +118,7 @@ function SettlementItem({ settlement, onEdit, readOnly = false }) {
 
 export default function GroupView() {
   const navigate = useNavigate();
-  const { id } = useParams();
+  const { slug } = useParams();
   const currentUserId = useMemo(() => getCurrentUserId(), []);
   const [group, setGroup] = useState(null);
   const [expenses, setExpenses] = useState([]);
@@ -142,12 +142,12 @@ export default function GroupView() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [groupData, expensesData, categoriesData, balancesData, settlementsData] = await Promise.all([
-        get(`/api/groups/${id}`),
-        get(`/api/expenses/${id}`),
+      const groupData = await get(`/api/groups/${slug}`);
+      const [expensesData, categoriesData, balancesData, settlementsData] = await Promise.all([
+        get(`/api/expenses/${groupData.id}`),
         get('/api/expenses/categories'),
-        get(`/api/settlements/${id}/balances`),
-        get(`/api/settlements/${id}`),
+        get(`/api/settlements/${groupData.id}/balances`),
+        get(`/api/settlements/${groupData.id}`),
       ]);
       setGroup(groupData);
       setExpenses(expensesData);
@@ -160,7 +160,7 @@ export default function GroupView() {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [slug]);
 
   useEffect(() => {
     loadData();
@@ -171,7 +171,17 @@ export default function GroupView() {
     setMileageRateDraft(String(Number(group.mileage_rate) > 0 ? Number(group.mileage_rate) : 20));
   }, [group]);
 
+  useEffect(() => {
+    if (!group?.name) return undefined;
+    document.title = `Kvitt | ${group.name}`;
+    return () => {
+      document.title = 'Kvitt';
+    };
+  }, [group?.name]);
+
   const members = group?.members ?? [];
+  const groupId = Number(group?.id);
+  const groupSlug = group?.slug || slug;
   const isGroupOwner = Number(group?.created_by) === Number(currentUserId);
   const isArchived = Boolean(group?.archived_at);
   const theme = getThemeForGroup(group);
@@ -198,7 +208,7 @@ export default function GroupView() {
     setSearchingMembers(true);
     const timer = window.setTimeout(async () => {
       try {
-        const results = await get(`/api/groups/${id}/member-search?query=${encodeURIComponent(query)}`);
+        const results = await get(`/api/groups/${groupSlug}/member-search?query=${encodeURIComponent(query)}`);
         if (active) {
           setMemberSearchResults(results);
         }
@@ -218,7 +228,7 @@ export default function GroupView() {
       active = false;
       window.clearTimeout(timer);
     };
-  }, [id, isSettingsOpen, memberSearchQuery]);
+  }, [groupSlug, isSettingsOpen, memberSearchQuery]);
 
   const timeline = useMemo(() => {
     return [
@@ -261,7 +271,7 @@ export default function GroupView() {
 
   useEffect(() => {
     setVisibleTimelineCount(INITIAL_TIMELINE_VISIBLE_COUNT);
-  }, [id, timeline.length]);
+  }, [slug, timeline.length]);
 
   const visibleTimeline = useMemo(
     () => timeline.slice(0, visibleTimelineCount),
@@ -300,7 +310,7 @@ export default function GroupView() {
       return;
     }
     try {
-      await post(`/api/groups/${id}/members`, { user_id: userId });
+      await post(`/api/groups/${groupSlug}/members`, { user_id: userId });
       setMemberSearchQuery('');
       setMemberSearchResults([]);
       await loadData();
@@ -315,7 +325,7 @@ export default function GroupView() {
       return;
     }
     try {
-      await del(`/api/groups/${id}/members/${userId}`);
+      await del(`/api/groups/${groupSlug}/members/${userId}`);
       await loadData();
     } catch (deleteError) {
       setError(deleteError.message);
@@ -328,7 +338,7 @@ export default function GroupView() {
       return;
     }
     try {
-      const updated = await patch(`/api/groups/${id}`, { theme_color: themeId });
+      const updated = await patch(`/api/groups/${groupSlug}`, { theme_color: themeId });
       setGroup((previous) => ({ ...previous, ...updated }));
     } catch (updateError) {
       setError(updateError.message);
@@ -346,7 +356,7 @@ export default function GroupView() {
       return;
     }
     try {
-      const updated = await patch(`/api/groups/${id}`, { mileage_rate: parsed });
+      const updated = await patch(`/api/groups/${groupSlug}`, { mileage_rate: parsed });
       setGroup((previous) => ({ ...previous, ...updated }));
       setMileageRateDraft(String(parsed));
       setError('');
@@ -361,7 +371,7 @@ export default function GroupView() {
       return;
     }
     try {
-      await del(`/api/expenses/${id}/${expenseId}`);
+      await del(`/api/expenses/${groupId}/${expenseId}`);
       await loadData();
     } catch (deleteError) {
       setError(deleteError.message);
@@ -404,7 +414,7 @@ export default function GroupView() {
     }
 
     try {
-      const updated = await post(`/api/groups/${id}/archive`, {});
+      const updated = await post(`/api/groups/${groupSlug}/archive`, {});
       setGroup((previous) => ({ ...previous, ...updated }));
       setIsSettingsOpen(false);
       setIsAddingExpense(false);
@@ -427,7 +437,7 @@ export default function GroupView() {
 
     setGroupActionSaving(true);
     try {
-      const updated = await post(`/api/groups/${id}/unarchive`, {});
+      const updated = await post(`/api/groups/${groupSlug}/unarchive`, {});
       setGroup((previous) => ({ ...previous, ...updated }));
       setError('');
     } catch (unarchiveError) {
@@ -447,7 +457,7 @@ export default function GroupView() {
 
     setGroupActionSaving(true);
     try {
-      await del(`/api/groups/${id}`);
+      await del(`/api/groups/${groupSlug}`);
       navigate('/');
     } catch (deleteError) {
       setError(deleteError.message);
@@ -485,7 +495,7 @@ export default function GroupView() {
                     Kvitta skuld
                   </button>
                 ) : null}
-                <button type="button" className="btn-secondary" onClick={() => navigate(`/groups/${id}/statistics`)}>
+                <button type="button" className="btn-secondary" onClick={() => navigate(`/groups/${groupSlug}/statistics`)}>
                   <BarChart3 className="h-4 w-4" />
                   Statistik
                 </button>
@@ -725,7 +735,7 @@ export default function GroupView() {
           members={members}
           categories={expenseCategories}
           mileageRate={mileageRate}
-          groupId={id}
+          groupId={groupId}
           onClose={() => setEditingExpenseId(null)}
           onSave={handleSaveExpense}
           onDelete={handleDeleteExpense}
@@ -736,7 +746,7 @@ export default function GroupView() {
         <EditSettlementModal
           settlement={editingSettlement}
           members={members}
-          groupId={id}
+          groupId={groupId}
           onClose={() => setEditingSettlementId(null)}
           onSave={handleSaveSettlement}
           onDelete={handleDeleteSettlement}
@@ -745,7 +755,7 @@ export default function GroupView() {
 
       {isAddingExpense && !isArchived ? (
         <NewExpenseModal
-          groupId={id}
+          groupId={groupId}
           members={members}
           categories={expenseCategories}
           mileageRate={mileageRate}
@@ -756,7 +766,7 @@ export default function GroupView() {
 
       {isAddingSettlement && !isArchived ? (
         <NewSettlementModal
-          groupId={id}
+          groupId={groupId}
           groupName={group?.name}
           members={members}
           balances={balances}
