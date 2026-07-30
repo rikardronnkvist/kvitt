@@ -8,9 +8,10 @@ import { getUserDisplayName, getUserInitials } from '../lib/users.js';
 
 const PIE_COLORS = ['#0F766E', '#4F6D8A', '#B25D3D', '#5F7D4E', '#6E4E73', '#B38A2E', '#5C6B73'];
 const TIMELINE_GRANULARITY_OPTIONS = [
-  { value: 'year', label: 'År' },
-  { value: 'month', label: 'Månad' },
+  { value: 'day', label: 'Dag' },
   { value: 'week', label: 'Vecka' },
+  { value: 'month', label: 'Månad' },
+  { value: 'year', label: 'År' },
 ];
 const TIMELINE_DATA_OPTIONS = [
   { value: 'both', label: 'Båda' },
@@ -90,6 +91,10 @@ function startOfPeriod(date, granularity) {
   const periodDate = new Date(date);
   periodDate.setHours(0, 0, 0, 0);
 
+  if (granularity === 'day') {
+    return periodDate;
+  }
+
   if (granularity === 'year') {
     periodDate.setMonth(0, 1);
     return periodDate;
@@ -108,6 +113,10 @@ function startOfPeriod(date, granularity) {
 
 function addPeriod(date, granularity) {
   const next = new Date(date);
+  if (granularity === 'day') {
+    next.setDate(next.getDate() + 1);
+    return next;
+  }
   if (granularity === 'year') {
     next.setFullYear(next.getFullYear() + 1);
     return next;
@@ -138,6 +147,9 @@ function getIsoWeekInfo(date) {
 }
 
 function formatPeriodLabel(date, granularity) {
+  if (granularity === 'day') {
+    return date.toLocaleDateString('sv-SE', { day: '2-digit', month: 'short' });
+  }
   if (granularity === 'year') {
     return String(date.getFullYear());
   }
@@ -164,7 +176,14 @@ function getAutomaticTimelineGranularity(expenses, settlements, dataMode = 'both
     return 'month';
   }
 
+  const newestTimestamp = Math.max(...timestamps);
   const oldestTimestamp = Math.min(...timestamps);
+  const rangeDays = Math.ceil((newestTimestamp - oldestTimestamp) / 86400000);
+
+  if (rangeDays <= 45) {
+    return 'day';
+  }
+
   const now = new Date();
 
   const threeMonthsAgo = new Date(now);
@@ -224,7 +243,7 @@ function TimelineChart({ periods, granularity, onGranularityChange, dataMode, on
   const maxCount = getNiceAxisMax(rawMaxCount);
   const barWidth = Math.min(40, chartWidth / Math.max(periods.length * 1.8, 1));
   const stepX = chartWidth / Math.max(periods.length, 1);
-  const minLabelSpacing = granularity === 'week' ? 90 : granularity === 'month' ? 70 : 48;
+  const minLabelSpacing = granularity === 'day' ? 66 : granularity === 'week' ? 90 : granularity === 'month' ? 70 : 48;
   const maxVisibleLabels = Math.max(2, Math.floor(chartWidth / minLabelSpacing));
   const labelInterval = Math.max(1, Math.ceil(periods.length / maxVisibleLabels));
   const shownLabelIndexes = new Set();
