@@ -1,6 +1,6 @@
 import express from 'express';
 import { z } from 'zod';
-import { isValidRegistrationAccessToken } from '../utils/settings.js';
+import { isValidInviteToken, isValidRegistrationAccessToken } from '../utils/settings.js';
 import requireAuth from '../middleware/auth.js';
 import {
   createAuthenticationOptions,
@@ -39,9 +39,9 @@ const updatePasskeyNameSchema = z.object({
 
 router.get('/register-access', (req, res) => {
   const token = typeof req.query.token === 'string' ? req.query.token.trim() : '';
-  return res.json({
-    allowed: token.length > 0 && isValidRegistrationAccessToken(token),
-  });
+  const allowed = token.length > 0
+    && (isValidRegistrationAccessToken(token) || isValidInviteToken(token));
+  return res.json({ allowed });
 });
 
 router.get('/available', (_req, res) => {

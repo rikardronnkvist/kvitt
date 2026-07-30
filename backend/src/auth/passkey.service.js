@@ -9,7 +9,7 @@ import { db } from '../db/database.js';
 import { challengeStore } from './challenge-store.js';
 import { getWebAuthnConfig } from './webauthn.config.js';
 import { getAuthUserById, signToken } from './token.js';
-import { isValidRegistrationAccessToken } from '../utils/settings.js';
+import { isValidInviteToken, isValidRegistrationAccessToken } from '../utils/settings.js';
 
 function createHttpError(status, message) {
   const error = new Error(message);
@@ -135,7 +135,9 @@ function getPasskeysForUser(userId) {
 }
 
 export async function createRegistrationOptions(displayName, phone, registrationToken) {
-  if (!isValidRegistrationAccessToken(registrationToken)) {
+  const allowed = isValidRegistrationAccessToken(registrationToken)
+    || isValidInviteToken(registrationToken);
+  if (!allowed) {
     throw createHttpError(403, 'Registrering är inte tillgänglig med den här länken.');
   }
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Archive, BarChart3, CheckCircle2, Coins, Plus, RotateCcw, Settings, Trash2, UserPlus } from 'lucide-react';
+import { Archive, BarChart3, CheckCircle2, Coins, Copy, Link2, Plus, RefreshCw, RotateCcw, Settings, Trash2, UserPlus } from 'lucide-react';
 import ExpenseItem from '../components/ExpenseItem.jsx';
 import EditExpenseModal from '../components/EditExpenseModal.jsx';
 import NewExpenseModal from '../components/NewExpenseModal.jsx';
@@ -125,10 +125,13 @@ export default function GroupView() {
   const [expenseCategories, setExpenseCategories] = useState([]);
   const [balances, setBalances] = useState([]);
   const [settlements, setSettlements] = useState([]);
-  const [memberSearchQuery, setMemberSearchQuery] = useState('');
-  const [memberSearchResults, setMemberSearchResults] = useState([]);
-  const [searchingMembers, setSearchingMembers] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [inviteToken, setInviteToken] = useState(null);
+  const [inviteExpiresAt, setInviteExpiresAt] = useState(null);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteCopied, setInviteCopied] = useState(false);
+  const [placeholderName, setPlaceholderName] = useState('');
+  const [addingPlaceholder, setAddingPlaceholder] = useState(false);
   const [mileageRateDraft, setMileageRateDraft] = useState('20');
   const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [editingSettlementId, setEditingSettlementId] = useState(null);
@@ -190,45 +193,22 @@ export default function GroupView() {
   const editingSettlement = settlements.find((settlement) => settlement.id === editingSettlementId);
 
   useEffect(() => {
-    if (!isSettingsOpen) {
-      setMemberSearchQuery('');
-      setMemberSearchResults([]);
-      setSearchingMembers(false);
-      return undefined;
-    }
-
-    const query = memberSearchQuery.trim();
-    if (!query) {
-      setMemberSearchResults([]);
-      setSearchingMembers(false);
-      return undefined;
-    }
-
+    if (!isSettingsOpen || !isGroupOwner || !groupSlug) return;
     let active = true;
-    setSearchingMembers(true);
-    const timer = window.setTimeout(async () => {
-      try {
-        const results = await get(`/api/groups/${groupSlug}/member-search?query=${encodeURIComponent(query)}`);
-        if (active) {
-          setMemberSearchResults(results);
-        }
-      } catch (searchError) {
-        if (active) {
-          setError(searchError.message);
-          setMemberSearchResults([]);
-        }
-      } finally {
-        if (active) {
-          setSearchingMembers(false);
-        }
-      }
-    }, 250);
-
-    return () => {
-      active = false;
-      window.clearTimeout(timer);
-    };
-  }, [groupSlug, isSettingsOpen, memberSearchQuery]);
+    get(`/api/groups/${groupSlug}/invite`)
+      .then((data) => {
+        if (!active) return;
+        setInviteToken(data.token);
+        setInviteExpiresAt(data.expires_at);
+      })
+      .catch(() => {
+        if (!active) return;
+        setInviteToken(null);
+        setInviteExpiresAt(null);
+      });
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSettingsOpen, groupSlug]);
 
   const timeline = useMemo(() => {
     return [
@@ -304,20 +284,53 @@ export default function GroupView() {
     };
   }, [expenses]);
 
-  const handleAddMember = async (userId) => {
-    if (isArchived) {
-      setError('Gruppen är arkiverad och skrivskyddad.');
-      return;
-    }
+  const handleGenerateInvite = async () => {
+    setInviteLoading(true);
     try {
-      await post(`/api/groups/${groupSlug}/members`, { user_id: userId });
-      setMemberSearchQuery('');
-      setMemberSearchResults([]);
-      await loadData();
-    } catch (submitError) {
-      setError(submitError.message);
+      const data = await post(`/api/groups/${groupSlug}/invite`, {});
+      setInviteToken(data.token);
+      setInviteExpiresAt(data.expires_at);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setInviteLoading(false);
     }
   };
+
+  const handleRevokeInvite = async () => {
+    if (!window.confirm('Är du säker? Befintlig länk slutar fungera direkt.')) return;
+    try {
+      await del(`/api/groups/${groupSlug}/invite`);
+      setInviteToken(null);
+      setInviteExpiresAt(null);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const handleCopyInviteLink = () => {
+    const url = `${window.location.origin}/invite/${inviteToken}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setInviteCopied(true);
+      setTimeout(() => setInviteCopied(false), 2000);
+    });
+  };
+
+  const handleAddPlaceholder = async () => {
+    const name = placeholderName.trim();
+    if (!name) return;
+    setAddingPlaceholder(true);
+    try {
+      await post(`/api/groups/${groupSlug}/members/placeholder`, { display_name: name });
+      setPlaceholderName('');
+      await loadData();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setAddingPlaceholder(false);
+    }
+  };
+
 
   const handleRemoveMember = async (userId) => {
     if (isArchived) {
@@ -611,39 +624,41 @@ export default function GroupView() {
       {isSettingsOpen && isGroupOwner ? (
         <ModalShell
           title="Gruppinställningar"
-          description={isArchived
-            ? 'Gruppen är arkiverad och skrivskyddad.'
-            : 'Bjud in fler personer, ta bort medlemmar eller välj gruppens färgtema.'}
+          description={isArchived ? 'Gruppen är arkiverad och skrivskyddad.' : null}
           onClose={() => setIsSettingsOpen(false)}
         >
-          <div className="space-y-6">
-            <div className="space-y-3">
-              <p className="field-label">Färgtema</p>
-              <div className="flex flex-wrap gap-2">
-                {GROUP_THEMES.map((t) => {
-                  const isActive = (group?.theme_color ?? null) === t.id
-                    || (!group?.theme_color && getThemeForGroup(group).id === t.id);
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      title={t.name}
-                      onClick={() => handleUpdateTheme(t.id)}
-                      disabled={isArchived}
-                      className="h-7 w-7 rounded-full transition hover:scale-110 focus:outline-none focus-visible:ring-2"
-                      style={{
-                        background: t.base,
-                        outline: isActive ? `2px solid ${t.base}` : undefined,
-                        outlineOffset: isActive ? '2px' : undefined,
-                        boxShadow: isActive ? `0 0 0 3px rgba(255,255,255,0.9), 0 0 0 5px ${t.base}` : undefined,
-                      }}
-                      aria-pressed={isActive}
-                      aria-label={t.name}
-                    />
-                  );
-                })}
-              </div>
+          <div className="divide-y divide-[var(--border-subtle)]">
 
+            {/* Inställningar */}
+            <div className="space-y-4 pb-6">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">Inställningar</h3>
+              <div className="space-y-3">
+                <p className="field-label">Färgtema</p>
+                <div className="flex flex-wrap gap-2">
+                  {GROUP_THEMES.map((t) => {
+                    const isActive = (group?.theme_color ?? null) === t.id
+                      || (!group?.theme_color && getThemeForGroup(group).id === t.id);
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        title={t.name}
+                        onClick={() => handleUpdateTheme(t.id)}
+                        disabled={isArchived}
+                        className="h-7 w-7 rounded-full transition hover:scale-110 focus:outline-none focus-visible:ring-2"
+                        style={{
+                          background: t.base,
+                          outline: isActive ? `2px solid ${t.base}` : undefined,
+                          outlineOffset: isActive ? '2px' : undefined,
+                          boxShadow: isActive ? `0 0 0 3px rgba(255,255,255,0.9), 0 0 0 5px ${t.base}` : undefined,
+                        }}
+                        aria-pressed={isActive}
+                        aria-label={t.name}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
               <div className="space-y-3">
                 <label className="field-label">
                   Milkostnad för Bilresa (kr/mil)
@@ -662,69 +677,117 @@ export default function GroupView() {
               </div>
             </div>
 
-            <div className="space-y-3">
-              <label className="field-label">
-                Lägg till medlem via namn
-                <input
-                  value={memberSearchQuery}
-                  onChange={(event) => setMemberSearchQuery(event.target.value)}
-                  placeholder="Sök på fullständigt namn"
-                  disabled={isArchived}
-                />
-              </label>
-              {memberSearchQuery.trim() ? (
-                <div className="space-y-3">
-                  {searchingMembers ? <p className="m-0 text-sm text-[var(--text-secondary)]">Söker...</p> : null}
-                  {!searchingMembers && !memberSearchResults.length ? (
-                    <p className="m-0 text-sm text-[var(--text-secondary)]">Ingen användare matchade sökningen.</p>
-                  ) : null}
-                  {memberSearchResults.map((candidate) => (
-                    <div key={candidate.id} className="flex flex-col gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="m-0 text-sm font-medium">{getUserSearchLabel(candidate)}</p>
-                      </div>
-                      <button type="button" className="btn-primary" onClick={() => handleAddMember(candidate.id)} disabled={isArchived}>
-                        <UserPlus className="h-4 w-4" />
-                        Lägg till
-                      </button>
-                    </div>
-                  ))}
-                </div>
+            {/* Inbjudningslänk */}
+            <div className="space-y-4 py-6">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">Inbjudningslänk</h3>
+              {inviteToken ? (
+                <>
+                  <div className="flex gap-2">
+                    <input
+                      readOnly
+                      value={`${window.location.origin}/invite/${inviteToken}`}
+                      className="flex-1 truncate text-sm"
+                    />
+                    <button type="button" className="btn-secondary shrink-0" onClick={handleCopyInviteLink}>
+                      <Copy className="h-4 w-4" />
+                      {inviteCopied ? 'Kopierad!' : 'Kopiera'}
+                    </button>
+                  </div>
+                  {inviteExpiresAt && (
+                    <p className="m-0 text-xs text-[var(--text-muted)]">
+                      Gäller till {new Date(inviteExpiresAt).toLocaleDateString('sv-SE')}
+                    </p>
+                  )}
+                  <div className="flex gap-2">
+                    <button type="button" className="btn-secondary" onClick={handleGenerateInvite} disabled={inviteLoading}>
+                      <RefreshCw className="h-4 w-4" />
+                      Ny länk
+                    </button>
+                    <button type="button" className="btn-danger" onClick={handleRevokeInvite}>
+                      Ta bort länk
+                    </button>
+                  </div>
+                </>
               ) : (
-                <p className="m-0 text-sm text-[var(--text-secondary)]">Börja skriva för att söka efter personer att lägga till i gruppen.</p>
+                <>
+                  <p className="m-0 text-sm text-[var(--text-secondary)]">
+                    Skapa en länk att dela. Alla med länken kan gå med i gruppen. Länken gäller i 30 dagar.
+                  </p>
+                  <button type="button" className="btn-primary" onClick={handleGenerateInvite} disabled={inviteLoading || isArchived}>
+                    <Link2 className="h-4 w-4" />
+                    Skapa inbjudningslänk
+                  </button>
+                </>
               )}
             </div>
 
-            <div className="space-y-3">
-              {members.map((member) => (
-                <div key={member.id} className="flex flex-col gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="m-0 text-sm font-medium">{getUserDisplayName(member)}</p>
+            {/* Medlemmar */}
+            <div className="space-y-4 pt-6">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">Medlemmar</h3>
+              <div className="space-y-2">
+                {members.map((member) => (
+                  <div key={member.id} className="flex flex-col gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="m-0 text-sm font-medium">{getUserDisplayName(member)}</p>
+                      {member.is_placeholder ? (
+                        <p className="m-0 text-xs text-[var(--text-muted)]">Ej ansluten</p>
+                      ) : null}
+                    </div>
+                    {Number(member.id) === Number(group?.created_by) ? (
+                      <span className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border-subtle)] px-4 text-sm font-medium text-[var(--text-secondary)]">
+                        Ägare
+                      </span>
+                    ) : (
+                      <button type="button" className="btn-danger" onClick={() => handleRemoveMember(member.id)} disabled={isArchived}>
+                        Ta bort
+                      </button>
+                    )}
                   </div>
-                  {Number(member.id) === Number(group?.created_by) ? (
-                    <span className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border-subtle)] px-4 text-sm font-medium text-[var(--text-secondary)]">
-                      Ägare
-                    </span>
-                  ) : (
-                    <button type="button" className="btn-danger" onClick={() => handleRemoveMember(member.id)} disabled={isArchived}>
-                      Ta bort
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-            {isGroupOwner && !isArchived ? (
-              <div className="space-y-3 border-t border-[var(--border-subtle)] pt-4">
-                <p className="m-0 text-sm text-[var(--text-secondary)]">
-                  Arkivera gruppen för att göra den skrivskyddad.
-                  {!canArchiveGroup ? ' Alla medlemmar måste ha balans 0 innan du kan arkivera.' : ''}
-                </p>
-                <button type="button" className="btn-danger" onClick={handleArchiveGroup} disabled={!canArchiveGroup}>
-                  <Archive className="h-4 w-4" />
-                  Arkivera grupp
-                </button>
+                ))}
               </div>
-            ) : null}
+
+              {!isArchived && (
+                <div className="space-y-3">
+                  <p className="field-label">Lägg till person i förväg</p>
+                  <p className="m-0 text-sm text-[var(--text-secondary)]">
+                    Lägg till namn på personer som ännu inte har skapat konto — du kan dela kostnader med dem direkt.
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      value={placeholderName}
+                      onChange={(e) => setPlaceholderName(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddPlaceholder()}
+                      placeholder="Fullständigt namn"
+                      disabled={addingPlaceholder}
+                      className="flex-1"
+                    />
+                    <button
+                      type="button"
+                      className="btn-primary shrink-0"
+                      onClick={handleAddPlaceholder}
+                      disabled={!placeholderName.trim() || addingPlaceholder}
+                    >
+                      <UserPlus className="h-4 w-4" />
+                      Lägg till
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {isGroupOwner && !isArchived ? (
+                <div className="space-y-3 border-t border-[var(--border-subtle)] pt-4">
+                  <p className="m-0 text-sm text-[var(--text-secondary)]">
+                    Arkivera gruppen för att göra den skrivskyddad.
+                    {!canArchiveGroup ? ' Alla medlemmar måste ha balans 0 innan du kan arkivera.' : ''}
+                  </p>
+                  <button type="button" className="btn-danger" onClick={handleArchiveGroup} disabled={!canArchiveGroup}>
+                    <Archive className="h-4 w-4" />
+                    Arkivera grupp
+                  </button>
+                </div>
+              ) : null}
+            </div>
+
           </div>
         </ModalShell>
       ) : null}

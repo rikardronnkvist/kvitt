@@ -19,9 +19,19 @@ export default function BalanceList({ balances, nested = false, onSelect }) {
           ].join(' ')}
         >
           <div className="flex min-w-0 items-center gap-2">
-            <span className="truncate font-medium">{getUserDisplayName(balance.from)}</span>
+            <span className="flex flex-col">
+              <span className="truncate font-medium">{getUserDisplayName(balance.from)}</span>
+              {balance.from.is_placeholder ? (
+                <span className="text-xs text-[var(--text-muted)]">Ej ansluten</span>
+              ) : null}
+            </span>
             <ArrowRight className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
-            <span className="truncate text-[var(--text-secondary)]">{getUserDisplayName(balance.to)}</span>
+            <span className="flex flex-col">
+              <span className="truncate text-[var(--text-secondary)]">{getUserDisplayName(balance.to)}</span>
+              {balance.to.is_placeholder ? (
+                <span className="text-xs text-[var(--text-muted)]">Ej ansluten</span>
+              ) : null}
+            </span>
           </div>
           <span className="shrink-0 font-semibold amount-neutral">{formatCurrency(balance.amount, { precise: true })}</span>
         </div>

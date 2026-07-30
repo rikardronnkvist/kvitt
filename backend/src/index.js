@@ -10,6 +10,7 @@ import groupRoutes from './routes/groups.js';
 import expenseRoutes from './routes/expenses.js';
 import settlementRoutes from './routes/settlements.js';
 import adminRoutes from './routes/admin.js';
+import inviteRoutes from './routes/invites.js';
 
 initializeDatabase();
 
@@ -59,6 +60,7 @@ app.use('/api/groups', apiRateLimit, groupRoutes);
 app.use('/api/expenses', apiRateLimit, expenseRoutes);
 app.use('/api/settlements', apiRateLimit, settlementRoutes);
 app.use('/api/admin', apiRateLimit, adminRoutes);
+app.use('/api/invite', apiRateLimit, inviteRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ error: `Hittade ingen route för ${req.method} ${req.originalUrl}` });

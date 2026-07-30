@@ -1,5 +1,6 @@
 import express from 'express';
 import { z } from 'zod';
+import { randomUUID } from 'node:crypto';
 import authMiddleware from '../middleware/auth.js';
 import { db } from '../db/database.js';
 import { calculateMemberBalances } from '../utils/balance.js';
@@ -152,7 +153,7 @@ router.get('/:id', requireMembership, (req, res) => {
   }
 
   const members = db.prepare(`
-    SELECT u.id, u.full_name, u.phone, gm.joined_at
+    SELECT u.id, u.full_name, u.phone, u.is_placeholder, gm.joined_at
     FROM group_members gm
     JOIN users u ON u.id = gm.user_id
     WHERE gm.group_id = ?
@@ -323,6 +324,89 @@ router.delete('/:id', requireMembership, (req, res) => {
 
   db.prepare('DELETE FROM groups WHERE id = ?').run(groupId);
   return res.status(204).end();
+});
+
+const addPlaceholderSchema = z.object({
+  display_name: z.string().trim().min(1).max(100),
+});
+
+// Add a placeholder (non-registered) member by name — only group creator
+router.post('/:id/members/placeholder', requireMembership, (req, res) => {
+  const parsed = addPlaceholderSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Ogiltigt namn.', details: parsed.error.flatten() });
+  }
+
+  const groupId = req.groupId;
+  const group = getGroupState(groupId);
+  if (Number(group.created_by) !== Number(req.user.id)) {
+    return res.status(403).json({ error: 'Endast gruppens skapare kan lägga till platshållare.' });
+  }
+  const writable = ensureGroupWritable(groupId);
+  if (!writable.ok) {
+    return res.status(writable.status).json({ error: writable.error });
+  }
+
+  const tx = db.transaction(() => {
+    const userHandle = `placeholder-${randomUUID()}`;
+    const result = db.prepare(
+      'INSERT INTO users (full_name, user_handle, is_placeholder) VALUES (?, ?, 1)',
+    ).run(parsed.data.display_name, userHandle);
+    const userId = result.lastInsertRowid;
+    db.prepare('INSERT INTO group_members (group_id, user_id) VALUES (?, ?)').run(groupId, userId);
+    return db.prepare('SELECT id, full_name, is_placeholder FROM users WHERE id = ?').get(userId);
+  });
+
+  const member = tx();
+  return res.status(201).json(member);
+});
+
+// Create or replace invite link for a group (30-day expiry) — only group creator
+router.post('/:id/invite', requireMembership, (req, res) => {
+  const groupId = req.groupId;
+  const group = getGroupState(groupId);
+  if (Number(group.created_by) !== Number(req.user.id)) {
+    return res.status(403).json({ error: 'Endast gruppens skapare kan skapa inbjudningslänkar.' });
+  }
+
+  const token = randomUUID();
+  db.prepare(`
+    INSERT INTO group_invites (group_id, token, created_by, expires_at)
+    VALUES (?, ?, ?, datetime('now', '+30 days'))
+    ON CONFLICT DO NOTHING
+  `).run(groupId, token, req.user.id);
+  // Replace any existing invite for this group
+  db.prepare('DELETE FROM group_invites WHERE group_id = ? AND token != ?').run(groupId, token);
+
+  const invite = db.prepare('SELECT token, expires_at FROM group_invites WHERE group_id = ?').get(groupId);
+  return res.status(201).json(invite);
+});
+
+// Get current invite link — only group creator
+router.get('/:id/invite', requireMembership, (req, res) => {
+  const groupId = req.groupId;
+  const group = getGroupState(groupId);
+  if (Number(group.created_by) !== Number(req.user.id)) {
+    return res.status(403).json({ error: 'Endast gruppens skapare kan se inbjudningslänkar.' });
+  }
+
+  const invite = db.prepare('SELECT token, expires_at FROM group_invites WHERE group_id = ?').get(groupId);
+  if (!invite) {
+    return res.status(404).json({ error: 'Ingen aktiv inbjudningslänk.' });
+  }
+  return res.json(invite);
+});
+
+// Revoke invite link — only group creator
+router.delete('/:id/invite', requireMembership, (req, res) => {
+  const groupId = req.groupId;
+  const group = getGroupState(groupId);
+  if (Number(group.created_by) !== Number(req.user.id)) {
+    return res.status(403).json({ error: 'Endast gruppens skapare kan återkalla inbjudningslänkar.' });
+  }
+
+  db.prepare('DELETE FROM group_invites WHERE group_id = ?').run(groupId);
+  return res.status(204).send();
 });
 
 export default router;

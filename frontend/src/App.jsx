@@ -5,6 +5,7 @@ import GroupView from './pages/GroupView.jsx';
 import AddExpense from './pages/AddExpense.jsx';
 import Admin from './pages/Admin.jsx';
 import GroupStatistics from './pages/GroupStatistics.jsx';
+import InvitePage from './pages/InvitePage.jsx';
 import AppShell from './components/AppShell.jsx';
 import { parseUser } from './lib/session.js';
 
@@ -32,6 +33,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Login />} />
+      <Route path="/invite/:token" element={<InvitePage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
           <Route path="/" element={<Dashboard />} />

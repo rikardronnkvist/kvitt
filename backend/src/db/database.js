@@ -202,6 +202,17 @@ export function initializeDatabase() {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS group_invites (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+      token TEXT NOT NULL UNIQUE,
+      created_by INTEGER NOT NULL REFERENCES users(id),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      expires_at DATETIME NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_group_invites_token ON group_invites(token);
+    CREATE INDEX IF NOT EXISTS idx_group_invites_group_id ON group_invites(group_id);
     CREATE INDEX IF NOT EXISTS idx_group_members_user_id ON group_members(user_id);
     CREATE INDEX IF NOT EXISTS idx_expenses_group_id ON expenses(group_id);
     CREATE INDEX IF NOT EXISTS idx_expense_splits_expense_id ON expense_splits(expense_id);
@@ -236,6 +247,11 @@ export function initializeDatabase() {
     db.exec('ALTER TABLE users ADD COLUMN user_handle TEXT');
   }
   db.exec('UPDATE users SET user_handle = COALESCE(NULLIF(user_handle, \'\'), \'legacy-\' || id)');
+
+  const hasIsPlaceholderColumn = userColumns.some((column) => column.name === 'is_placeholder');
+  if (!hasIsPlaceholderColumn) {
+    db.exec('ALTER TABLE users ADD COLUMN is_placeholder INTEGER NOT NULL DEFAULT 0');
+  }
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_user_handle ON users(user_handle)');
 
   const adminCount = db.prepare('SELECT COUNT(*) AS count FROM users WHERE is_admin = 1').get();
