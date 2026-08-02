@@ -195,7 +195,7 @@ export default function AppShell() {
               <>
                 <button
                   type="button"
-                  className="icon-button md:hidden"
+                  className="icon-button shrink-0 md:hidden"
                   onClick={openCreateGroup}
                   aria-label="Skapa grupp"
                 >
