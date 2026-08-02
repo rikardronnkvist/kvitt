@@ -191,15 +191,26 @@ export default function AppShell() {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="hidden min-h-11 items-center gap-2 rounded-lg border border-[var(--border-subtle)] px-3 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--app-surface-muted)] hover:text-[var(--text-primary)] md:inline-flex"
-              style={{ display: isDashboard ? undefined : 'none' }}
-              onClick={openCreateGroup}
-            >
-              <FolderPlus className="h-4 w-4" />
-              Skapa grupp
-            </button>
+            {isDashboard ? (
+              <>
+                <button
+                  type="button"
+                  className="icon-button md:hidden"
+                  onClick={openCreateGroup}
+                  aria-label="Skapa grupp"
+                >
+                  <FolderPlus className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  className="hidden min-h-11 items-center gap-2 rounded-lg border border-[var(--border-subtle)] px-3 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--app-surface-muted)] hover:text-[var(--text-primary)] md:inline-flex"
+                  onClick={openCreateGroup}
+                >
+                  <FolderPlus className="h-4 w-4" />
+                  Skapa grupp
+                </button>
+              </>
+            ) : null}
 
             <div className="relative" ref={dropdownRef}>
               <button
