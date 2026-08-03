@@ -16,7 +16,7 @@ const TIMELINE_GRANULARITY_OPTIONS = [
 const TIMELINE_DATA_OPTIONS = [
   { value: 'both', label: 'Båda' },
   { value: 'expenses', label: 'Utgifter' },
-  { value: 'transfers', label: 'Överföringar' },
+  { value: 'transfers', label: 'Kvittningar' },
 ];
 
 function hexToRgba(hex, alpha) {
@@ -203,10 +203,15 @@ function getAutomaticTimelineGranularity(expenses, settlements, dataMode = 'both
   return 'year';
 }
 
-function toPieData(entries) {
-  return entries
-    .filter((entry) => Number(entry.value) > 0)
-    .sort((a, b) => b.value - a.value)
+function toPieData(entries, { sortByValue = true } = {}) {
+  const filtered = entries
+    .filter((entry) => Number(entry.value) > 0);
+
+  const ordered = sortByValue
+    ? [...filtered].sort((a, b) => b.value - a.value)
+    : filtered;
+
+  return ordered
     .map((entry, index) => ({
       ...entry,
       color: PIE_COLORS[index % PIE_COLORS.length],
@@ -267,12 +272,12 @@ function TimelineChart({ periods, granularity, onGranularityChange, dataMode, on
   const amountAxisLabel = dataMode === 'expenses'
     ? 'Totala utgifter'
     : dataMode === 'transfers'
-      ? 'Totala överföringar'
-      : 'Utgifter + överföringar';
+      ? 'Totala kvittningar'
+      : 'Utgifter + kvittningar';
   const countAxisLabel = dataMode === 'expenses'
     ? 'Antal utgifter'
     : dataMode === 'transfers'
-      ? 'Antal överföringar'
+      ? 'Antal kvittningar'
       : 'Antal händelser';
 
   return (
@@ -325,7 +330,7 @@ function TimelineChart({ periods, granularity, onGranularityChange, dataMode, on
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 rounded-sm bg-[rgba(15,118,110,0.72)]" aria-hidden="true" />
-                  Överföringar
+                  Kvittningar
                 </span>
               </span>
             ) : (
@@ -580,6 +585,7 @@ export default function GroupStatistics() {
   const { slug } = useParams();
   const [group, setGroup] = useState(null);
   const [expenses, setExpenses] = useState([]);
+  const [expenseCategories, setExpenseCategories] = useState([]);
   const [settlements, setSettlements] = useState([]);
   const [timelineGranularity, setTimelineGranularity] = useState('month');
   const [timelineDataMode, setTimelineDataMode] = useState('both');
@@ -590,12 +596,14 @@ export default function GroupStatistics() {
     setLoading(true);
     try {
       const groupData = await get(`/api/groups/${slug}`);
-      const [expensesData, settlementsData] = await Promise.all([
+      const [expensesData, categoriesData, settlementsData] = await Promise.all([
         get(`/api/expenses/${groupData.id}`),
+        get('/api/expenses/categories'),
         get(`/api/settlements/${groupData.id}`),
       ]);
       setGroup(groupData);
       setExpenses(expensesData);
+      setExpenseCategories(categoriesData);
       setSettlements(settlementsData);
       setError('');
     } catch (loadError) {
@@ -627,6 +635,10 @@ export default function GroupStatistics() {
   const theme = getThemeForGroup(group);
 
   const statistics = useMemo(() => {
+    const categorySortOrderByName = new Map(
+      expenseCategories.map((category) => [String(category.name || '').trim().toLowerCase(), Number(category.sort_order)]),
+    );
+
     const includeExpenses = timelineDataMode === 'both' || timelineDataMode === 'expenses';
     const includeTransfers = timelineDataMode === 'both' || timelineDataMode === 'transfers';
 
@@ -731,6 +743,19 @@ export default function GroupStatistics() {
       (expense) => Number(expense.amount || 0),
     );
 
+    const categoryEntries = Array.from(categoryMap.entries())
+      .map(([label, value]) => ({ label, value }))
+      .sort((a, b) => {
+        const orderA = categorySortOrderByName.get(String(a.label || '').trim().toLowerCase()) ?? Number.MAX_SAFE_INTEGER;
+        const orderB = categorySortOrderByName.get(String(b.label || '').trim().toLowerCase()) ?? Number.MAX_SAFE_INTEGER;
+
+        if (orderA !== orderB) {
+          return orderA - orderB;
+        }
+
+        return b.value - a.value;
+      });
+
     const paidByMap = buildTotals(
       expenses,
       (expense) => getUserDisplayName({ id: expense.paid_by_user_id, full_name: expense.paid_by_full_name }),
@@ -819,12 +844,12 @@ export default function GroupStatistics() {
       transfersCount: settlements.length,
       periodRange: formatRangeLabel(periodDates[0], periodDates[periodDates.length - 1]),
       timelinePeriods,
-      categoryData: toPieData(Array.from(categoryMap.entries()).map(([label, value]) => ({ label, value }))),
+      categoryData: toPieData(categoryEntries, { sortByValue: false }),
       paidByData: toPieData(Array.from(paidByMap.entries()).map(([label, value]) => ({ label, value }))),
       transfersByMemberData,
       memberRows,
     };
-  }, [expenses, members, settlements, timelineDataMode, timelineGranularity]);
+  }, [expenses, expenseCategories, members, settlements, timelineDataMode, timelineGranularity]);
 
   if (loading) {
     return <StatisticsSkeleton />;
@@ -856,8 +881,8 @@ export default function GroupStatistics() {
                   { label: 'Antal medlemmar', value: `${statistics.membersCount} st` },
                   { label: 'Antal utgifter', value: `${statistics.expensesCount} st` },
                   { label: 'Totala utgifter', value: formatCurrency(statistics.totalSpent, { precise: true }) },
-                  { label: 'Antal överföringar', value: `${statistics.transfersCount} st` },
-                  { label: 'Totala överföringar', value: formatCurrency(statistics.totalTransfers, { precise: true }) },
+                  { label: 'Antal kvittningar', value: `${statistics.transfersCount} st` },
+                  { label: 'Totala kvittningar', value: formatCurrency(statistics.totalTransfers, { precise: true }) },
                 ].map((row, index) => (
                   <div
                     key={row.label}
@@ -920,11 +945,11 @@ export default function GroupStatistics() {
                   <span className="font-semibold">{formatCurrency(member.totalOwed, { precise: true })}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[var(--text-secondary)]">Antal överföringar</span>
+                  <span className="text-[var(--text-secondary)]">Antal kvittningar</span>
                   <span className="font-semibold">{member.transferCount} st</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[var(--text-secondary)]">Totala överföringar</span>
+                  <span className="text-[var(--text-secondary)]">Totala kvittningar</span>
                   <span className="font-semibold">{formatCurrency(member.transfers, { precise: true })}</span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -942,7 +967,7 @@ export default function GroupStatistics() {
 
       <section className="grid gap-6 lg:grid-cols-2">
         <PieCard title="Utgifter per medlem" entries={statistics.paidByData} />
-        <PieCard title="Överföringar per medlem" entries={statistics.transfersByMemberData} />
+        <PieCard title="Kvittningar per medlem" entries={statistics.transfersByMemberData} />
         <PieCard title="Utgifter per kategori" entries={statistics.categoryData} />
       </section>
 
