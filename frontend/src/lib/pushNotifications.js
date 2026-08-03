@@ -22,6 +22,12 @@ export async function subscribeToPush() {
   if (permission !== 'granted') throw new Error('permission_denied');
 
   const registration = await navigator.serviceWorker.ready;
+  const existingSubscription = await registration.pushManager.getSubscription();
+  if (existingSubscription) {
+    await post('/api/push/subscribe', existingSubscription.toJSON());
+    return existingSubscription;
+  }
+
   const { publicKey } = await (await fetch('/api/push/vapid-public-key')).json();
   const subscription = await registration.pushManager.subscribe({
     userVisibleOnly: true,
@@ -34,7 +40,7 @@ export async function subscribeToPush() {
 
 export async function unsubscribeFromPush() {
   if (!isPushSupported()) return;
-  const registration = await navigator.serviceWorker.getRegistration('/sw.js');
+  const registration = await navigator.serviceWorker.getRegistration('/');
   if (!registration) return;
   const subscription = await registration.pushManager.getSubscription();
   if (!subscription) return;
@@ -49,7 +55,7 @@ export async function unsubscribeFromPush() {
 export async function getSubscriptionState() {
   if (!isPushSupported()) return 'unsupported';
   if (Notification.permission === 'denied') return 'denied';
-  const registration = await navigator.serviceWorker.getRegistration('/sw.js');
+  const registration = await navigator.serviceWorker.getRegistration('/');
   if (!registration) return 'default';
   const subscription = await registration.pushManager.getSubscription();
   return subscription ? 'subscribed' : 'default';
