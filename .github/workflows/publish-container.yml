@@ -21,7 +21,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [backend, frontend]
+        include:
+          - service: backend
+            platforms: linux/amd64
+          - service: frontend
+            platforms: linux/amd64,linux/arm64
 
     steps:
       - name: Check out repository
@@ -53,7 +57,7 @@ jobs:
         with:
           context: ${{ matrix.service }}
           file: ${{ matrix.service }}/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.platforms }}
           push: true
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
