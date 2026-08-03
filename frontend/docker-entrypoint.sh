@@ -1,7 +1,7 @@
-#\!/bin/sh
+#!/bin/sh
 cat > /usr/share/nginx/html/config.js << JSEOF
 window.__kvittConfig = {
-  tagline: "${VITE_TAGLINE:-}"
+  tagline: ""
 };
 JSEOF
 exec nginx -g "daemon off;"
