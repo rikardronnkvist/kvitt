@@ -450,7 +450,7 @@ export default function Admin() {
 
           {!loading && activeTab === 'users' ? (
             <div className="divide-y divide-[var(--border-subtle)] rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)]">
-              <div className="flex items-center gap-x-3 px-4 py-2">
+              <div className="hidden items-center gap-x-3 px-4 py-2 sm:flex">
                 <span className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Namn</span>
                 <span className="w-14 shrink-0 text-center text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Admin</span>
                 <span className="w-16 shrink-0 text-center text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Grupper</span>
@@ -473,15 +473,15 @@ export default function Admin() {
                         onChange={(event) => handleUserDraftChange(user.id, 'full_name', event.target.value)}
                         aria-label="Fullständigt namn"
                       />
-                      <div className="flex w-14 shrink-0 justify-center">
+                      <div className="hidden w-14 shrink-0 justify-center sm:flex">
                         <input
                           type="checkbox"
                           checked={Boolean(draft.is_admin)}
                           onChange={(event) => handleUserDraftChange(user.id, 'is_admin', event.target.checked)}
                         />
                       </div>
-                      <span className="w-16 shrink-0 text-center text-sm text-[var(--text-muted)]">{user.group_count}</span>
-                      <span className="w-16 shrink-0 text-center text-sm text-[var(--text-muted)]">{user.passkey_count}</span>
+                      <span className="hidden w-16 shrink-0 text-center text-sm text-[var(--text-muted)] sm:block">{user.group_count}</span>
+                      <span className="hidden w-16 shrink-0 text-center text-sm text-[var(--text-muted)] sm:block">{user.passkey_count}</span>
                       <button
                         type="button"
                         className={`size-9 min-h-0 shrink-0 rounded-lg border p-0 text-sm font-semibold transition-colors ${isDirty ? 'border-[var(--accent)] bg-[var(--accent)] text-white hover:opacity-90' : 'cursor-not-allowed border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[var(--text-muted)]'}`}
@@ -509,6 +509,19 @@ export default function Admin() {
                       >
                         {deletingUserId === user.id ? '...' : '×'}
                       </button>
+                    </div>
+                    {/* Mobile-only stats row */}
+                    <div className="flex items-center gap-4 px-4 pb-2 sm:hidden">
+                      <label className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(draft.is_admin)}
+                          onChange={(event) => handleUserDraftChange(user.id, 'is_admin', event.target.checked)}
+                        />
+                        Admin
+                      </label>
+                      <span className="text-xs text-[var(--text-muted)]">{user.group_count} grupper</span>
+                      <span className="text-xs text-[var(--text-muted)]">{user.passkey_count} passkeys</span>
                     </div>
                     {recoveryUrl ? (
                       <div className="mx-4 mb-2 flex items-center gap-2 rounded-lg border border-[color:color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[color:color-mix(in_srgb,var(--accent)_6%,transparent)] px-3 py-2">
