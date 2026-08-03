@@ -26,7 +26,7 @@ router.get('/devbox/users', (_req, res) => {
   }
 
   const users = db.prepare(`
-    SELECT id, full_name
+    SELECT id, full_name, is_admin
     FROM users
     ORDER BY COALESCE(NULLIF(full_name, ''), id) COLLATE NOCASE
   `).all();
@@ -36,6 +36,7 @@ router.get('/devbox/users', (_req, res) => {
       id: user.id,
       name: user.full_name || `Användare ${user.id}`,
       subtitle: null,
+      is_admin: Boolean(user.is_admin),
     })),
   });
 });

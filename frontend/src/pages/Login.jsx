@@ -260,6 +260,11 @@ export default function Login() {
                       <span>{user.name}</span>
                       {user.subtitle ? <span className="text-xs text-[var(--text-muted)]">{user.subtitle}</span> : null}
                     </span>
+                    {user.is_admin ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="ml-auto size-4 shrink-0 text-[var(--text-muted)]" aria-label="Admin">
+                        <path fillRule="evenodd" d="M9.661 2.237a.531.531 0 0 1 .678 0 11.947 11.947 0 0 0 7.078 2.749.5.5 0 0 1 .479.425c.069.52.104 1.05.104 1.589 0 5.162-3.26 9.563-7.834 11.256a.48.48 0 0 1-.332 0C5.26 16.563 2 12.162 2 7c0-.538.035-1.069.104-1.589a.5.5 0 0 1 .48-.425 11.947 11.947 0 0 0 7.077-2.749Z" clipRule="evenodd" />
+                      </svg>
+                    ) : null}
                   </button>
                 )) : (
                   <p className="m-0 text-sm text-[var(--text-secondary)]">Inga användare hittades.</p>
