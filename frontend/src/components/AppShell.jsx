@@ -227,7 +227,7 @@ export default function AppShell() {
               </div>
               <div>
                 <p className="m-0 text-sm font-semibold">Kvitt</p>
-                <p className="m-0 text-xs text-[var(--text-muted)]">#teambail on tour</p>
+                <p className="m-0 text-xs text-[var(--text-muted)]">{import.meta.env.VITE_TAGLINE || 'Dela kostnader, bli kvitt'}</p>
               </div>
             </button>
           </div>
