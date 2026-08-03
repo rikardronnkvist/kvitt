@@ -347,6 +347,18 @@ export default function GroupView() {
   }, [inviteToken]);
 
   const summary = useMemo(() => {
+    const normalizeIconId = (value) => String(value || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[_\s]+/g, '-');
+
+    const sortOrderByIcon = new Map(
+      expenseCategories.map((category) => [normalizeIconId(category.icon), Number(category.sort_order)]),
+    );
+    const sortOrderByName = new Map(
+      expenseCategories.map((category) => [String(category.name || '').trim().toLowerCase(), Number(category.sort_order)]),
+    );
+
     const totals = new Map();
     for (const expense of expenses) {
       const key = `${expense.category_name || 'Övrigt'}|${expense.category_icon || 'shapes'}`;
@@ -357,9 +369,22 @@ export default function GroupView() {
 
     return {
       totalExpenses: expenses.reduce((sum, expense) => sum + expense.amount, 0),
-      byCategory: Array.from(totals.values()).sort((a, b) => b.amount - a.amount),
+      byCategory: Array.from(totals.values()).sort((a, b) => {
+        const orderA = sortOrderByIcon.get(normalizeIconId(a.icon))
+          ?? sortOrderByName.get(String(a.name || '').trim().toLowerCase())
+          ?? Number.MAX_SAFE_INTEGER;
+        const orderB = sortOrderByIcon.get(normalizeIconId(b.icon))
+          ?? sortOrderByName.get(String(b.name || '').trim().toLowerCase())
+          ?? Number.MAX_SAFE_INTEGER;
+
+        if (orderA !== orderB) {
+          return orderA - orderB;
+        }
+
+        return b.amount - a.amount;
+      }),
     };
-  }, [expenses]);
+  }, [expenses, expenseCategories]);
 
   const handleGenerateInvite = async () => {
     setInviteLoading(true);
