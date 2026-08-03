@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Bell, BellOff, ChevronDown, FolderPlus, Info, KeyRound, LogOut, Settings, UserCircle2, X } from 'lucide-react';
+import { Bell, BellOff, ChevronDown, FolderPlus, Info, KeyRound, LogOut, Menu, Settings, UserCircle2, X } from 'lucide-react';
 import { parseUser } from '../lib/session.js';
 import { getUserDisplayName } from '../lib/users.js';
 import { get, post, put } from '../api/client.js';
@@ -237,14 +237,6 @@ export default function AppShell() {
               <>
                 <button
                   type="button"
-                  className="icon-button shrink-0 md:!hidden"
-                  onClick={openCreateGroup}
-                  aria-label="Skapa grupp"
-                >
-                  <FolderPlus className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
                   className="hidden min-h-11 items-center gap-2 rounded-lg border border-[var(--border-subtle)] px-3 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--app-surface-muted)] hover:text-[var(--text-primary)] md:inline-flex"
                   onClick={openCreateGroup}
                 >
@@ -262,16 +254,24 @@ export default function AppShell() {
                 aria-haspopup="menu"
                 aria-expanded={dropdownOpen}
               >
-                <UserCircle2 className="h-5 w-5 text-[var(--text-secondary)] md:h-5 md:w-5" />
-                <span className="text-sm font-medium md:hidden">Profil</span>
-                <div className="hidden leading-tight md:block">
-                  <p className="m-0 text-sm font-medium">{user ? getUserDisplayName(user) : 'Konto'}</p>
-                </div>
-                <ChevronDown className={`h-4 w-4 text-[var(--text-muted)] transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
+                <Menu className="h-5 w-5 md:hidden" />
+                <UserCircle2 className="hidden h-5 w-5 text-[var(--text-secondary)] md:block" />
+                <span className="hidden text-sm font-medium md:block">{user ? getUserDisplayName(user) : 'Konto'}</span>
+                <ChevronDown className={`hidden h-4 w-4 text-[var(--text-muted)] transition-transform md:block ${dropdownOpen ? 'rotate-180' : ''}`} />
               </button>
 
               {dropdownOpen ? (
                 <div className="absolute right-0 top-full z-50 mt-1.5 w-52 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] py-1 shadow-[var(--shadow-strong)]">
+                  {user ? (
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)] md:hidden"
+                      onClick={() => { setDropdownOpen(false); openCreateGroup(); }}
+                    >
+                      <FolderPlus className="h-4 w-4 text-[var(--text-secondary)]" />
+                      Skapa grupp
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
