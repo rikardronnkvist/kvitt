@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link2, RefreshCw, Settings, ShieldCheck, Tags, Users, UsersRound } from 'lucide-react';
-import { get, post, put } from '../api/client.js';
+import { Check, Link2, RefreshCw, Settings, ShieldCheck, Tags, Users, UsersRound } from 'lucide-react';
+import { get, post, put, del } from '../api/client.js';
 import { CATEGORY_ICON_OPTIONS, getCategoryIcon } from '../lib/expenseCategories.js';
 import { GROUP_THEMES, getThemeForGroup } from '../lib/groupTheme.js';
 import { getUserDisplayName } from '../lib/users.js';
@@ -29,6 +29,7 @@ export default function Admin() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [savingUserId, setSavingUserId] = useState(null);
+  const [deletingUserId, setDeletingUserId] = useState(null);
   const [savingGroupId, setSavingGroupId] = useState(null);
   const [savingCategoryId, setSavingCategoryId] = useState(null);
   const [activeTab, setActiveTab] = useState('admin');
@@ -102,6 +103,24 @@ export default function Admin() {
       ...previous,
       [categoryId]: { ...previous[categoryId], [key]: value },
     }));
+  };
+
+  const handleDeleteUser = async (userId) => {
+    setDeletingUserId(userId);
+    setError('');
+    try {
+      await del(`/api/admin/users/${userId}`);
+      setUsers((previous) => previous.filter((user) => user.id !== userId));
+      setUserDrafts((previous) => {
+        const next = { ...previous };
+        delete next[userId];
+        return next;
+      });
+    } catch (deleteError) {
+      setError(deleteError.message);
+    } finally {
+      setDeletingUserId(null);
+    }
   };
 
   const handleSaveUser = async (userId) => {
@@ -315,34 +334,54 @@ export default function Admin() {
           ) : null}
 
           {!loading && activeTab === 'users' ? (
-            <div className="space-y-4">
+            <div className="divide-y divide-[var(--border-subtle)] rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)]">
+              <div className="flex items-center gap-x-3 px-4 py-2">
+                <span className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Namn</span>
+                <span className="w-14 shrink-0 text-center text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Admin</span>
+                <span className="w-16 shrink-0 text-center text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Grupper</span>
+                <span className="w-16 shrink-0 text-center text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Passkeys</span>
+                <span className="w-9 shrink-0" />
+                <span className="w-9 shrink-0" />
+              </div>
               {users.map((user) => {
                 const draft = userDrafts[user.id] || { is_admin: false, full_name: '' };
+                const isDirty = draft.full_name !== user.full_name || Boolean(draft.is_admin) !== Boolean(user.is_admin);
                 return (
-                  <article key={user.id} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
-                    <div className="grid gap-4">
-                      <p className="m-0 text-sm font-medium">{getUserDisplayName(draft)}</p>
-                      <label className="field-label">
-                        Fullständigt namn
-                        <input
-                          value={draft.full_name || ''}
-                          onChange={(event) => handleUserDraftChange(user.id, 'full_name', event.target.value)}
-                        />
-                      </label>
-                      <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-3 py-3 text-sm font-medium text-[var(--text-secondary)]">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(draft.is_admin)}
-                          onChange={(event) => handleUserDraftChange(user.id, 'is_admin', event.target.checked)}
-                        />
-                        Administratör
-                      </label>
-                      <p className="m-0 text-sm text-[var(--text-secondary)]">Antal grupper: {user.group_count}</p>
-                      <button type="button" className="btn-primary" onClick={() => handleSaveUser(user.id)} disabled={savingUserId === user.id}>
-                        {savingUserId === user.id ? 'Sparar...' : 'Spara användare'}
-                      </button>
+                  <div key={user.id} className="flex items-center gap-x-3 px-4 py-2">
+                    <input
+                      className="min-w-0 flex-1"
+                      value={draft.full_name || ''}
+                      onChange={(event) => handleUserDraftChange(user.id, 'full_name', event.target.value)}
+                      aria-label="Fullständigt namn"
+                    />
+                    <div className="flex w-14 shrink-0 justify-center">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(draft.is_admin)}
+                        onChange={(event) => handleUserDraftChange(user.id, 'is_admin', event.target.checked)}
+                      />
                     </div>
-                  </article>
+                    <span className="w-16 shrink-0 text-center text-sm text-[var(--text-muted)]">{user.group_count}</span>
+                    <span className="w-16 shrink-0 text-center text-sm text-[var(--text-muted)]">{user.passkey_count}</span>
+                    <button
+                      type="button"
+                      className={`size-9 min-h-0 shrink-0 rounded-lg border p-0 text-sm font-semibold transition-colors ${isDirty ? 'border-[var(--accent)] bg-[var(--accent)] text-white hover:opacity-90' : 'cursor-not-allowed border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[var(--text-muted)]'}`}
+                      onClick={() => handleSaveUser(user.id)}
+                      disabled={!isDirty || savingUserId === user.id || deletingUserId === user.id}
+                      title="Spara ändringar"
+                    >
+                      {savingUserId === user.id ? '…' : <Check className="mx-auto h-4 w-4" />}
+                    </button>
+                    <button
+                      type="button"
+                      className={`size-9 min-h-0 shrink-0 rounded-lg border p-0 text-sm font-semibold transition-colors ${user.group_count > 0 ? 'cursor-not-allowed border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[var(--text-muted)]' : 'border-[var(--danger)] bg-[var(--danger)] text-white hover:opacity-90'}`}
+                      onClick={() => handleDeleteUser(user.id)}
+                      disabled={user.group_count > 0 || savingUserId === user.id || deletingUserId === user.id}
+                      title={user.group_count > 0 ? 'Kan inte radera användare med grupper' : 'Radera användare'}
+                    >
+                      {deletingUserId === user.id ? '...' : '×'}
+                    </button>
+                  </div>
                 );
               })}
             </div>
