@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Check, History, Link2, RefreshCw, Settings, ShieldCheck, Tags, Users, UsersRound } from 'lucide-react';
+import { Check, History, Link2, RefreshCw, Settings, Tags, Users, UsersRound } from 'lucide-react';
 import { get, post, put, del } from '../api/client.js';
 import { CATEGORY_ICON_OPTIONS, getCategoryIcon } from '../lib/expenseCategories.js';
 import { GROUP_THEMES, getThemeForGroup } from '../lib/groupTheme.js';
@@ -369,20 +369,24 @@ export default function Admin() {
 
   return (
     <div className="space-y-8">
-      <section className="surface-card flex flex-col gap-4 p-6 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-2">
-          <p className="page-title">Administration</p>
+      <div className="surface-card overflow-x-hidden">
+        {error ? <p className="mx-6 mt-4 rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
+        {/* Mobile: dropdown */}
+        <div className="border-b border-[var(--border-subtle)] px-4 py-3 sm:hidden">
+          <select
+            value={activeTab}
+            onChange={(e) => setActiveTab(e.target.value)}
+            aria-label="Välj sektion"
+          >
+            {tabs.map((tab) => (
+              <option key={tab.id} value={tab.id}>
+                {tab.label}{!loading && tab.count !== null ? ` (${tab.count})` : ''}
+              </option>
+            ))}
+          </select>
         </div>
-        <div className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-3 py-2 text-sm text-[var(--text-secondary)]">
-          <ShieldCheck className="h-4 w-4" />
-          Endast admin
-        </div>
-      </section>
-
-      {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
-
-      <div className="surface-card overflow-hidden">
-        <div className="flex border-b border-[var(--border-subtle)]">
+        {/* Desktop: tab bar */}
+        <div className="hidden border-b border-[var(--border-subtle)] sm:flex">
           {tabs.map((tab) => (
             <button
               key={tab.id}
