@@ -275,13 +275,13 @@ export default function Login() {
 
           {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
 
-          <p className="m-0 text-sm text-[var(--text-secondary)]">
+          <p className="m-0 text-center text-sm text-[var(--text-secondary)]">
             {!isRegisterMode ? (
               hasRegistrationToken ? (
                 <>
                   Har du inget konto? <Link to={`/register?${encodeURIComponent(registrationToken)}`}>Registrera dig</Link>
                 </>
-              ) : 'Registrering kräver en inbjudningslänk från admin.'
+              ) : 'Registrering kräver en inbjudningslänk.'
             ) : (
               <>
                 Har du redan ett konto? <Link to="/login">Logga in</Link>
