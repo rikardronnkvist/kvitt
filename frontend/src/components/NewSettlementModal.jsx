@@ -4,6 +4,7 @@ import BalanceList from './BalanceList.jsx';
 import MemberDropdown from './MemberDropdown.jsx';
 import ModalShell from './ModalShell.jsx';
 import { getUserDisplayName } from '../lib/users.js';
+import DateTimePicker from './DateTimePicker.jsx';
 
 function toLocalDateTimeInputValue(input) {
   const date = input ? new Date(input) : new Date();
@@ -225,21 +226,10 @@ export default function NewSettlementModal({
 
         <label className="field-label">
           Tidpunkt för kvittningen
-          <div className="grid grid-cols-2 gap-2" lang="sv-SE">
-            <input
-              type="date"
-              value={formData.settled_at?.slice(0, 10) || ''}
-              onChange={(event) => handleFieldChange('settled_at', event.target.value + 'T' + (formData.settled_at?.slice(11, 16) || '00:00'))}
-              required
-            />
-            <input
-              type="time"
-              value={formData.settled_at?.slice(11, 16) || ''}
-              onChange={(event) => handleFieldChange('settled_at', (formData.settled_at?.slice(0, 10) || '') + 'T' + event.target.value)}
-              step="60"
-              required
-            />
-          </div>
+          <DateTimePicker
+            value={formData.settled_at}
+            onChange={(value) => handleFieldChange('settled_at', value)}
+          />
         </label>
 
         {showSwishSection ? (
