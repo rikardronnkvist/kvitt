@@ -3,12 +3,19 @@ import { Calendar } from 'lucide-react';
 
 export default function DateTimePicker({ value, onChange }) {
   const dateRef = useRef(null);
+  const textRef = useRef(null);
 
   const dateValue = value?.slice(0, 10) || '';
   const timeValue = value?.slice(11, 16) || '';
 
   function handleDateChange(newDate) {
-    onChange(newDate + 'T' + (timeValue || '00:00'));
+    const sanitized = newDate.split('T')[0];
+    onChange(sanitized + 'T' + (timeValue || '00:00'));
+    dateRef.current?.blur();
+  }
+
+  function openDatePicker() {
+    try { dateRef.current?.showPicker(); } catch { dateRef.current?.click(); }
   }
 
   function handleTimeChange(newTime) {
@@ -37,34 +44,28 @@ export default function DateTimePicker({ value, onChange }) {
     if (/^\d{2}:\d{2}$/.test(formatted)) handleTimeChange(formatted);
   }
 
-  const overlayStyle = {
-    position: 'absolute', right: 0, top: 0, bottom: 0,
-    width: '3rem', opacity: 0, cursor: 'pointer',
-    padding: 0, border: 0, background: 'transparent',
-  };
-
   return (
     <div className="grid grid-cols-2 gap-2">
       <div className="relative flex items-center">
         <input
+          ref={textRef}
           type="text"
-          inputMode="numeric"
-          placeholder="ÅÅÅÅ-MM-DD"
-          pattern="\d{4}-\d{2}-\d{2}"
+          readOnly
           value={dateValue}
-          onChange={(e) => handleDateChange(e.target.value)}
-          style={{ paddingRight: '2.5rem' }}
+          onClick={openDatePicker}
+          style={{ paddingRight: '2.5rem', cursor: 'pointer' }}
           required
         />
-        <Calendar size={16} style={{ position: 'absolute', right: '0.75rem', pointerEvents: 'none', color: 'var(--text-muted)' }} />
+        <Calendar size={16} onClick={openDatePicker} style={{ position: 'absolute', right: '0.75rem', cursor: 'pointer', color: 'var(--text-muted)' }} />
         <input
           ref={dateRef}
           type="date"
           value={dateValue}
           onChange={(e) => handleDateChange(e.target.value)}
+          onKeyDown={(e) => e.preventDefault()}
           tabIndex={-1}
           aria-hidden="true"
-          style={overlayStyle}
+          style={{ position: 'absolute', opacity: 0, width: 0, height: 0, padding: 0, border: 0, pointerEvents: 'none' }}
         />
       </div>
       <div className="relative flex items-center">
