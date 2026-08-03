@@ -848,21 +848,7 @@ export default function GroupStatistics() {
 
           {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
 
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_250px]">
-            <article className="min-w-0 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] p-4 xl:order-first">
-              <div className="mt-2">
-                <TimelineChart
-                  periods={statistics.timelinePeriods}
-                  granularity={timelineGranularity}
-                  onGranularityChange={setTimelineGranularity}
-                  dataMode={timelineDataMode}
-                  onDataModeChange={setTimelineDataMode}
-                  theme={theme}
-                />
-              </div>
-            </article>
-
-            <aside className="order-first rounded-lg border p-4 xl:order-last" style={{ background: theme.bgSoft, borderColor: theme.borderSoft }}>
+          <aside className="rounded-lg border p-4" style={{ background: theme.bgSoft, borderColor: theme.borderSoft }}>
               <p className="m-0 text-sm font-semibold">Översikt</p>
               <div className="mt-3 space-y-1.5 text-sm">
                 {[
@@ -888,7 +874,19 @@ export default function GroupStatistics() {
                 ))}
               </div>
             </aside>
-          </div>
+
+          <article className="min-w-0 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] p-4">
+              <div className="mt-2">
+                <TimelineChart
+                  periods={statistics.timelinePeriods}
+                  granularity={timelineGranularity}
+                  onGranularityChange={setTimelineGranularity}
+                  dataMode={timelineDataMode}
+                  onDataModeChange={setTimelineDataMode}
+                  theme={theme}
+                />
+              </div>
+            </article>
         </div>
       </section>
 
