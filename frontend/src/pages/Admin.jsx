@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Check, History, Link2, RefreshCw, Settings, Tags, Users, UsersRound } from 'lucide-react';
+import { Archive, Check, History, Link2, RefreshCw, RotateCcw, Settings, Tags, Trash2, Users, UsersRound } from 'lucide-react';
 import { get, post, put, del } from '../api/client.js';
 import { CATEGORY_ICON_OPTIONS, getCategoryIcon } from '../lib/expenseCategories.js';
 import { GROUP_THEMES, getThemeForGroup } from '../lib/groupTheme.js';
@@ -68,6 +68,7 @@ export default function Admin() {
   const [generatingRecoveryUserId, setGeneratingRecoveryUserId] = useState(null);
   const [recoveryUrls, setRecoveryUrls] = useState({});
   const [savingGroupId, setSavingGroupId] = useState(null);
+  const [groupAction, setGroupAction] = useState({ id: null, type: '' });
   const [savingCategoryId, setSavingCategoryId] = useState(null);
   const [activeTab, setActiveTab] = useState('admin');
   const [selectedGroupId, setSelectedGroupId] = useState(null);
@@ -247,6 +248,78 @@ export default function Admin() {
       setError(saveError.message);
     } finally {
       setSavingGroupId(null);
+    }
+  };
+
+  const handleArchiveGroup = async (groupId) => {
+    setGroupAction({ id: groupId, type: 'archive' });
+    setError('');
+    try {
+      const updated = await post(`/api/admin/groups/${groupId}/archive`, {});
+      setGroups((previous) => previous.map((group) => (group.id === groupId ? updated : group)));
+      setGroupDrafts((previous) => ({
+        ...previous,
+        [groupId]: {
+          name: updated.name,
+          theme_color: updated.theme_color ?? null,
+          mileage_rate: Number(updated.mileage_rate) > 0 ? updated.mileage_rate : 20,
+        },
+      }));
+    } catch (actionError) {
+      setError(actionError.message);
+    } finally {
+      setGroupAction({ id: null, type: '' });
+    }
+  };
+
+  const handleUnarchiveGroup = async (groupId) => {
+    setGroupAction({ id: groupId, type: 'unarchive' });
+    setError('');
+    try {
+      const updated = await post(`/api/admin/groups/${groupId}/unarchive`, {});
+      setGroups((previous) => previous.map((group) => (group.id === groupId ? updated : group)));
+      setGroupDrafts((previous) => ({
+        ...previous,
+        [groupId]: {
+          name: updated.name,
+          theme_color: updated.theme_color ?? null,
+          mileage_rate: Number(updated.mileage_rate) > 0 ? updated.mileage_rate : 20,
+        },
+      }));
+    } catch (actionError) {
+      setError(actionError.message);
+    } finally {
+      setGroupAction({ id: null, type: '' });
+    }
+  };
+
+  const handleDeleteGroup = async (groupId) => {
+    if (!window.confirm('Är du säker på att du vill radera gruppen permanent? Detta kan inte ångras.')) {
+      return;
+    }
+    setGroupAction({ id: groupId, type: 'delete' });
+    setError('');
+    try {
+      await del(`/api/admin/groups/${groupId}`);
+      setGroups((previous) => {
+        const next = previous.filter((group) => group.id !== groupId);
+        setSelectedGroupId((current) => {
+          if (current !== groupId) {
+            return current;
+          }
+          return next.length ? next[0].id : null;
+        });
+        return next;
+      });
+      setGroupDrafts((previous) => {
+        const next = { ...previous };
+        delete next[groupId];
+        return next;
+      });
+    } catch (actionError) {
+      setError(actionError.message);
+    } finally {
+      setGroupAction({ id: null, type: '' });
     }
   };
 
@@ -594,6 +667,7 @@ export default function Admin() {
                       <input
                         value={selectedGroupDraft.name}
                         onChange={(event) => handleGroupDraftChange(selectedGroup.id, 'name', event.target.value)}
+                          disabled={Boolean(selectedGroup.archived_at)}
                       />
                     </label>
                     <label className="field-label">
@@ -604,6 +678,7 @@ export default function Admin() {
                         step="0.1"
                         value={selectedGroupDraft.mileage_rate}
                         onChange={(event) => handleGroupDraftChange(selectedGroup.id, 'mileage_rate', event.target.value)}
+                          disabled={Boolean(selectedGroup.archived_at)}
                       />
                     </label>
                   </div>
@@ -620,6 +695,7 @@ export default function Admin() {
                             type="button"
                             title={theme.name}
                             onClick={() => handleGroupDraftChange(selectedGroup.id, 'theme_color', theme.id)}
+                            disabled={Boolean(selectedGroup.archived_at)}
                             className="h-7 w-7 rounded-full transition hover:scale-110 focus:outline-none focus-visible:ring-2"
                             style={{
                               background: theme.base,
@@ -638,9 +714,59 @@ export default function Admin() {
                   <div className="space-y-1 text-sm text-[var(--text-secondary)]">
                     <p className="m-0">Skapad av: {getUserDisplayName({ full_name: selectedGroup.created_by_full_name })}</p>
                     <p className="m-0">Antal medlemmar: {selectedGroup.member_count}</p>
+                    <p className="m-0">Status: {selectedGroup.archived_at ? 'Arkiverad' : 'Aktiv'}</p>
                   </div>
 
-                  <button type="button" className="btn-primary" onClick={() => handleSaveGroup(selectedGroup.id)} disabled={savingGroupId === selectedGroup.id}>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedGroup.archived_at ? (
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => handleUnarchiveGroup(selectedGroup.id)}
+                        disabled={groupAction.id === selectedGroup.id}
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                        {groupAction.id === selectedGroup.id && groupAction.type === 'unarchive' ? 'Återaktiverar...' : 'Återaktivera'}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => handleArchiveGroup(selectedGroup.id)}
+                        disabled={groupAction.id === selectedGroup.id || Boolean(selectedGroup.has_open_balances)}
+                        title={selectedGroup.has_open_balances ? 'Kan inte arkivera förrän alla balanser är 0.' : undefined}
+                      >
+                        <Archive className="h-4 w-4" />
+                        {groupAction.id === selectedGroup.id && groupAction.type === 'archive' ? 'Arkiverar...' : 'Arkivera'}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="btn-danger"
+                      onClick={() => handleDeleteGroup(selectedGroup.id)}
+                      disabled={groupAction.id === selectedGroup.id}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      {groupAction.id === selectedGroup.id && groupAction.type === 'delete' ? 'Raderar...' : 'Radera grupp'}
+                    </button>
+                  </div>
+
+                  {selectedGroup.archived_at ? (
+                    <p className="m-0 text-sm text-[var(--text-secondary)]">
+                      Gruppen är arkiverad och kan inte redigeras förrän den återaktiveras.
+                    </p>
+                  ) : selectedGroup.has_open_balances ? (
+                    <p className="m-0 text-sm text-[var(--text-secondary)]">
+                      Gruppen kan inte arkiveras förrän allas balans är 0.
+                    </p>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={() => handleSaveGroup(selectedGroup.id)}
+                    disabled={savingGroupId === selectedGroup.id || Boolean(selectedGroup.archived_at) || groupAction.id === selectedGroup.id}
+                  >
                     {savingGroupId === selectedGroup.id ? 'Sparar...' : 'Spara grupp'}
                   </button>
                 </section>

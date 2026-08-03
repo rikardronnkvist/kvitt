@@ -10,6 +10,7 @@ import {
 } from '../utils/settings.js';
 import { getFrontendPublicOrigin } from '../utils/public-origin.js';
 import { createUniqueSlug, slugifyGroupName } from '../utils/slug.js';
+import { calculateMemberBalances } from '../utils/balance.js';
 import { resolveRequestIp, tryLogActivity } from '../utils/activity-log.js';
 
 const router = express.Router();
@@ -72,6 +73,34 @@ function normalizeDateFilter(value) {
   }
 
   return parsed.toISOString();
+}
+
+function groupHasOpenBalances(groupId) {
+  const balances = calculateMemberBalances(groupId);
+  return balances.some((member) => Number(member.balance) !== 0);
+}
+
+function getAdminGroupById(groupId) {
+  const group = db.prepare(`
+    SELECT g.id, g.name, g.slug, g.theme_color, g.mileage_rate, g.created_at, g.created_by, g.archived_at,
+           u.full_name AS created_by_full_name,
+           COUNT(gm.user_id) AS member_count
+    FROM groups g
+    JOIN users u ON u.id = g.created_by
+    LEFT JOIN group_members gm ON gm.group_id = g.id
+    WHERE g.id = ?
+    GROUP BY g.id
+  `).get(groupId);
+
+  if (!group) {
+    return null;
+  }
+
+  return {
+    ...group,
+    member_count: Number(group.member_count),
+    has_open_balances: group.archived_at ? false : groupHasOpenBalances(groupId),
+  };
 }
 
 router.get('/activity-logs', (req, res) => {
@@ -409,7 +438,7 @@ router.put('/users/:id', (req, res) => {
 
 router.get('/groups', (_req, res) => {
   const groups = db.prepare(`
-    SELECT g.id, g.name, g.theme_color, g.mileage_rate, g.created_at, g.created_by, g.archived_at,
+    SELECT g.id, g.name, g.slug, g.theme_color, g.mileage_rate, g.created_at, g.created_by, g.archived_at,
            u.full_name AS created_by_full_name,
            COUNT(gm.user_id) AS member_count
     FROM groups g
@@ -422,6 +451,7 @@ router.get('/groups', (_req, res) => {
   return res.json(groups.map((group) => ({
     ...group,
     member_count: Number(group.member_count),
+    has_open_balances: group.archived_at ? false : groupHasOpenBalances(group.id),
   })));
 });
 
@@ -485,21 +515,97 @@ router.put('/groups/:id', (req, res) => {
     ipAddress: resolveRequestIp(req),
   });
 
-  const updated = db.prepare(`
-    SELECT g.id, g.name, g.theme_color, g.mileage_rate, g.created_at, g.created_by, g.archived_at,
-           u.full_name AS created_by_full_name,
-           COUNT(gm.user_id) AS member_count
-    FROM groups g
-    JOIN users u ON u.id = g.created_by
-    LEFT JOIN group_members gm ON gm.group_id = g.id
-    WHERE g.id = ?
-    GROUP BY g.id
-  `).get(groupId);
+  const updated = getAdminGroupById(groupId);
+  return res.json(updated);
+});
 
-  return res.json({
-    ...updated,
-    member_count: Number(updated.member_count),
+router.post('/groups/:id/archive', (req, res) => {
+  const groupId = Number(req.params.id);
+  const group = db.prepare('SELECT id, name, slug, archived_at FROM groups WHERE id = ?').get(groupId);
+  if (!group) {
+    return res.status(404).json({ error: 'Gruppen hittades inte.' });
+  }
+
+  const memberBalances = calculateMemberBalances(groupId);
+  const hasOpenBalances = memberBalances.some((member) => Number(member.balance) !== 0);
+  if (hasOpenBalances) {
+    return res.status(409).json({ error: 'Gruppen kan bara arkiveras när allas balans är 0.' });
+  }
+
+  if (!group.archived_at) {
+    db.prepare("UPDATE groups SET archived_at = datetime('now', 'localtime') WHERE id = ?").run(groupId);
+    tryLogActivity({
+      eventType: 'group.archived',
+      action: 'archive',
+      actorUserId: req.user.id,
+      groupId,
+      entityType: 'group',
+      entityId: groupId,
+      metadata: {
+        via_admin: true,
+      },
+      ipAddress: resolveRequestIp(req),
+    });
+  }
+
+  const updated = getAdminGroupById(groupId);
+  return res.json(updated);
+});
+
+router.post('/groups/:id/unarchive', (req, res) => {
+  const groupId = Number(req.params.id);
+  const group = db.prepare('SELECT id, name, slug, archived_at FROM groups WHERE id = ?').get(groupId);
+  if (!group) {
+    return res.status(404).json({ error: 'Gruppen hittades inte.' });
+  }
+
+  if (group.archived_at) {
+    db.prepare('UPDATE groups SET archived_at = NULL WHERE id = ?').run(groupId);
+    tryLogActivity({
+      eventType: 'group.unarchived',
+      action: 'unarchive',
+      actorUserId: req.user.id,
+      groupId,
+      entityType: 'group',
+      entityId: groupId,
+      metadata: {
+        via_admin: true,
+      },
+      ipAddress: resolveRequestIp(req),
+    });
+  }
+
+  const updated = getAdminGroupById(groupId);
+  return res.json(updated);
+});
+
+router.delete('/groups/:id', (req, res) => {
+  const groupId = Number(req.params.id);
+  const group = db.prepare('SELECT id, name, slug FROM groups WHERE id = ?').get(groupId);
+  if (!group) {
+    return res.status(404).json({ error: 'Gruppen hittades inte.' });
+  }
+
+  const tx = db.transaction(() => {
+    tryLogActivity({
+      eventType: 'group.deleted',
+      action: 'delete',
+      actorUserId: req.user.id,
+      groupId,
+      entityType: 'group',
+      entityId: groupId,
+      metadata: {
+        name: group.name,
+        slug: group.slug,
+        via_admin: true,
+      },
+      ipAddress: resolveRequestIp(req),
+    });
+    db.prepare('DELETE FROM groups WHERE id = ?').run(groupId);
   });
+
+  tx();
+  return res.status(204).end();
 });
 
 router.get('/categories', (_req, res) => {
