@@ -2,6 +2,7 @@ import express from 'express';
 import { z } from 'zod';
 import authMiddleware from '../middleware/auth.js';
 import { db } from '../db/database.js';
+import { getSubscriptionsForUsers, sendPushNotification, isConfigured } from '../utils/push.js';
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -185,7 +186,7 @@ router.post('/:groupId', (req, res) => {
   }
 
   const groupMembers = db.prepare(`
-    SELECT u.id, u.full_name
+    SELECT u.id, u.full_name, u.is_placeholder
     FROM group_members gm
     JOIN users u ON u.id = gm.user_id
     WHERE gm.group_id = ?
@@ -257,6 +258,23 @@ router.post('/:groupId', (req, res) => {
   });
 
   const expenseId = tx();
+
+  if (isConfigured()) {
+    const group = db.prepare('SELECT name FROM groups WHERE id = ?').get(groupId);
+    const creatorName = req.user.full_name || 'Någon';
+    const recipients = groupMembers
+      .filter((m) => m.id !== req.user.id && !m.is_placeholder)
+      .map((m) => m.id);
+    const subscriptions = getSubscriptionsForUsers(recipients);
+    // fire-and-forget — don't block the response
+    Promise.allSettled(subscriptions.map((sub) =>
+      sendPushNotification(sub, {
+        title: group?.name ?? 'Kvitt',
+        body: `${creatorName} lade till "${title}"`,
+        url: `/groups/${req.params.groupId}`,
+      }),
+    ));
+  }
   const rows = db.prepare(`
     SELECT e.id, e.group_id, e.title, e.amount, e.currency, e.category_id, e.paid_by_user_id, e.notes, e.occurred_at, e.created_at,
            c.name AS category_name,

@@ -211,6 +211,16 @@ export function initializeDatabase() {
       expires_at DATETIME NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      endpoint TEXT NOT NULL UNIQUE,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id ON push_subscriptions(user_id);
     CREATE INDEX IF NOT EXISTS idx_group_invites_token ON group_invites(token);
     CREATE INDEX IF NOT EXISTS idx_group_invites_group_id ON group_invites(group_id);
     CREATE INDEX IF NOT EXISTS idx_group_members_user_id ON group_members(user_id);

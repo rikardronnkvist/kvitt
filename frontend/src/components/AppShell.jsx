@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { ChevronDown, FolderPlus, KeyRound, LogOut, Settings, UserCircle2 } from 'lucide-react';
+import { Bell, BellOff, ChevronDown, FolderPlus, KeyRound, LogOut, Settings, UserCircle2, X } from 'lucide-react';
 import { parseUser } from '../lib/session.js';
 import { getUserDisplayName } from '../lib/users.js';
 import { get, post, put } from '../api/client.js';
@@ -14,6 +14,7 @@ import {
 } from '../auth/passkey.js';
 import { formatDateTime } from '../lib/format.js';
 import { formatSwedishPhone, sanitizePhoneInput } from '../lib/phone.js';
+import { isPushSupported, subscribeToPush, unsubscribeFromPush, getSubscriptionState } from '../lib/pushNotifications.js';
 
 export default function AppShell() {
   const navigate = useNavigate();
@@ -37,6 +38,7 @@ export default function AppShell() {
   const [passkeysError, setPasskeysError] = useState('');
   const [user, setUser] = useState(() => parseUser());
   const dropdownRef = useRef(null);
+  const [notifState, setNotifState] = useState('loading'); // loading | unsupported | default | subscribed | denied | dismissed
 
   useEffect(() => {
     if (!dropdownOpen) return;
@@ -52,6 +54,26 @@ export default function AppShell() {
   const handleLogout = () => {
     localStorage.removeItem('token');
     navigate('/login');
+  };
+
+  useEffect(() => {
+    if (!isPushSupported()) { setNotifState('unsupported'); return; }
+    if (localStorage.getItem('notifications_dismissed')) { setNotifState('dismissed'); return; }
+    getSubscriptionState().then(setNotifState);
+  }, []);
+
+  const handleEnableNotifications = async () => {
+    try {
+      await subscribeToPush();
+      setNotifState('subscribed');
+    } catch (err) {
+      if (err.message === 'permission_denied') setNotifState('denied');
+    }
+  };
+
+  const handleDismissNotifications = () => {
+    localStorage.setItem('notifications_dismissed', '1');
+    setNotifState('dismissed');
   };
 
   const openEditProfile = () => {
@@ -204,7 +226,7 @@ export default function AppShell() {
               <>
                 <button
                   type="button"
-                  className="icon-button shrink-0 md:hidden"
+                  className="icon-button shrink-0 md:!hidden"
                   onClick={openCreateGroup}
                   aria-label="Skapa grupp"
                 >
@@ -255,6 +277,25 @@ export default function AppShell() {
                     <KeyRound className="h-4 w-4 text-[var(--text-secondary)]" />
                     Mina Passkeys
                   </button>
+                  {notifState === 'subscribed' ? (
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
+                      onClick={async () => { await unsubscribeFromPush(); setNotifState('default'); setDropdownOpen(false); }}
+                    >
+                      <BellOff className="h-4 w-4 text-[var(--text-secondary)]" />
+                      Stäng av notiser
+                    </button>
+                  ) : notifState === 'default' || notifState === 'dismissed' ? (
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
+                      onClick={() => { localStorage.removeItem('notifications_dismissed'); setNotifState('default'); setDropdownOpen(false); }}
+                    >
+                      <Bell className="h-4 w-4 text-[var(--text-secondary)]" />
+                      Aktivera notiser
+                    </button>
+                  ) : null}
                   {user?.is_admin ? (
                     <button
                       type="button"
@@ -284,6 +325,22 @@ export default function AppShell() {
       <div className="mx-auto max-w-[1280px] px-4 pb-24 pt-6 sm:px-6 lg:pb-10">
         <div className="min-w-0 flex-1">
           <div className="mx-auto max-w-[960px]">
+            {notifState === 'default' ? (
+              <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-4 py-3 shadow-[var(--shadow-soft)]">
+                <div className="flex items-center gap-3">
+                  <Bell className="h-4 w-4 shrink-0 text-[var(--text-secondary)]" />
+                  <p className="m-0 text-sm text-[var(--text-secondary)]">Aktivera notiser för att få ett meddelande när någon lägger till en utgift.</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button type="button" className="btn-primary py-1.5 text-xs" onClick={handleEnableNotifications}>
+                    Aktivera
+                  </button>
+                  <button type="button" className="icon-button" aria-label="Stäng" onClick={handleDismissNotifications}>
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ) : null}
             <Outlet />
           </div>
         </div>
