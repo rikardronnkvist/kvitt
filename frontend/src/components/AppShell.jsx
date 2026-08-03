@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Bell, BellOff, ChevronDown, FolderPlus, Info, KeyRound, LogOut, Menu, ScanLine, Settings, UserCircle2, X } from 'lucide-react';
+import { Outlet, useNavigate } from 'react-router-dom';
+import { Bell, BellOff, FolderPlus, Home, Info, KeyRound, LogOut, Menu, ScanLine, Settings, UserCircle2, X } from 'lucide-react';
 import { parseUser } from '../lib/session.js';
-import { getUserDisplayName } from '../lib/users.js';
 import { get, post, put } from '../api/client.js';
 import { GROUP_THEMES } from '../lib/groupTheme.js';
 import InviteQrScannerModal from './InviteQrScannerModal.jsx';
@@ -19,8 +18,6 @@ import { isPushSupported, isIosNonStandalone, subscribeToPush, unsubscribeFromPu
 
 export default function AppShell() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const isDashboard = location.pathname === '/';
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
   const [creatingGroup, setCreatingGroup] = useState(false);
@@ -219,74 +216,73 @@ export default function AppShell() {
     }
   };
 
+  const hasNotificationsMenuItem = notifState === 'subscribed' || notifState === 'default' || notifState === 'dismissed';
+
   return (
     <div className="min-h-screen bg-[var(--app-bg)] text-[var(--text-primary)]">
       <header className="sticky top-0 z-50 border-b border-[var(--border-subtle)] bg-[color:var(--app-surface)/88%] backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-[1280px] items-center justify-between gap-4 px-4 sm:px-6">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => navigate('/')}
-              className="flex items-center gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-3 py-2 text-left shadow-[var(--shadow-soft)]"
-            >
-              <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-[var(--app-surface-muted)]">
-                <img src="/app-icon.png" alt="Kvitt ikon" className="h-full w-full object-cover" />
-              </div>
-              <div>
-                <p className="m-0 text-sm font-semibold">Kvitt</p>
-                <p className="m-0 text-xs text-[var(--text-muted)]">{window.__kvittConfig?.tagline || import.meta.env.VITE_TAGLINE || 'Dela kostnader, bli kvitt'}</p>
-              </div>
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {isDashboard ? (
-              <>
-                <button
-                  type="button"
-                  className="hidden min-h-11 items-center gap-2 rounded-lg border border-[var(--border-subtle)] px-3 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--app-surface-muted)] hover:text-[var(--text-primary)] md:inline-flex"
-                  onClick={openCreateGroup}
-                >
-                  <FolderPlus className="h-4 w-4" />
-                  Skapa grupp
-                </button>
-              </>
-            ) : null}
-
-            <div className="relative" ref={dropdownRef}>
+        <div className="mx-auto max-w-[1280px] px-4 sm:px-6">
+          <div className="mx-auto flex h-16 max-w-[960px] items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
               <button
                 type="button"
-                className="flex min-h-11 items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-3 text-left"
-                onClick={() => setDropdownOpen((prev) => !prev)}
-                aria-haspopup="menu"
-                aria-expanded={dropdownOpen}
+                onClick={() => navigate('/')}
+                className="flex items-center gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-3 py-2 text-left shadow-[var(--shadow-soft)]"
               >
-                <Menu className="h-5 w-5 md:hidden" />
-                <UserCircle2 className="hidden h-5 w-5 text-[var(--text-secondary)] md:block" />
-                <span className="hidden text-sm font-medium md:block">{user ? getUserDisplayName(user) : 'Konto'}</span>
-                <ChevronDown className={`hidden h-4 w-4 text-[var(--text-muted)] transition-transform md:block ${dropdownOpen ? 'rotate-180' : ''}`} />
+                <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-[var(--app-surface-muted)]">
+                  <img src="/app-icon.png" alt="Kvitt ikon" className="h-full w-full object-cover" />
+                </div>
+                <div>
+                  <p className="m-0 text-sm font-semibold">Kvitt</p>
+                  <p className="m-0 text-xs text-[var(--text-muted)]">{window.__kvittConfig?.tagline || import.meta.env.VITE_TAGLINE || 'Dela kostnader, bli kvitt'}</p>
+                </div>
               </button>
+            </div>
 
-              {dropdownOpen ? (
-                <div className="absolute right-0 top-full z-50 mt-1.5 w-52 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] py-1 shadow-[var(--shadow-strong)]">
-                  {user ? (
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)] md:hidden"
-                      onClick={() => { setDropdownOpen(false); openCreateGroup(); }}
-                    >
-                      <FolderPlus className="h-4 w-4 text-[var(--text-secondary)]" />
-                      Skapa grupp
-                    </button>
-                  ) : null}
+            <div className="flex items-center gap-2">
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  type="button"
+                  className="flex min-h-11 items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-3 text-left"
+                  onClick={() => setDropdownOpen((prev) => !prev)}
+                  aria-haspopup="menu"
+                  aria-expanded={dropdownOpen}
+                  aria-label="Öppna meny"
+                >
+                  <Menu className="h-5 w-5" />
+                </button>
+
+                {dropdownOpen ? (
+                  <div className="absolute right-0 top-full z-50 mt-1.5 w-52 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] py-1 shadow-[var(--shadow-strong)]">
                   <button
                     type="button"
-                    className="flex w-full items-center gap-3 whitespace-nowrap px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)] md:hidden"
-                    onClick={() => { setDropdownOpen(false); setScannerOpen(true); }}
+                    className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
+                    onClick={() => { setDropdownOpen(false); navigate('/'); }}
                   >
-                    <ScanLine className="h-4 w-4 text-[var(--text-secondary)]" />
-                    Skanna QR-kod
+                    <Home className="h-4 w-4 text-[var(--text-secondary)]" />
+                    Mina grupper
                   </button>
+                  {user ? (
+                    <>
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
+                        onClick={() => { setDropdownOpen(false); openCreateGroup(); }}
+                      >
+                        <FolderPlus className="h-4 w-4 text-[var(--text-secondary)]" />
+                        Skapa grupp
+                      </button>
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-3 whitespace-nowrap px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)] md:hidden"
+                        onClick={() => { setDropdownOpen(false); setScannerOpen(true); }}
+                      >
+                        <ScanLine className="h-4 w-4 text-[var(--text-secondary)]" />
+                        Skanna QR-kod
+                      </button>
+                      <div className="my-1 border-t border-[var(--border-subtle)]" />
+                    </>
+                  ) : null}
                   <button
                     type="button"
                     className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
@@ -303,6 +299,9 @@ export default function AppShell() {
                     <KeyRound className="h-4 w-4 text-[var(--text-secondary)]" />
                     Mina Passkeys
                   </button>
+                  {!user?.is_admin || hasNotificationsMenuItem ? (
+                    <div className="my-1 border-t border-[var(--border-subtle)]" />
+                  ) : null}
                   {notifState === 'subscribed' ? (
                     <button
                       type="button"
@@ -322,6 +321,7 @@ export default function AppShell() {
                       Aktivera notiser
                     </button>
                   ) : null}
+                  {user?.is_admin ? <div className="my-1 border-t border-[var(--border-subtle)]" /> : null}
                   {user?.is_admin ? (
                     <button
                       type="button"
@@ -332,6 +332,7 @@ export default function AppShell() {
                       Adminpanel
                     </button>
                   ) : null}
+                  {user?.is_admin ? <div className="my-1 border-t border-[var(--border-subtle)]" /> : null}
                   <button
                       type="button"
                       className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
@@ -340,7 +341,6 @@ export default function AppShell() {
                       <Info className="h-4 w-4 text-[var(--text-secondary)]" />
                       Om Kvitt
                     </button>
-                  <div className="my-1 border-t border-[var(--border-subtle)]" />
                   <button
                     type="button"
                     className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--danger)] hover:bg-[color:color-mix(in_srgb,var(--danger)_6%,transparent)]"
@@ -349,8 +349,9 @@ export default function AppShell() {
                     <LogOut className="h-4 w-4" />
                     Logga ut
                   </button>
-                </div>
-              ) : null}
+                  </div>
+                ) : null}
+              </div>
             </div>
           </div>
         </div>
