@@ -80,9 +80,11 @@ router.post('/registration-access/reset', (_req, res) => {
 router.get('/users', (_req, res) => {
   const users = db.prepare(`
     SELECT u.id, u.is_admin, u.full_name, u.created_at,
-           COUNT(gm.group_id) AS group_count
+           COUNT(DISTINCT gm.group_id) AS group_count,
+           COUNT(DISTINCT p.id) AS passkey_count
     FROM users u
     LEFT JOIN group_members gm ON gm.user_id = u.id
+    LEFT JOIN passkeys p ON p.user_id = u.id
     GROUP BY u.id
     ORDER BY u.created_at ASC
   `).all();
@@ -91,7 +93,37 @@ router.get('/users', (_req, res) => {
     ...user,
     is_admin: Boolean(user.is_admin),
     group_count: Number(user.group_count),
+    passkey_count: Number(user.passkey_count),
   })));
+});
+
+router.delete('/users/:id', (req, res) => {
+  const userId = Number(req.params.id);
+
+  if (req.user.id === userId) {
+    return res.status(400).json({ error: 'Du kan inte radera ditt eget konto.' });
+  }
+
+  const user = db.prepare(`
+    SELECT u.id, u.is_admin, COUNT(gm.group_id) AS group_count
+    FROM users u
+    LEFT JOIN group_members gm ON gm.user_id = u.id
+    WHERE u.id = ?
+    GROUP BY u.id
+  `).get(userId);
+
+  if (!user) {
+    return res.status(404).json({ error: 'Användaren hittades inte.' });
+  }
+
+  if (Number(user.group_count) > 0) {
+    return res.status(400).json({ error: 'Kan inte radera en användare som är med i grupper.' });
+  }
+
+  db.prepare('DELETE FROM passkeys WHERE user_id = ?').run(userId);
+  db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+
+  return res.status(204).end();
 });
 
 router.put('/users/:id', (req, res) => {
