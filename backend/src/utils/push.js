@@ -9,8 +9,6 @@ if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
   );
 }
 
-const deleteSubscription = db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?');
-
 export function getSubscriptionsForUsers(userIds) {
   if (!userIds.length) return [];
   const placeholders = userIds.map(() => '?').join(', ');
@@ -28,7 +26,7 @@ export async function sendPushNotification(subscription, payload) {
   } catch (err) {
     // 410 Gone means the subscription is no longer valid
     if (err.statusCode === 410) {
-      deleteSubscription.run(subscription.endpoint);
+      db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?').run(subscription.endpoint);
     }
   }
 }
