@@ -226,7 +226,7 @@ export default function AppShell() {
             <div className="flex items-center gap-3">
               <button
                 type="button"
-                onClick={() => navigate('/')}
+                onClick={() => window.location.assign('/')}
                 className="flex items-center gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-3 py-2 text-left shadow-[var(--shadow-soft)]"
               >
                 <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-[var(--app-surface-muted)]">
@@ -257,7 +257,7 @@ export default function AppShell() {
                   <button
                     type="button"
                     className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
-                    onClick={() => { setDropdownOpen(false); navigate('/'); }}
+                    onClick={() => { setDropdownOpen(false); window.location.assign('/'); }}
                   >
                     <Home className="h-4 w-4 text-[var(--text-secondary)]" />
                     Mina grupper
