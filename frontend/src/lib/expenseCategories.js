@@ -1,6 +1,7 @@
 import {
   Car,
   House,
+  Plane,
   Shapes,
   UtensilsCrossed,
   Wine,
@@ -9,6 +10,7 @@ import {
 const CATEGORY_ICONS = {
   shapes: Shapes,
   car: Car,
+  plane: Plane,
   'utensils-crossed': UtensilsCrossed,
   wine: Wine,
   house: House,
@@ -16,7 +18,8 @@ const CATEGORY_ICONS = {
 
 export const CATEGORY_ICON_OPTIONS = [
   { id: 'shapes', label: 'Övrigt' },
-  { id: 'car', label: 'Bilresa' },
+  { id: 'car', label: 'Bil' },
+  { id: 'plane', label: 'Resa' },
   { id: 'utensils-crossed', label: 'Mat' },
   { id: 'wine', label: 'Dryck' },
   { id: 'house', label: 'Boende' },

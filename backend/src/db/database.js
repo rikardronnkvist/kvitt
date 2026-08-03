@@ -384,11 +384,21 @@ export function initializeDatabase() {
 
   const categories = [
     { name: 'Övrigt', icon: 'shapes', sort_order: 0 },
-    { name: 'Bilresa', icon: 'car', sort_order: 1 },
-    { name: 'Mat', icon: 'utensils-crossed', sort_order: 2 },
-    { name: 'Dryck', icon: 'wine', sort_order: 3 },
-    { name: 'Boende', icon: 'house', sort_order: 4 },
+    { name: 'Bil', icon: 'car', sort_order: 1 },
+    { name: 'Resa', icon: 'plane', sort_order: 2 },
+    { name: 'Mat', icon: 'utensils-crossed', sort_order: 3 },
+    { name: 'Dryck', icon: 'wine', sort_order: 4 },
+    { name: 'Boende', icon: 'house', sort_order: 5 },
   ];
+
+  // Migrate legacy category name when upgrading existing databases.
+  const legacyCarTripCategory = db.prepare('SELECT id FROM expense_categories WHERE name = ?').get('Bilresa');
+  if (legacyCarTripCategory) {
+    const renamedCategory = db.prepare('SELECT id FROM expense_categories WHERE name = ?').get('Bil');
+    if (!renamedCategory) {
+      db.prepare('UPDATE expense_categories SET name = ? WHERE id = ?').run('Bil', legacyCarTripCategory.id);
+    }
+  }
 
   const insertCategory = db.prepare(`
     INSERT OR IGNORE INTO expense_categories (name, icon, sort_order)
@@ -396,6 +406,11 @@ export function initializeDatabase() {
   `);
   for (const category of categories) {
     insertCategory.run(category.name, category.icon, category.sort_order);
+  }
+
+  const updateCategorySortOrder = db.prepare('UPDATE expense_categories SET sort_order = ? WHERE name = ?');
+  for (const category of categories) {
+    updateCategorySortOrder.run(category.sort_order, category.name);
   }
 
   const categoryRows = db.prepare('SELECT id FROM expense_categories ORDER BY sort_order ASC, id ASC').all();

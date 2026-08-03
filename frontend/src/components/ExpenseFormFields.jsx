@@ -43,8 +43,8 @@ export default function ExpenseFormFields({
   const { selectedMembers, equalSplits, customTotal, customDifference, hasValidAmount } = getSplitSummary(form, members);
   const selectedCategory = categories.find((category) => String(category.id) === String(form.category_id));
   const isCarTripCategory = selectedCategory?.icon === 'car';
-  const isCarTripTitle = (title) => /^Bilresa(?:\s+\d+\s+mil)?$/u.test(title.trim());
-  const getCarTripTitle = (distanceMil) => `Bilresa ${distanceMil} mil`;
+  const isCarTripTitle = (title) => /^(?:Bil|Bilresa)(?:\s+\d+\s+mil)?$/u.test(title.trim());
+  const getCarTripTitle = (distanceMil) => `Bil ${distanceMil} mil`;
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -60,7 +60,7 @@ export default function ExpenseFormFields({
     <form className="space-y-6" onSubmit={handleSubmit}>
       <div className="space-y-2">
         <p className="section-eyebrow">Kategori</p>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-6">
           {categories.map((category) => {
             const Icon = getCategoryIcon(category.icon);
             const isActive = String(form.category_id) === String(category.id);
@@ -104,7 +104,7 @@ export default function ExpenseFormFields({
                 aria-pressed={isActive}
                 aria-label={category.name}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-5 w-5" />
                 {category.name}
               </button>
             );

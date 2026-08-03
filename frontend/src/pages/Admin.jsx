@@ -395,7 +395,7 @@ export default function Admin() {
                       />
                     </label>
                     <label className="field-label">
-                      Milkostnad för Bilresa (kr/mil)
+                      Milkostnad för Bil (kr/mil)
                       <input
                         type="number"
                         min="0.1"

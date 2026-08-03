@@ -684,7 +684,7 @@ export default function GroupView() {
               </div>
               <div className="space-y-3">
                 <label className="field-label">
-                  Milkostnad för Bilresa (kr/mil)
+                  Milkostnad för Bil (kr/mil)
                   <input
                     type="text"
                     inputMode="numeric"
