@@ -220,6 +220,20 @@ export function initializeDatabase() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS activity_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      event_type TEXT NOT NULL,
+      action TEXT NOT NULL,
+      actor_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      target_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
+      entity_type TEXT NOT NULL,
+      entity_id INTEGER,
+      metadata_json TEXT,
+      ip_address TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id ON push_subscriptions(user_id);
     CREATE INDEX IF NOT EXISTS idx_group_invites_token ON group_invites(token);
     CREATE INDEX IF NOT EXISTS idx_group_invites_group_id ON group_invites(group_id);
@@ -229,6 +243,10 @@ export function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_settlements_group_id ON settlements(group_id);
     CREATE INDEX IF NOT EXISTS idx_passkeys_user_id ON passkeys(user_id);
     CREATE INDEX IF NOT EXISTS idx_passkeys_credential_id ON passkeys(credential_id);
+    CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created_at);
+    CREATE INDEX IF NOT EXISTS idx_activity_logs_actor_user_id ON activity_logs(actor_user_id);
+    CREATE INDEX IF NOT EXISTS idx_activity_logs_group_id ON activity_logs(group_id);
+    CREATE INDEX IF NOT EXISTS idx_activity_logs_event_type ON activity_logs(event_type);
   `);
 
   const userColumns = db.prepare('PRAGMA table_info(users)').all();

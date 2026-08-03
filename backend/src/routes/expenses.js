@@ -3,6 +3,7 @@ import { z } from 'zod';
 import authMiddleware from '../middleware/auth.js';
 import { db } from '../db/database.js';
 import { getSubscriptionsForUsers, sendPushNotification, isConfigured } from '../utils/push.js';
+import { logActivity, resolveRequestIp } from '../utils/activity-log.js';
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -89,6 +90,40 @@ function parseExpenseRows(rows) {
   return Array.from(expenses.values());
 }
 
+function getExpenseSnapshot(expenseId) {
+  const expense = db.prepare(`
+    SELECT id, group_id, title, amount, currency, category_id, paid_by_user_id, notes, occurred_at, created_at
+    FROM expenses
+    WHERE id = ?
+  `).get(expenseId);
+  if (!expense) {
+    return null;
+  }
+
+  const splits = db.prepare(`
+    SELECT user_id, amount_owed
+    FROM expense_splits
+    WHERE expense_id = ?
+    ORDER BY id ASC
+  `).all(expenseId).map((row) => ({
+    user_id: row.user_id,
+    amount_owed: Math.round(Number(row.amount_owed)),
+  }));
+
+  return {
+    id: expense.id,
+    group_id: expense.group_id,
+    title: expense.title,
+    amount: Math.round(Number(expense.amount)),
+    currency: expense.currency,
+    category_id: expense.category_id,
+    paid_by_user_id: expense.paid_by_user_id,
+    notes: expense.notes,
+    occurred_at: expense.occurred_at,
+    splits,
+  };
+}
+
 router.get('/:groupId/export', (req, res) => {
   const groupId = Number(req.params.groupId);
   if (!requireMembership(groupId, req.user.id)) {
@@ -173,6 +208,7 @@ router.get('/:groupId', (req, res) => {
 
 router.post('/:groupId', (req, res) => {
   const groupId = Number(req.params.groupId);
+  const ipAddress = resolveRequestIp(req);
   if (!requireMembership(groupId, req.user.id)) {
     return res.status(403).json({ error: 'Du har inte åtkomst till den här gruppen.' });
   }
@@ -254,6 +290,25 @@ router.post('/:groupId', (req, res) => {
       insertSplit.run(expenseResult.lastInsertRowid, split.user_id, split.amount_owed);
     }
 
+    logActivity({
+      eventType: 'expense.created',
+      action: 'create',
+      actorUserId: req.user.id,
+      groupId,
+      entityType: 'expense',
+      entityId: Number(expenseResult.lastInsertRowid),
+      metadata: {
+        title,
+        amount,
+        currency,
+        category_id: categoryId,
+        paid_by_user_id,
+        occurred_at: occurredAt,
+        split_count: splits.length,
+      },
+      ipAddress,
+    });
+
     return expenseResult.lastInsertRowid;
   });
 
@@ -299,6 +354,7 @@ router.post('/:groupId', (req, res) => {
 router.put('/:groupId/:expenseId', (req, res) => {
   const groupId = Number(req.params.groupId);
   const expenseId = Number(req.params.expenseId);
+  const ipAddress = resolveRequestIp(req);
   if (!requireMembership(groupId, req.user.id)) {
     return res.status(403).json({ error: 'Du har inte åtkomst till den här gruppen.' });
   }
@@ -306,7 +362,10 @@ router.put('/:groupId/:expenseId', (req, res) => {
     return res.status(409).json({ error: 'Gruppen är arkiverad och skrivskyddad.' });
   }
 
-  const expense = db.prepare('SELECT id, group_id FROM expenses WHERE id = ? AND group_id = ?').get(expenseId, groupId);
+  const expense = getExpenseSnapshot(expenseId);
+  if (expense && Number(expense.group_id) !== Number(groupId)) {
+    return res.status(404).json({ error: 'Utgiften hittades inte.' });
+  }
   if (!expense) {
     return res.status(404).json({ error: 'Utgiften hittades inte.' });
   }
@@ -376,6 +435,31 @@ router.put('/:groupId/:expenseId', (req, res) => {
     for (const split of splits) {
       insertSplit.run(expenseId, split.user_id, split.amount_owed);
     }
+
+    logActivity({
+      eventType: 'expense.updated',
+      action: 'update',
+      actorUserId: req.user.id,
+      groupId,
+      entityType: 'expense',
+      entityId: expenseId,
+      metadata: {
+        before: expense,
+        after: {
+          id: expenseId,
+          group_id: groupId,
+          title,
+          amount,
+          currency,
+          category_id: categoryId,
+          paid_by_user_id,
+          notes: notes || null,
+          occurred_at: occurredAt,
+          splits,
+        },
+      },
+      ipAddress,
+    });
   });
 
   tx();
@@ -403,6 +487,7 @@ router.put('/:groupId/:expenseId', (req, res) => {
 router.delete('/:groupId/:expenseId', (req, res) => {
   const groupId = Number(req.params.groupId);
   const expenseId = Number(req.params.expenseId);
+  const ipAddress = resolveRequestIp(req);
   if (!requireMembership(groupId, req.user.id)) {
     return res.status(403).json({ error: 'Du har inte åtkomst till den här gruppen.' });
   }
@@ -410,12 +495,31 @@ router.delete('/:groupId/:expenseId', (req, res) => {
     return res.status(409).json({ error: 'Gruppen är arkiverad och skrivskyddad.' });
   }
 
-  const expense = db.prepare('SELECT id FROM expenses WHERE id = ? AND group_id = ?').get(expenseId, groupId);
+  const expense = getExpenseSnapshot(expenseId);
+  if (expense && Number(expense.group_id) !== Number(groupId)) {
+    return res.status(404).json({ error: 'Utgiften hittades inte.' });
+  }
   if (!expense) {
     return res.status(404).json({ error: 'Utgiften hittades inte.' });
   }
 
-  db.prepare('DELETE FROM expenses WHERE id = ?').run(expenseId);
+  const tx = db.transaction(() => {
+    db.prepare('DELETE FROM expenses WHERE id = ?').run(expenseId);
+    logActivity({
+      eventType: 'expense.deleted',
+      action: 'delete',
+      actorUserId: req.user.id,
+      groupId,
+      entityType: 'expense',
+      entityId: expenseId,
+      metadata: {
+        before: expense,
+      },
+      ipAddress,
+    });
+  });
+
+  tx();
   return res.status(204).send();
 });
 
