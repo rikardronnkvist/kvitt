@@ -191,14 +191,21 @@ export default function ExpenseFormFields({
 
         <label className="field-label md:col-span-2">
           <span>Datum och tid för utlägget</span>
-          <input
-            type="datetime-local"
-            value={form.occurred_at || ''}
-            onChange={(event) => setForm((previous) => ({ ...previous, occurred_at: event.target.value }))}
-            step="60"
-            lang="sv-SE"
-            required
-          />
+          <div className="grid grid-cols-2 gap-2" lang="sv-SE">
+            <input
+              type="date"
+              value={form.occurred_at?.slice(0, 10) || ''}
+              onChange={(event) => setForm((previous) => ({ ...previous, occurred_at: event.target.value + 'T' + (previous.occurred_at?.slice(11, 16) || '00:00') }))}
+              required
+            />
+            <input
+              type="time"
+              value={form.occurred_at?.slice(11, 16) || ''}
+              onChange={(event) => setForm((previous) => ({ ...previous, occurred_at: (previous.occurred_at?.slice(0, 10) || '') + 'T' + event.target.value }))}
+              step="60"
+              required
+            />
+          </div>
         </label>
 
         <label className="field-label md:col-span-2">
