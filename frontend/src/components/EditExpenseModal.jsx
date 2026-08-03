@@ -52,7 +52,7 @@ export default function EditExpenseModal({ expense, members, categories, mileage
     setError('');
     try {
       await del(`/api/expenses/${groupId}/${expense.id}`);
-      onDelete(expense.id);
+      await onDelete(expense.id);
       onClose();
     } catch (deleteError) {
       setError(deleteError.message);

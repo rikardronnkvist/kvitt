@@ -479,8 +479,9 @@ export default function GroupView() {
       return;
     }
     try {
-      await del(`/api/expenses/${groupId}/${expenseId}`);
-      await loadData();
+      setExpenses((previous) => previous.filter((expense) => expense.id !== expenseId));
+      setError('');
+      await loadData({ silent: true });
     } catch (deleteError) {
       setError(deleteError.message);
     }
@@ -504,13 +505,14 @@ export default function GroupView() {
     loadData();
   };
 
-  const handleDeleteSettlement = (settlementId) => {
+  const handleDeleteSettlement = async (settlementId) => {
     if (isArchived) {
       setError('Gruppen är arkiverad och skrivskyddad.');
       return;
     }
     setSettlements((previous) => previous.filter((settlement) => settlement.id !== settlementId));
-    loadData();
+    setError('');
+    await loadData({ silent: true });
   };
 
   const handleArchiveGroup = async () => {

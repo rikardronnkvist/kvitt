@@ -114,7 +114,7 @@ export default function EditSettlementModal({ settlement, members, groupId, onCl
     setError('');
     try {
       await del(`/api/settlements/${groupId}/${settlement.id}`);
-      onDelete(settlement.id);
+      await onDelete(settlement.id);
       onClose();
     } catch (deleteError) {
       setError(deleteError.message);
