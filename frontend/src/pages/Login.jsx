@@ -177,7 +177,7 @@ export default function Login() {
             </div>
             <div className="space-y-1">
               <h1 className="page-title">Logga in på Kvitt</h1>
-              <p className="m-0 text-sm text-[var(--text-secondary)]">#teambail on tour</p>
+              <p className="m-0 text-sm text-[var(--text-secondary)]">{import.meta.env.VITE_TAGLINE || 'Dela kostnader, bli kvitt'}</p>
             </div>
           </div>
         </div>

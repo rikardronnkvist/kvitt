@@ -33,6 +33,7 @@ The frontend is available on `http://localhost:8080` by default and proxies API 
 | `PASSKEY_RP_NAME` | `Kvitt` | Displayed relying party name for passkey prompts. |
 | `PASSKEY_ORIGIN` | `http://localhost:5173` | Allowed WebAuthn origin(s), comma-separated if needed. |
 | `DEVBOX` | `false` | Enables devbox-only quick-login endpoints and user picker on login screen. |
+| `VITE_TAGLINE` | `Dela kostnader, bli kvitt` | Tagline shown on the login page and in the app header. |
 | `VAPID_PUBLIC_KEY` | _(none)_ | VAPID public key for Web Push notifications. Leave empty to disable push. |
 | `VAPID_PRIVATE_KEY` | _(none)_ | VAPID private key. Keep this secret. |
 | `VAPID_CONTACT_EMAIL` | `admin@example.com` | Contact email sent in VAPID headers. Change to a real address in production. |
@@ -144,6 +145,7 @@ Frontend finns som standard på `http://localhost:8080` och proxar API-anrop til
 | `PASSKEY_RP_NAME` | `Kvitt` | Visningsnamn för RP i passkey-dialogen. |
 | `PASSKEY_ORIGIN` | `http://localhost:5173` | Tillåtna WebAuthn-origin(s), kommaseparerade vid behov. |
 | `DEVBOX` | `false` | Aktiverar devbox-endpoints för snabbinloggning och användarlista på inloggningssidan. |
+| `VITE_TAGLINE` | `Dela kostnader, bli kvitt` | Tagline som visas på inloggningssidan och i appens header. |
 | `VAPID_PUBLIC_KEY` | _(ingen)_ | VAPID-publik nyckel för Web Push-notiser. Lämna tom för att inaktivera push. |
 | `VAPID_PRIVATE_KEY` | _(ingen)_ | VAPID-privat nyckel. Håll denna hemlig. |
 | `VAPID_CONTACT_EMAIL` | `admin@example.com` | Kontakt-e-post som skickas i VAPID-headers. Byt till en riktig adress i produktion. |
