@@ -366,19 +366,23 @@ export default function AppShell() {
                     autoFocus
                   />
                 </label>
-                <div className="grid gap-1.5">
+                <div className="grid gap-3">
                   <p className="text-sm font-medium text-[var(--text-secondary)]">Färgtema</p>
-                  <div className="flex gap-2 overflow-x-auto">
+                  <div className="flex gap-2 overflow-x-auto px-2 py-2">
                     {GROUP_THEMES.map((t) => (
                       <button
                         key={t.id}
                         type="button"
                         title={t.name}
                         onClick={() => setNewGroupTheme(t.id)}
-                        className="h-7 w-7 rounded-full transition hover:scale-110 focus:outline-none"
+                        className="h-7 w-7 rounded-full transition hover:scale-110 focus:outline-none focus-visible:ring-2"
                         style={{
                           background: t.base,
-                          boxShadow: newGroupTheme === t.id ? `0 0 0 2px white, 0 0 0 4px ${t.base}` : undefined,
+                          outline: newGroupTheme === t.id ? `2px solid ${t.base}` : undefined,
+                          outlineOffset: newGroupTheme === t.id ? '2px' : undefined,
+                          boxShadow: newGroupTheme === t.id
+                            ? `0 0 0 3px var(--app-surface-strong), 0 0 0 5px ${t.base}`
+                            : undefined,
                         }}
                         aria-pressed={newGroupTheme === t.id}
                         aria-label={t.name}
