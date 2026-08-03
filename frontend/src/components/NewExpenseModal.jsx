@@ -14,16 +14,22 @@ export default function NewExpenseModal({ groupId, members, categories, mileageR
     setForm(createExpenseForm({ members, categories, currentUserId: getCurrentUserId() }));
   }, [members, categories]);
 
+  const handleClose = () => {
+    const isDirty = form.title.trim() !== '' || (form.amount !== '' && form.amount !== '0') || form.notes.trim() !== '';
+    if (isDirty && !window.confirm('Avbryta? Det du fyllt i kommer att försvinna.')) return;
+    onClose();
+  };
+
   useEffect(() => {
     const handleEscape = (event) => {
       if (event.key === 'Escape') {
-        onClose();
+        handleClose();
       }
     };
 
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [onClose]);
+  }, [handleClose]);
 
   const handleSubmit = async (payload) => {
     setSaving(true);
@@ -44,7 +50,7 @@ export default function NewExpenseModal({ groupId, members, categories, mileageR
     <ModalShell
       title="Lägg till utgift"
       description="Registrera en ny kostnad och välj om den ska delas lika eller med egna belopp."
-      onClose={onClose}
+      onClose={handleClose}
     >
       <ExpenseFormFields
         form={form}
@@ -54,7 +60,7 @@ export default function NewExpenseModal({ groupId, members, categories, mileageR
         mileageRate={mileageRate}
         error={error}
         saving={saving}
-        onCancel={onClose}
+        onCancel={handleClose}
         onError={setError}
         onSubmit={handleSubmit}
         submitLabel="Spara utgift"
