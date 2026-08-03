@@ -277,13 +277,13 @@ function TimelineChart({ periods, granularity, onGranularityChange, dataMode, on
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <p className="m-0 text-sm font-semibold">Tidslinje</p>
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="m-0 hidden text-sm font-semibold sm:block">Tidslinje</p>
+        <div className="flex flex-wrap items-center gap-2">
           <label className="inline-flex items-center gap-2 text-xs text-[var(--text-muted)]">
             Data:
             <select
-              className="w-auto min-w-[9rem] rounded-md border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-2 py-1 text-xs text-[var(--text-primary)]"
+              className="w-auto min-w-[7rem] rounded-md border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-2 py-1 text-xs text-[var(--text-primary)]"
               value={dataMode}
               onChange={(event) => onDataModeChange(event.target.value)}
               aria-label="Välj typ av data för tidslinjen"
@@ -296,7 +296,7 @@ function TimelineChart({ periods, granularity, onGranularityChange, dataMode, on
           <label className="inline-flex items-center gap-2 text-xs text-[var(--text-muted)]">
             Visa:
             <select
-              className="w-auto min-w-[8rem] rounded-md border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-2 py-1 text-xs text-[var(--text-primary)]"
+              className="w-auto min-w-[6rem] rounded-md border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-2 py-1 text-xs text-[var(--text-primary)]"
               value={granularity}
               onChange={(event) => onGranularityChange(event.target.value)}
               aria-label="Välj upplösning för tidslinjen"
@@ -788,12 +788,18 @@ export default function GroupStatistics() {
         .filter((settlement) => Number(settlement.payer_id) === Number(member.id))
         .reduce((sum, settlement) => sum + Number(settlement.amount || 0), 0);
 
+      const totalOwed = expenses
+        .flatMap((expense) => expense.splits || [])
+        .filter((split) => Number(split.user_id) === Number(member.id))
+        .reduce((sum, split) => sum + Number(split.amount_owed || 0), 0);
+
       return {
         ...member,
         expenseCount,
         paid,
         transferCount,
         transfers,
+        totalOwed,
         balance: Math.round(balanceMap.get(member.id) || 0),
       };
     });
@@ -843,7 +849,7 @@ export default function GroupStatistics() {
           {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
 
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_250px]">
-            <article className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] p-4">
+            <article className="min-w-0 overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] p-4 xl:order-first">
               <div className="mt-2">
                 <TimelineChart
                   periods={statistics.timelinePeriods}
@@ -856,7 +862,7 @@ export default function GroupStatistics() {
               </div>
             </article>
 
-            <aside className="rounded-lg border p-4" style={{ background: theme.bgSoft, borderColor: theme.borderSoft }}>
+            <aside className="order-first rounded-lg border p-4 xl:order-last" style={{ background: theme.bgSoft, borderColor: theme.borderSoft }}>
               <p className="m-0 text-sm font-semibold">Översikt</p>
               <div className="mt-3 space-y-1.5 text-sm">
                 {[
@@ -910,6 +916,10 @@ export default function GroupStatistics() {
                 <div className="flex items-center justify-between">
                   <span className="text-[var(--text-secondary)]">Totala utgifter</span>
                   <span className="font-semibold">{formatCurrency(member.paid, { precise: true })}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[var(--text-secondary)]">Total kostnad</span>
+                  <span className="font-semibold">{formatCurrency(member.totalOwed, { precise: true })}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-[var(--text-secondary)]">Antal överföringar</span>

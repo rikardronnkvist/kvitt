@@ -3,7 +3,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { ChevronDown, FolderPlus, KeyRound, LogOut, Settings, UserCircle2 } from 'lucide-react';
 import { parseUser } from '../lib/session.js';
 import { getUserDisplayName } from '../lib/users.js';
-import { post, put } from '../api/client.js';
+import { get, post, put } from '../api/client.js';
 import { GROUP_THEMES } from '../lib/groupTheme.js';
 import {
   addPasskeyToAccount,
@@ -61,11 +61,20 @@ export default function AppShell() {
     setEditingProfile(true);
   };
 
-  const openCreateGroup = () => {
+  const openCreateGroup = async () => {
     setNewGroupName('');
-    const randomTheme = GROUP_THEMES[Math.floor(Math.random() * GROUP_THEMES.length)];
-    setNewGroupTheme(randomTheme.id);
     setGroupError('');
+    // Pick a random color not already in use; fall back to all if all are taken
+    let usedColors = [];
+    try {
+      const groups = await get('/api/groups');
+      usedColors = groups.map((g) => g.theme_color).filter(Boolean);
+    } catch {
+      // ignore — fall back to full pool
+    }
+    const pool = GROUP_THEMES.filter((t) => !usedColors.includes(t.id));
+    const source = pool.length > 0 ? pool : GROUP_THEMES;
+    setNewGroupTheme(source[Math.floor(Math.random() * source.length)].id);
     setCreatingGroup(true);
   };
 
@@ -302,7 +311,7 @@ export default function AppShell() {
                 </label>
                 <div className="grid gap-1.5">
                   <p className="text-sm font-medium text-[var(--text-secondary)]">Färgtema</p>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex gap-2 overflow-x-auto">
                     {GROUP_THEMES.map((t) => (
                       <button
                         key={t.id}
