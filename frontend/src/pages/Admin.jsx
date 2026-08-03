@@ -332,13 +332,14 @@ export default function Admin() {
   const handleSaveCategory = async (categoryId) => {
     const draft = categoryDrafts[categoryId];
     if (!draft) return;
+    const normalizedSortOrder = Math.min(99, Math.max(0, Number.parseInt(draft.sort_order, 10) || 0));
     setSavingCategoryId(categoryId);
     setError('');
     try {
       const updated = await put(`/api/admin/categories/${categoryId}`, {
         name: draft.name,
         icon: draft.icon,
-        sort_order: Number(draft.sort_order) || 0,
+        sort_order: normalizedSortOrder,
       });
       setCategories((previous) => previous.map((category) => (category.id === categoryId ? updated : category)));
       setCategoryDrafts((previous) => ({
@@ -785,60 +786,86 @@ export default function Admin() {
           ) : null}
 
           {!loading && activeTab === 'categories' ? (
-            <div className="space-y-4">
-              {categories.map((category) => {
-                const draft = categoryDrafts[category.id] ?? {
-                  name: category.name,
-                  icon: category.icon,
-                  sort_order: category.sort_order,
-                };
-                const CategoryIcon = getCategoryIcon(draft.icon);
-                return (
-                  <article key={category.id} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
-                    <div className="grid gap-4 md:grid-cols-3">
-                      <label className="field-label md:col-span-2">
-                        Kategorinamn
-                        <input
-                          value={draft.name}
-                          onChange={(event) => handleCategoryDraftChange(category.id, 'name', event.target.value)}
-                        />
-                      </label>
-                      <label className="field-label">
-                        Sortering
-                        <input
-                          type="number"
-                          min="0"
-                          value={draft.sort_order}
-                          onChange={(event) => handleCategoryDraftChange(category.id, 'sort_order', event.target.value)}
-                        />
-                      </label>
-
-                      <label className="field-label md:col-span-2">
-                        Ikon
-                        <select
-                          value={draft.icon}
-                          onChange={(event) => handleCategoryDraftChange(category.id, 'icon', event.target.value)}
-                        >
-                          {CATEGORY_ICON_OPTIONS.map((iconOption) => (
-                            <option key={iconOption.id} value={iconOption.id}>{iconOption.label}</option>
-                          ))}
-                        </select>
-                      </label>
-                      <div className="flex items-end">
-                        <div className="inline-flex min-h-11 w-full items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-3 py-2 text-sm text-[var(--text-secondary)]">
-                          <CategoryIcon className="h-4 w-4" />
-                          <span>Förhandsvisning</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-4">
-                      <button type="button" className="btn-primary" onClick={() => handleSaveCategory(category.id)} disabled={savingCategoryId === category.id}>
-                        {savingCategoryId === category.id ? 'Sparar...' : 'Spara kategori'}
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
+            <div className="space-y-3">
+              <div className="overflow-x-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)]">
+                <table className="min-w-[780px] w-full border-collapse">
+                  <thead>
+                    <tr className="border-b border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-left">
+                      <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Kategorinamn</th>
+                      <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Ikon</th>
+                      <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Sortering</th>
+                      <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Förhandsvisning</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Åtgärd</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {categories.map((category) => {
+                      const draft = categoryDrafts[category.id] ?? {
+                        name: category.name,
+                        icon: category.icon,
+                        sort_order: category.sort_order,
+                      };
+                      const normalizedIconId = String(draft.icon || '')
+                        .trim()
+                        .toLowerCase()
+                        .replace(/[_\s]+/g, '-');
+                      const hasKnownIcon = CATEGORY_ICON_OPTIONS.some((option) => option.id === normalizedIconId);
+                      const iconOptions = hasKnownIcon
+                        ? CATEGORY_ICON_OPTIONS
+                        : [{ id: normalizedIconId, label: `${normalizedIconId} (befintlig)` }, ...CATEGORY_ICON_OPTIONS];
+                      const CategoryIcon = getCategoryIcon(draft.icon);
+                      return (
+                        <tr key={category.id} className="border-b border-[var(--border-subtle)] last:border-b-0">
+                          <td className="px-4 py-3 align-top">
+                            <input
+                              className="max-w-md"
+                              value={draft.name}
+                              onChange={(event) => handleCategoryDraftChange(category.id, 'name', event.target.value)}
+                              maxLength={16}
+                              aria-label="Kategorinamn"
+                            />
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            <select
+                              className="max-w-xs"
+                              value={normalizedIconId}
+                              onChange={(event) => handleCategoryDraftChange(category.id, 'icon', event.target.value)}
+                              aria-label="Ikon"
+                            >
+                              {iconOptions.map((iconOption) => (
+                                <option key={iconOption.id} value={iconOption.id}>{iconOption.label}</option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            <input
+                              type="number"
+                              className="w-24"
+                              min="0"
+                              max="99"
+                              step="1"
+                              value={draft.sort_order}
+                              onChange={(event) => handleCategoryDraftChange(category.id, 'sort_order', event.target.value)}
+                              aria-label="Sortering"
+                            />
+                          </td>
+                          <td className="px-4 py-3 align-top">
+                            <div className="inline-flex min-h-11 min-w-40 cursor-not-allowed items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--app-surface-muted)_88%,white)] px-3 py-2 text-sm text-[var(--text-muted)] opacity-85" aria-readonly="true">
+                              <CategoryIcon className="h-4 w-4" />
+                              <span>{(draft.name || '').trim() || 'Namnlös kategori'}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 align-top text-right">
+                            <button type="button" className="btn-primary" onClick={() => handleSaveCategory(category.id)} disabled={savingCategoryId === category.id}>
+                              {savingCategoryId === category.id ? 'Sparar...' : 'Spara'}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           ) : null}
 
