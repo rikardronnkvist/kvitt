@@ -44,8 +44,19 @@ const apiRateLimit = rateLimit({
   legacyHeaders: false,
   message: { error: 'För många anrop. Försök igen senare.' },
 });
+const adminRateLimit = rateLimit({
+  windowMs: 60_000,
+  limit: 60,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: 'För många admin-anrop. Försök igen senare.' },
+});
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.PASSKEY_ORIGIN,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 app.use(express.json());
 
 app.get('/healthz', (_req, res) => {
@@ -60,7 +71,7 @@ app.use('/api/auth', authRateLimit, authRoutes);
 app.use('/api/groups', apiRateLimit, groupRoutes);
 app.use('/api/expenses', apiRateLimit, expenseRoutes);
 app.use('/api/settlements', apiRateLimit, settlementRoutes);
-app.use('/api/admin', apiRateLimit, adminRoutes);
+app.use('/api/admin', adminRateLimit, adminRoutes);
 app.use('/api/invite', apiRateLimit, inviteRoutes);
 app.use('/api/push', apiRateLimit, pushRoutes);
 

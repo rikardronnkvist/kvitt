@@ -261,7 +261,7 @@ router.post('/:groupId', (req, res) => {
 
   if (isConfigured()) {
     const group = db.prepare('SELECT name, slug FROM groups WHERE id = ?').get(groupId);
-    const creatorName = req.user.full_name || 'Någon';
+    const creatorName = db.prepare('SELECT full_name FROM users WHERE id = ?').get(req.user.id)?.full_name || 'Någon';
     const recipients = groupMembers
       .filter((m) => m.id !== req.user.id && !m.is_placeholder)
       .map((m) => m.id);

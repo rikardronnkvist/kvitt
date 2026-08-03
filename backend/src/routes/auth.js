@@ -6,7 +6,7 @@ import passkeyRoutes from '../auth/passkey.routes.js';
 import { getAuthUserById, signToken } from '../auth/token.js';
 
 const router = express.Router();
-const isDevboxMode = process.env.DEVBOX === 'true' || process.env.NODE_ENV === 'development';
+const isDevboxMode = process.env.DEVBOX === 'true';
 
 const devboxLoginSchema = z.object({
   user_id: z.coerce.number().int().positive(),

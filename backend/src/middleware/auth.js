@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { jwtSecret } from '../auth/token.js';
 
 export default function authMiddleware(req, res, next) {
   const header = req.headers.authorization;
@@ -10,10 +11,9 @@ export default function authMiddleware(req, res, next) {
   const token = header.slice('Bearer '.length).trim();
 
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET || 'changeme-use-a-strong-secret');
+    const payload = jwt.verify(token, jwtSecret);
     req.user = {
       id: Number(payload.id),
-      full_name: payload.full_name ?? null,
       user_handle: payload.user_handle,
       is_admin: Boolean(payload.is_admin),
       current_passkey_id: payload.current_passkey_id ? Number(payload.current_passkey_id) : null,
