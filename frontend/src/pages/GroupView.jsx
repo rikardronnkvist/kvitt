@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Archive, BarChart3, CheckCircle2, Coins, Copy, Link2, Plus, RefreshCw, RotateCcw, Settings, Trash2, UserPlus } from 'lucide-react';
+import { Archive, BarChart3, CheckCircle2, Coins, Copy, HandCoins, Link2, Plus, RefreshCw, RotateCcw, SendHorizontal, Settings, Trash2, UserPlus } from 'lucide-react';
 import ExpenseItem from '../components/ExpenseItem.jsx';
 import EditExpenseModal from '../components/EditExpenseModal.jsx';
 import NewExpenseModal from '../components/NewExpenseModal.jsx';
@@ -11,13 +11,18 @@ import ModalShell from '../components/ModalShell.jsx';
 import { del, get, patch, post } from '../api/client.js';
 import { computeMemberBalances } from '../lib/balances.js';
 import { getCategoryIcon } from '../lib/expenseCategories.js';
-import { formatCurrency, formatDateTime } from '../lib/format.js';
+import { formatCurrency, formatDateTime, formatMonthYear } from '../lib/format.js';
 import { getCurrentUserId } from '../lib/session.js';
 import { getUserDisplayName, getUserSearchLabel } from '../lib/users.js';
 import { GROUP_THEMES, getThemeForGroup } from '../lib/groupTheme.js';
 
 const INITIAL_TIMELINE_VISIBLE_COUNT = 25;
 const TIMELINE_LOAD_STEP = 25;
+
+function getMonthKey(timestamp) {
+  const d = new Date(timestamp);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
 
 function sanitizeIntegerInput(value) {
   return String(value ?? '').replace(/\D/g, '');
@@ -105,7 +110,10 @@ function SettlementItem({ settlement, onEdit, readOnly = false }) {
           <CheckCircle2 className="h-5 w-5" />
         </div>
         <div>
-          <h3 className="m-0 text-base font-semibold">{settlement.payer_display_name} betalade {settlement.receiver_display_name}</h3>
+          <h3 className="m-0 flex items-center gap-1.5 text-base font-semibold">
+            <HandCoins className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
+            Kvittat: från {settlement.payer_display_name} till {settlement.receiver_display_name}
+          </h3>
         </div>
       </div>
       <div className="grid shrink-0 grid-cols-[9.5rem_6.5rem] items-center gap-4 self-center text-right">
@@ -297,6 +305,24 @@ export default function GroupView() {
     [timeline, visibleTimelineCount],
   );
   const hasMoreTimeline = timeline.length > visibleTimelineCount;
+
+  const monthlyTotals = useMemo(() => {
+    const map = new Map();
+    for (const item of timeline) {
+      if (!Number.isFinite(item.activityTimestamp)) continue;
+      const key = getMonthKey(item.activityTimestamp);
+      const current = map.get(key) || { totalSpent: 0, expenseCount: 0, settlementTotal: 0, settlementCount: 0 };
+      if (item.kind === 'expense') {
+        current.totalSpent += Number(item.amount || 0);
+        current.expenseCount += 1;
+      } else {
+        current.settlementTotal += Number(item.amount || 0);
+        current.settlementCount += 1;
+      }
+      map.set(key, current);
+    }
+    return map;
+  }, [timeline]);
 
   const memberBalances = useMemo(
     () => computeMemberBalances(members, expenses, settlements),
@@ -654,13 +680,34 @@ export default function GroupView() {
 
           {timeline.length ? (
             <div>
-              {visibleTimeline.map((item) => (
-                item.kind === 'expense' ? (
-                  <ExpenseItem key={`expense-${item.id}`} expense={item} onEdit={setEditingExpenseId} readOnly={isArchived} />
-                ) : (
-                  <SettlementItem key={`settlement-${item.id}`} settlement={item} onEdit={setEditingSettlementId} readOnly={isArchived} />
-                )
-              ))}
+              {(() => {
+                let currentMonthKey = null;
+                return visibleTimeline.flatMap((item) => {
+                  const monthKey = Number.isFinite(item.activityTimestamp) ? getMonthKey(item.activityTimestamp) : null;
+                  const result = [];
+                  if (monthKey && monthKey !== currentMonthKey) {
+                    currentMonthKey = monthKey;
+                    const totals = monthlyTotals.get(monthKey) || { totalSpent: 0, expenseCount: 0, settlementTotal: 0, settlementCount: 0 };
+                    const parts = [];
+                    if (totals.expenseCount > 0) parts.push(`${totals.expenseCount} ${totals.expenseCount === 1 ? 'utgift' : 'utgifter'}, totalt ${formatCurrency(totals.totalSpent, { precise: true })}`);
+                    if (totals.settlementCount > 0) parts.push(`${totals.settlementCount} ${totals.settlementCount === 1 ? 'kvittning' : 'kvittningar'}, totalt ${formatCurrency(totals.settlementTotal, { precise: true })}`);
+                    result.push(
+                      <div key={`month-${monthKey}`} className="flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-5 py-2">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">{formatMonthYear(new Date(item.activityTimestamp))}</span>
+                        <span className="text-xs font-medium" style={{ color: theme.base }}>{parts.join(' · ')}</span>
+                      </div>,
+                    );
+                  }
+                  result.push(
+                    item.kind === 'expense' ? (
+                      <ExpenseItem key={`expense-${item.id}`} expense={item} onEdit={setEditingExpenseId} readOnly={isArchived} />
+                    ) : (
+                      <SettlementItem key={`settlement-${item.id}`} settlement={item} onEdit={setEditingSettlementId} readOnly={isArchived} />
+                    ),
+                  );
+                  return result;
+                });
+              })()}
               {hasMoreTimeline ? (
                 <div className="flex justify-center border-t border-[var(--border-subtle)] px-5 py-4">
                   <button

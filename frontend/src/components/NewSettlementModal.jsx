@@ -224,15 +224,22 @@ export default function NewSettlementModal({
         </label>
 
         <label className="field-label">
-          Datum och tid för betalningen
-          <input
-            type="datetime-local"
-            value={formData.settled_at}
-            onChange={(event) => handleFieldChange('settled_at', event.target.value)}
-            step="60"
-            lang="sv-SE"
-            required
-          />
+          Tidpunkt för kvittningen
+          <div className="grid grid-cols-2 gap-2" lang="sv-SE">
+            <input
+              type="date"
+              value={formData.settled_at?.slice(0, 10) || ''}
+              onChange={(event) => handleFieldChange('settled_at', event.target.value + 'T' + (formData.settled_at?.slice(11, 16) || '00:00'))}
+              required
+            />
+            <input
+              type="time"
+              value={formData.settled_at?.slice(11, 16) || ''}
+              onChange={(event) => handleFieldChange('settled_at', (formData.settled_at?.slice(0, 10) || '') + 'T' + event.target.value)}
+              step="60"
+              required
+            />
+          </div>
         </label>
 
         {showSwishSection ? (
@@ -268,7 +275,7 @@ export default function NewSettlementModal({
             Avbryt
           </button>
           <button type="submit" className="btn-primary" disabled={saving}>
-            {saving ? 'Sparar...' : 'Markera som betald'}
+            {saving ? 'Sparar...' : 'Markera som kvittad'}
           </button>
         </div>
       </form>

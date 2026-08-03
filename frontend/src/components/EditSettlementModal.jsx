@@ -125,8 +125,8 @@ export default function EditSettlementModal({ settlement, members, groupId, onCl
 
   return (
     <ModalShell
-      title="Redigera betalning"
-      description="Justera mottagare, betalare eller belopp utan att lämna gruppen."
+      title="Redigera kvittning"
+      description="Justera mottagare, betalare, belopp eller tidpunkt"
       onClose={onClose}
     >
       <form onSubmit={handleSubmit} className="space-y-5">
@@ -165,15 +165,22 @@ export default function EditSettlementModal({ settlement, members, groupId, onCl
         </label>
 
         <label className="field-label">
-          Datum och tid för betalningen
-          <input
-            type="datetime-local"
-            value={formData.settled_at}
-            onChange={(event) => setFormData((previous) => ({ ...previous, settled_at: event.target.value }))}
-            step="60"
-            lang="sv-SE"
-            required
-          />
+          Tidpunkt för kvittningen
+          <div className="grid grid-cols-2 gap-2" lang="sv-SE">
+            <input
+              type="date"
+              value={formData.settled_at?.slice(0, 10) || ''}
+              onChange={(event) => setFormData((previous) => ({ ...previous, settled_at: event.target.value + 'T' + (previous.settled_at?.slice(11, 16) || '00:00') }))}
+              required
+            />
+            <input
+              type="time"
+              value={formData.settled_at?.slice(11, 16) || ''}
+              onChange={(event) => setFormData((previous) => ({ ...previous, settled_at: (previous.settled_at?.slice(0, 10) || '') + 'T' + event.target.value }))}
+              step="60"
+              required
+            />
+          </div>
         </label>
 
         {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
