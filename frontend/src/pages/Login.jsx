@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { ScanLine } from 'lucide-react';
 import { get, post } from '../api/client.js';
 import PasskeyButton from '../components/PasskeyButton.jsx';
+import InviteQrScannerModal from '../components/InviteQrScannerModal.jsx';
 import { usePasskeyAuth } from '../hooks/usePasskeyAuth.js';
 import { formatSwedishPhone, sanitizePhoneInput } from '../lib/phone.js';
 import { PENDING_INVITE_TOKEN_KEY } from './InvitePage.jsx';
@@ -29,6 +31,7 @@ export default function Login() {
   const [checkingRegistrationToken, setCheckingRegistrationToken] = useState(false);
   const [registrationTokenChecked, setRegistrationTokenChecked] = useState(false);
   const [registrationTokenValid, setRegistrationTokenValid] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [error, setError] = useState('');
   const isRegisterMode = isRegisterRoute;
   const hasRegistrationToken = registrationToken.trim().length > 0;
@@ -167,6 +170,11 @@ export default function Login() {
     }
   };
 
+  const handleInviteDetected = (inviteToken) => {
+    setIsScannerOpen(false);
+    navigate(`/invite/${inviteToken}`);
+  };
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-[var(--app-bg)] px-4 py-12">
       <section className="surface-card w-full max-w-[420px] space-y-8 p-7 sm:p-8">
@@ -241,6 +249,10 @@ export default function Login() {
                 disabled={isBusy}
                 onClick={handlePasskeyLogin}
               />
+              <button type="button" className="btn-secondary w-full" disabled={isBusy} onClick={() => setIsScannerOpen(true)}>
+                <ScanLine className="h-4 w-4" />
+                Scanna QR-inbjudan
+              </button>
             </div>
           )}
 
@@ -290,6 +302,13 @@ export default function Login() {
           </p>
         </form>
       </section>
+
+      {isScannerOpen ? (
+        <InviteQrScannerModal
+          onClose={() => setIsScannerOpen(false)}
+          onDetected={handleInviteDetected}
+        />
+      ) : null}
     </main>
   );
 }

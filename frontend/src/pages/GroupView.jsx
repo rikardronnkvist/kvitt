@@ -8,10 +8,12 @@ import EditSettlementModal from '../components/EditSettlementModal.jsx';
 import NewSettlementModal from '../components/NewSettlementModal.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import ModalShell from '../components/ModalShell.jsx';
+import InviteQrCodeModal from '../components/InviteQrCodeModal.jsx';
 import { del, get, patch, post } from '../api/client.js';
 import { computeMemberBalances } from '../lib/balances.js';
 import { getCategoryIcon } from '../lib/expenseCategories.js';
 import { formatCurrency, formatDateTime, formatMonthYear } from '../lib/format.js';
+import { buildInviteUrl } from '../lib/inviteToken.js';
 import { getCurrentUserId } from '../lib/session.js';
 import { getUserDisplayName, getUserSearchLabel } from '../lib/users.js';
 import { GROUP_THEMES, getThemeForGroup } from '../lib/groupTheme.js';
@@ -137,6 +139,8 @@ export default function GroupView() {
   const [inviteToken, setInviteToken] = useState(null);
   const [inviteExpiresAt, setInviteExpiresAt] = useState(null);
   const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteSharing, setInviteSharing] = useState(false);
+  const [isInviteQrOpen, setIsInviteQrOpen] = useState(false);
   const [inviteCopied, setInviteCopied] = useState(false);
   const [placeholderName, setPlaceholderName] = useState('');
   const [addingPlaceholder, setAddingPlaceholder] = useState(false);
@@ -333,6 +337,14 @@ export default function GroupView() {
     [memberBalances],
   );
   const canArchiveGroup = isGroupOwner && !isArchived && memberBalances.every((member) => Number(member.balance) === 0);
+  const inviteUrl = useMemo(() => {
+    if (!inviteToken) return '';
+    try {
+      return buildInviteUrl(inviteToken);
+    } catch {
+      return '';
+    }
+  }, [inviteToken]);
 
   const summary = useMemo(() => {
     const totals = new Map();
@@ -362,6 +374,16 @@ export default function GroupView() {
     }
   };
 
+  const ensureInvite = async () => {
+    if (inviteToken) {
+      return { token: inviteToken, expiresAt: inviteExpiresAt };
+    }
+    const data = await post(`/api/groups/${groupSlug}/invite`, {});
+    setInviteToken(data.token);
+    setInviteExpiresAt(data.expires_at);
+    return { token: data.token, expiresAt: data.expires_at };
+  };
+
   const handleRevokeInvite = async () => {
     if (!window.confirm('Är du säker? Befintlig länk slutar fungera direkt.')) return;
     try {
@@ -373,12 +395,51 @@ export default function GroupView() {
     }
   };
 
-  const handleCopyInviteLink = () => {
-    const url = `${window.location.origin}/invite/${inviteToken}`;
-    navigator.clipboard.writeText(url).then(() => {
+  const handleCopyInviteLink = async () => {
+    try {
+      const { token } = await ensureInvite();
+      const url = buildInviteUrl(token);
+      await navigator.clipboard.writeText(url);
       setInviteCopied(true);
       setTimeout(() => setInviteCopied(false), 2000);
-    });
+    } catch (err) {
+      setError(err.message || 'Kunde inte kopiera inbjudningslänken.');
+    }
+  };
+
+  const handleShareInvite = async () => {
+    setInviteSharing(true);
+    try {
+      const { token } = await ensureInvite();
+      const url = buildInviteUrl(token);
+
+      if (navigator.share) {
+        await navigator.share({
+          title: `Gå med i ${group?.name || 'gruppen'}`,
+          text: 'Gå med i vår grupp på Kvitt',
+          url,
+        });
+        return;
+      }
+
+      await navigator.clipboard.writeText(url);
+      setInviteCopied(true);
+      setTimeout(() => setInviteCopied(false), 2000);
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+      setError(err.message || 'Kunde inte dela inbjudan.');
+    } finally {
+      setInviteSharing(false);
+    }
+  };
+
+  const handleOpenInviteQr = async () => {
+    try {
+      await ensureInvite();
+      setIsInviteQrOpen(true);
+    } catch (err) {
+      setError(err.message || 'Kunde inte skapa QR-kod för inbjudan.');
+    }
   };
 
   const handleAddPlaceholder = async () => {
@@ -824,12 +885,16 @@ export default function GroupView() {
               <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">Inbjudningslänk</h3>
               {inviteToken ? (
                 <>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <input
                       readOnly
-                      value={`${window.location.origin}/invite/${inviteToken}`}
-                      className="flex-1 truncate text-sm"
+                      value={inviteUrl}
+                      className="min-w-[220px] flex-1 truncate text-sm"
                     />
+                    <button type="button" className="btn-secondary shrink-0" onClick={handleShareInvite} disabled={inviteSharing}>
+                      <SendHorizontal className="h-4 w-4" />
+                      {inviteSharing ? 'Delar...' : 'Dela'}
+                    </button>
                     <button type="button" className="btn-secondary shrink-0" onClick={handleCopyInviteLink}>
                       <Copy className="h-4 w-4" />
                       {inviteCopied ? 'Kopierad!' : 'Kopiera'}
@@ -840,7 +905,11 @@ export default function GroupView() {
                       Gäller till {new Date(inviteExpiresAt).toLocaleDateString('sv-SE')}
                     </p>
                   )}
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" className="btn-secondary" onClick={handleOpenInviteQr}>
+                      <Link2 className="h-4 w-4" />
+                      Visa QR
+                    </button>
                     <button type="button" className="btn-secondary" onClick={handleGenerateInvite} disabled={inviteLoading}>
                       <RefreshCw className="h-4 w-4" />
                       Ny länk
@@ -855,10 +924,20 @@ export default function GroupView() {
                   <p className="m-0 text-sm text-[var(--text-secondary)]">
                     Skapa en länk att dela. Alla med länken kan gå med i gruppen. Länken gäller i 30 dagar.
                   </p>
-                  <button type="button" className="btn-primary" onClick={handleGenerateInvite} disabled={inviteLoading || isArchived}>
-                    <Link2 className="h-4 w-4" />
-                    Skapa inbjudningslänk
-                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" className="btn-primary" onClick={handleGenerateInvite} disabled={inviteLoading || isArchived}>
+                      <Link2 className="h-4 w-4" />
+                      Skapa inbjudningslänk
+                    </button>
+                    <button type="button" className="btn-secondary" onClick={handleShareInvite} disabled={inviteSharing || inviteLoading || isArchived}>
+                      <SendHorizontal className="h-4 w-4" />
+                      {inviteSharing ? 'Delar...' : 'Skapa och dela'}
+                    </button>
+                    <button type="button" className="btn-secondary" onClick={handleOpenInviteQr} disabled={inviteLoading || isArchived}>
+                      <Link2 className="h-4 w-4" />
+                      Skapa och visa QR
+                    </button>
+                  </div>
                 </>
               )}
             </div>
@@ -982,6 +1061,17 @@ export default function GroupView() {
           currentUserId={currentUserId}
           onClose={() => setIsAddingSettlement(false)}
           onSuccess={loadData}
+        />
+      ) : null}
+
+      {isInviteQrOpen && inviteUrl ? (
+        <InviteQrCodeModal
+          inviteUrl={inviteUrl}
+          expiresAt={inviteExpiresAt}
+          sharing={inviteSharing}
+          onClose={() => setIsInviteQrOpen(false)}
+          onShare={handleShareInvite}
+          onCopy={handleCopyInviteLink}
         />
       ) : null}
     </div>
