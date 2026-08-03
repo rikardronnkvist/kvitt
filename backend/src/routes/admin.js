@@ -356,10 +356,6 @@ router.delete('/users/:id', (req, res) => {
     return res.status(400).json({ error: 'Kan inte radera en användare som är med i grupper.' });
   }
 
-  db.prepare('DELETE FROM user_recovery_tokens WHERE user_id = ?').run(userId);
-  db.prepare('DELETE FROM passkeys WHERE user_id = ?').run(userId);
-  db.prepare('DELETE FROM users WHERE id = ?').run(userId);
-
   tryLogActivity({
     eventType: 'admin.user.deleted',
     action: 'delete',
@@ -373,6 +369,10 @@ router.delete('/users/:id', (req, res) => {
     },
     ipAddress: resolveRequestIp(req),
   });
+
+  db.prepare('DELETE FROM user_recovery_tokens WHERE user_id = ?').run(userId);
+  db.prepare('DELETE FROM passkeys WHERE user_id = ?').run(userId);
+  db.prepare('DELETE FROM users WHERE id = ?').run(userId);
 
   return res.status(204).end();
 });

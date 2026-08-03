@@ -157,6 +157,12 @@ export default function Admin() {
   };
 
   const handleDeleteUser = async (userId) => {
+    const user = users.find((entry) => entry.id === userId);
+    const userLabel = (user?.full_name || '').trim() || `ID ${userId}`;
+    if (!window.confirm(`Är du säker på att du vill radera användaren ${userLabel}? Detta kan inte ångras.`)) {
+      return;
+    }
+
     setDeletingUserId(userId);
     setError('');
     try {
