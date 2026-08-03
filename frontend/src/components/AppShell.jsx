@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Bell, BellOff, ChevronDown, FolderPlus, KeyRound, LogOut, Settings, UserCircle2, X } from 'lucide-react';
+import { Bell, BellOff, ChevronDown, FolderPlus, Info, KeyRound, LogOut, Settings, UserCircle2, X } from 'lucide-react';
 import { parseUser } from '../lib/session.js';
 import { getUserDisplayName } from '../lib/users.js';
 import { get, post, put } from '../api/client.js';
@@ -317,6 +317,14 @@ export default function AppShell() {
                       Adminpanel
                     </button>
                   ) : null}
+                  <button
+                      type="button"
+                      className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
+                      onClick={() => { setDropdownOpen(false); navigate('/about'); }}
+                    >
+                      <Info className="h-4 w-4 text-[var(--text-secondary)]" />
+                      Om Kvitt
+                    </button>
                   <div className="my-1 border-t border-[var(--border-subtle)]" />
                   <button
                     type="button"
