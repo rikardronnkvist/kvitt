@@ -1,5 +1,6 @@
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import Login from './pages/Login.jsx';
+import Recover from './pages/Recover.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import GroupView from './pages/GroupView.jsx';
 import AddExpense from './pages/AddExpense.jsx';
@@ -33,6 +34,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Login />} />
+      <Route path="/recover" element={<Recover />} />
       <Route path="/invite/:token" element={<InvitePage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>

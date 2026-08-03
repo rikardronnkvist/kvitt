@@ -1,5 +1,6 @@
 import express from 'express';
 import { z } from 'zod';
+import { db } from '../db/database.js';
 import { isValidInviteToken, isValidRegistrationAccessToken } from '../utils/settings.js';
 import requireAuth from '../middleware/auth.js';
 import {
@@ -181,6 +182,55 @@ router.post('/login/verify', async (req, res, next) => {
       },
       ipAddress: resolveRequestIp(req),
     });
+    return next(error);
+  }
+});
+
+function getValidRecoveryToken(token) {
+  return db.prepare(`
+    SELECT id, user_id
+    FROM user_recovery_tokens
+    WHERE token = ?
+      AND used_at IS NULL
+      AND datetime(expires_at) > datetime('now')
+  `).get(token);
+}
+
+router.post('/recover/:token/options', async (req, res, next) => {
+  const recoveryToken = req.params.token;
+  const row = getValidRecoveryToken(recoveryToken);
+  if (!row) {
+    return res.status(410).json({ error: 'Återhämtningslänken har gått ut eller redan använts.' });
+  }
+
+  try {
+    const data = await createUserPasskeyOptions(row.user_id);
+    return res.json(data);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.post('/recover/:token/verify', async (req, res, next) => {
+  const parsed = verifyRegistrationSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Ogiltigt registreringssvar.', details: parsed.error.flatten() });
+  }
+
+  const recoveryToken = req.params.token;
+  const row = getValidRecoveryToken(recoveryToken);
+  if (!row) {
+    return res.status(410).json({ error: 'Återhämtningslänken har gått ut eller redan använts.' });
+  }
+
+  try {
+    const data = await verifyUserPasskeyRegistration(
+      { ...parsed.data, userId: row.user_id },
+      { ipAddress: resolveRequestIp(req) },
+    );
+    db.prepare('UPDATE user_recovery_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = ?').run(row.id);
+    return res.status(201).json(data);
+  } catch (error) {
     return next(error);
   }
 });
