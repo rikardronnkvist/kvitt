@@ -662,7 +662,7 @@ export default function GroupView() {
                 ) : null}
                 {!isArchived ? (
                   <button type="button" className="btn-secondary" onClick={() => setIsAddingSettlement(true)}>
-                    <Coins className="h-4 w-4" />
+                    <HandCoins className="h-4 w-4" />
                     Kvitta skuld
                   </button>
                 ) : null}
