@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { del, put } from '../api/client.js';
 import MemberDropdown from './MemberDropdown.jsx';
 import ModalShell from './ModalShell.jsx';
+import DateTimePicker from './DateTimePicker.jsx';
 
 function sanitizeIntegerInput(value) {
   return String(value ?? '').replace(/\D/g, '');
@@ -166,21 +167,10 @@ export default function EditSettlementModal({ settlement, members, groupId, onCl
 
         <label className="field-label">
           Tidpunkt för kvittningen
-          <div className="grid grid-cols-2 gap-2" lang="sv-SE">
-            <input
-              type="date"
-              value={formData.settled_at?.slice(0, 10) || ''}
-              onChange={(event) => setFormData((previous) => ({ ...previous, settled_at: event.target.value + 'T' + (previous.settled_at?.slice(11, 16) || '00:00') }))}
-              required
-            />
-            <input
-              type="time"
-              value={formData.settled_at?.slice(11, 16) || ''}
-              onChange={(event) => setFormData((previous) => ({ ...previous, settled_at: (previous.settled_at?.slice(0, 10) || '') + 'T' + event.target.value }))}
-              step="60"
-              required
-            />
-          </div>
+          <DateTimePicker
+            value={formData.settled_at}
+            onChange={(value) => setFormData((previous) => ({ ...previous, settled_at: value }))}
+          />
         </label>
 
         {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}

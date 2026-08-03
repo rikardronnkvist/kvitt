@@ -4,6 +4,7 @@ import { getCategoryIcon } from '../lib/expenseCategories.js';
 import { formatCurrency } from '../lib/format.js';
 import { getUserDisplayName } from '../lib/users.js';
 import MemberDropdown from './MemberDropdown.jsx';
+import DateTimePicker from './DateTimePicker.jsx';
 
 function SplitTypeButton({ active, children, onClick }) {
   return (
@@ -191,21 +192,10 @@ export default function ExpenseFormFields({
 
         <label className="field-label md:col-span-2">
           <span>Datum och tid för utlägget</span>
-          <div className="grid grid-cols-2 gap-2" lang="sv-SE">
-            <input
-              type="date"
-              value={form.occurred_at?.slice(0, 10) || ''}
-              onChange={(event) => setForm((previous) => ({ ...previous, occurred_at: event.target.value + 'T' + (previous.occurred_at?.slice(11, 16) || '00:00') }))}
-              required
-            />
-            <input
-              type="time"
-              value={form.occurred_at?.slice(11, 16) || ''}
-              onChange={(event) => setForm((previous) => ({ ...previous, occurred_at: (previous.occurred_at?.slice(0, 10) || '') + 'T' + event.target.value }))}
-              step="60"
-              required
-            />
-          </div>
+          <DateTimePicker
+            value={form.occurred_at}
+            onChange={(value) => setForm((previous) => ({ ...previous, occurred_at: value }))}
+          />
         </label>
 
         <label className="field-label md:col-span-2">
