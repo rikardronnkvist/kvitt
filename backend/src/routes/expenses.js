@@ -260,7 +260,7 @@ router.post('/:groupId', (req, res) => {
   const expenseId = tx();
 
   if (isConfigured()) {
-    const group = db.prepare('SELECT name FROM groups WHERE id = ?').get(groupId);
+    const group = db.prepare('SELECT name, slug FROM groups WHERE id = ?').get(groupId);
     const creatorName = req.user.full_name || 'Någon';
     const recipients = groupMembers
       .filter((m) => m.id !== req.user.id && !m.is_placeholder)
@@ -271,7 +271,7 @@ router.post('/:groupId', (req, res) => {
       sendPushNotification(sub, {
         title: group?.name ?? 'Kvitt',
         body: `${creatorName} lade till "${title}"`,
-        url: `/groups/${req.params.groupId}`,
+        url: `/groups/${group?.slug ?? groupId}`,
       }),
     ));
   }

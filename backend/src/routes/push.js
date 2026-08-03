@@ -5,6 +5,15 @@ import { db } from '../db/database.js';
 import { isConfigured } from '../utils/push.js';
 
 const router = express.Router();
+
+// public — VAPID public key is not secret
+router.get('/vapid-public-key', (_req, res) => {
+  if (!isConfigured()) {
+    return res.status(503).json({ error: 'Push notifications are not configured.' });
+  }
+  return res.json({ publicKey: process.env.VAPID_PUBLIC_KEY });
+});
+
 router.use(authMiddleware);
 
 const subscriptionSchema = z.object({
@@ -13,13 +22,6 @@ const subscriptionSchema = z.object({
     p256dh: z.string().min(1),
     auth: z.string().min(1),
   }),
-});
-
-router.get('/vapid-public-key', (_req, res) => {
-  if (!isConfigured()) {
-    return res.status(503).json({ error: 'Push notifications are not configured.' });
-  }
-  return res.json({ publicKey: process.env.VAPID_PUBLIC_KEY });
 });
 
 router.post('/subscribe', (req, res) => {

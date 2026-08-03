@@ -24,9 +24,11 @@ export async function sendPushNotification(subscription, payload) {
       JSON.stringify(payload),
     );
   } catch (err) {
-    // 410 Gone means the subscription is no longer valid
     if (err.statusCode === 410) {
+      // subscription expired — remove it
       db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?').run(subscription.endpoint);
+    } else {
+      console.error('[push] sendNotification failed:', err.statusCode ?? err.message);
     }
   }
 }
