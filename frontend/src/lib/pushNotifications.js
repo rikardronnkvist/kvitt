@@ -11,6 +11,15 @@ export function isPushSupported() {
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 }
 
+// iOS Safari only delivers push in standalone (PWA) mode
+export function isIosNonStandalone() {
+  const isIos = /iP(hone|od|ad)/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;
+  return isIos && !isStandalone;
+}
+
 export async function registerServiceWorker() {
   if (!isPushSupported()) return null;
   return navigator.serviceWorker.register('/sw.js');
@@ -18,6 +27,7 @@ export async function registerServiceWorker() {
 
 export async function subscribeToPush() {
   if (!isPushSupported()) throw new Error('Push not supported');
+  if (isIosNonStandalone()) throw new Error('ios_install');
   const permission = await Notification.requestPermission();
   if (permission !== 'granted') throw new Error('permission_denied');
 
