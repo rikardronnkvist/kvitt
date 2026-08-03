@@ -182,6 +182,7 @@ export default function NewSettlementModal({
         <section className="space-y-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
           <div>
             <h3 className="m-0 text-base font-semibold">Förslag för att alla ska bli kvitt</h3>
+            <p className="m-0 text-sm text-[var(--text-secondary)]">Klicka på ett förslag för att fylla i värden.</p>
           </div>
           <BalanceList
             balances={balances}
