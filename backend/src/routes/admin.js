@@ -38,9 +38,9 @@ const updateGroupSchema = z.object({
 });
 
 const updateCategorySchema = z.object({
-  name: z.string().trim().min(1).max(100),
+  name: z.string().trim().min(1).max(16),
   icon: z.string().trim().min(1).max(50),
-  sort_order: z.number().int().min(0).optional(),
+  sort_order: z.number().int().min(0).max(99).optional(),
 });
 
 const updateRegistrationTokenSchema = z.object({
