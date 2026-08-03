@@ -1,7 +1,10 @@
 export function getUserDisplayName(user) {
-  const fullName = user?.full_name?.trim();
-  if (fullName) {
-    return fullName;
+  const candidates = [user?.full_name, user?.displayName, user?.name, user?.username];
+  for (const value of candidates) {
+    const normalized = typeof value === 'string' ? value.trim() : '';
+    if (normalized) {
+      return normalized;
+    }
   }
 
   return user?.id ? `Användare ${user.id}` : 'Okänd användare';
