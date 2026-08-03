@@ -142,7 +142,12 @@ router.get('/:id', requireMembership, (req, res) => {
   const groupId = req.groupId;
   const group = db.prepare(`
     SELECT g.id, g.name, g.slug, g.theme_color, g.mileage_rate, g.created_by, g.created_at, g.archived_at,
-           u.full_name AS created_by_full_name
+           u.full_name AS created_by_full_name,
+           COALESCE(
+             (SELECT MAX(COALESCE(e.occurred_at, e.created_at)) FROM expenses e WHERE e.group_id = g.id),
+             (SELECT MAX(s.settled_at) FROM settlements s WHERE s.group_id = g.id),
+             g.created_at
+           ) AS last_activity_at
     FROM groups g
     JOIN users u ON u.id = g.created_by
     WHERE g.id = ?
@@ -161,6 +166,18 @@ router.get('/:id', requireMembership, (req, res) => {
   `).all(groupId);
 
   return res.json({ ...group, members });
+});
+
+router.get('/:id/activity', requireMembership, (req, res) => {
+  const { groupId } = req;
+  const row = db.prepare(`
+    SELECT COALESCE(
+      (SELECT MAX(COALESCE(e.occurred_at, e.created_at)) FROM expenses e WHERE e.group_id = ?),
+      (SELECT MAX(s.settled_at) FROM settlements s WHERE s.group_id = ?),
+      (SELECT created_at FROM groups WHERE id = ?)
+    ) AS last_activity_at
+  `).get(groupId, groupId, groupId);
+  return res.json(row);
 });
 
 router.get('/:id/member-search', requireMembership, (req, res) => {

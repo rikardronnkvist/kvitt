@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Archive, BarChart3, CheckCircle2, Coins, Copy, Link2, Plus, RefreshCw, RotateCcw, Settings, Trash2, UserPlus } from 'lucide-react';
 import ExpenseItem from '../components/ExpenseItem.jsx';
@@ -143,9 +143,10 @@ export default function GroupView() {
   const [groupActionSaving, setGroupActionSaving] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const lastActivityRef = useRef(null);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  const loadData = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     try {
       const groupData = await get(`/api/groups/${slug}`);
       const [expensesData, categoriesData, balancesData, settlementsData] = await Promise.all([
@@ -159,11 +160,12 @@ export default function GroupView() {
       setExpenseCategories(categoriesData);
       setBalances(balancesData);
       setSettlements(settlementsData);
+      lastActivityRef.current = groupData.last_activity_at ?? null;
       setError('');
     } catch (loadError) {
-      setError(loadError.message);
+      if (!silent) setError(loadError.message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [slug]);
 
@@ -176,20 +178,26 @@ export default function GroupView() {
     const POLL_INTERVAL = 20_000;
     let timerId = null;
 
-    const schedule = () => {
-      timerId = window.setTimeout(() => {
-        if (!document.hidden) {
-          loadData();
+    const checkAndRefresh = async () => {
+      if (document.hidden) return;
+      try {
+        const { last_activity_at } = await get(`/api/groups/${slug}/activity`);
+        if (lastActivityRef.current !== null && last_activity_at !== lastActivityRef.current) {
+          await loadData({ silent: true });
         }
+      } catch {
+        // ignore poll errors
+      }
+    };
+
+    const schedule = () => {
+      timerId = window.setTimeout(async () => {
+        await checkAndRefresh();
         schedule();
       }, POLL_INTERVAL);
     };
 
-    const onVisibilityChange = () => {
-      if (!document.hidden) {
-        loadData();
-      }
-    };
+    const onVisibilityChange = () => { checkAndRefresh(); };
 
     schedule();
     document.addEventListener('visibilitychange', onVisibilityChange);
@@ -197,7 +205,7 @@ export default function GroupView() {
       window.clearTimeout(timerId);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [loadData]);
+  }, [loadData, slug]);
 
   useEffect(() => {
     if (!group) return;
