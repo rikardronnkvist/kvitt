@@ -179,7 +179,14 @@ router.get('/:id', requireMembership, (req, res) => {
   }
 
   const members = db.prepare(`
-    SELECT u.id, u.full_name, u.phone, u.is_placeholder, gm.joined_at
+    SELECT u.id, u.full_name, u.phone, u.is_placeholder, gm.joined_at,
+      CASE WHEN EXISTS (
+        SELECT 1 FROM expenses e WHERE e.group_id = gm.group_id AND e.paid_by_user_id = u.id
+        UNION ALL
+        SELECT 1 FROM expense_splits es JOIN expenses e ON e.id = es.expense_id WHERE e.group_id = gm.group_id AND es.user_id = u.id
+        UNION ALL
+        SELECT 1 FROM settlements s WHERE s.group_id = gm.group_id AND (s.payer_id = u.id OR s.receiver_id = u.id)
+      ) THEN 1 ELSE 0 END AS has_activity
     FROM group_members gm
     JOIN users u ON u.id = gm.user_id
     WHERE gm.group_id = ?
@@ -285,6 +292,19 @@ router.delete('/:id/members/:userId', requireMembership, (req, res) => {
   }
   if (Number(writable.group.created_by) === userId) {
     return res.status(400).json({ error: 'Gruppens skapare kan inte tas bort.' });
+  }
+
+  const activityCheck = db.prepare(`
+    SELECT EXISTS (
+      SELECT 1 FROM expenses e WHERE e.group_id = ? AND e.paid_by_user_id = ?
+      UNION ALL
+      SELECT 1 FROM expense_splits es JOIN expenses e ON e.id = es.expense_id WHERE e.group_id = ? AND es.user_id = ?
+      UNION ALL
+      SELECT 1 FROM settlements s WHERE s.group_id = ? AND (s.payer_id = ? OR s.receiver_id = ?)
+    ) AS has_activity
+  `).get(groupId, userId, groupId, userId, groupId, userId, userId);
+  if (activityCheck.has_activity) {
+    return res.status(400).json({ error: 'Kan inte ta bort en medlem som har utgifter eller kvittningar i gruppen.' });
   }
   const existingMembership = getMembership(groupId, userId);
 

@@ -875,6 +875,10 @@ export default function GroupView() {
                       <span className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border-subtle)] px-4 text-sm font-medium text-[var(--text-secondary)]">
                         Ägare
                       </span>
+                    ) : member.has_activity ? (
+                      <span className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border-subtle)] px-4 text-sm font-medium text-[var(--text-secondary)]" title="Har utgifter eller kvittningar i gruppen">
+                        Har transaktioner
+                      </span>
                     ) : (
                       <button type="button" className="btn-danger" onClick={() => handleRemoveMember(member.id)} disabled={isArchived}>
                         Ta bort
