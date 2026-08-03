@@ -65,6 +65,8 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [savingUserId, setSavingUserId] = useState(null);
   const [deletingUserId, setDeletingUserId] = useState(null);
+  const [generatingRecoveryUserId, setGeneratingRecoveryUserId] = useState(null);
+  const [recoveryUrls, setRecoveryUrls] = useState({});
   const [savingGroupId, setSavingGroupId] = useState(null);
   const [savingCategoryId, setSavingCategoryId] = useState(null);
   const [activeTab, setActiveTab] = useState('admin');
@@ -164,10 +166,38 @@ export default function Admin() {
         delete next[userId];
         return next;
       });
+      setRecoveryUrls((previous) => {
+        const next = { ...previous };
+        delete next[userId];
+        return next;
+      });
     } catch (deleteError) {
       setError(deleteError.message);
     } finally {
       setDeletingUserId(null);
+    }
+  };
+
+  const handleGenerateRecoveryLink = async (userId) => {
+    setGeneratingRecoveryUserId(userId);
+    setError('');
+    try {
+      const data = await post(`/api/admin/users/${userId}/recovery-link`, {});
+      setRecoveryUrls((previous) => ({ ...previous, [userId]: data.url }));
+    } catch (genError) {
+      setError(genError.message);
+    } finally {
+      setGeneratingRecoveryUserId(null);
+    }
+  };
+
+  const handleCopyRecoveryUrl = async (userId) => {
+    const url = recoveryUrls[userId];
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      setError('Kunde inte kopiera länken.');
     }
   };
 
@@ -427,45 +457,76 @@ export default function Admin() {
                 <span className="w-16 shrink-0 text-center text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Passkeys</span>
                 <span className="w-9 shrink-0" />
                 <span className="w-9 shrink-0" />
+                <span className="w-9 shrink-0" />
               </div>
               {users.map((user) => {
                 const draft = userDrafts[user.id] || { is_admin: false, full_name: '' };
                 const isDirty = draft.full_name !== user.full_name || Boolean(draft.is_admin) !== Boolean(user.is_admin);
+                const recoveryUrl = recoveryUrls[user.id];
+                const isGenerating = generatingRecoveryUserId === user.id;
                 return (
-                  <div key={user.id} className="flex items-center gap-x-3 px-4 py-2">
-                    <input
-                      className="min-w-0 flex-1"
-                      value={draft.full_name || ''}
-                      onChange={(event) => handleUserDraftChange(user.id, 'full_name', event.target.value)}
-                      aria-label="Fullständigt namn"
-                    />
-                    <div className="flex w-14 shrink-0 justify-center">
+                  <div key={user.id} className="flex flex-col">
+                    <div className="flex items-center gap-x-3 px-4 py-2">
                       <input
-                        type="checkbox"
-                        checked={Boolean(draft.is_admin)}
-                        onChange={(event) => handleUserDraftChange(user.id, 'is_admin', event.target.checked)}
+                        className="min-w-0 flex-1"
+                        value={draft.full_name || ''}
+                        onChange={(event) => handleUserDraftChange(user.id, 'full_name', event.target.value)}
+                        aria-label="Fullständigt namn"
                       />
+                      <div className="flex w-14 shrink-0 justify-center">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(draft.is_admin)}
+                          onChange={(event) => handleUserDraftChange(user.id, 'is_admin', event.target.checked)}
+                        />
+                      </div>
+                      <span className="w-16 shrink-0 text-center text-sm text-[var(--text-muted)]">{user.group_count}</span>
+                      <span className="w-16 shrink-0 text-center text-sm text-[var(--text-muted)]">{user.passkey_count}</span>
+                      <button
+                        type="button"
+                        className={`size-9 min-h-0 shrink-0 rounded-lg border p-0 text-sm font-semibold transition-colors ${isDirty ? 'border-[var(--accent)] bg-[var(--accent)] text-white hover:opacity-90' : 'cursor-not-allowed border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[var(--text-muted)]'}`}
+                        onClick={() => handleSaveUser(user.id)}
+                        disabled={!isDirty || savingUserId === user.id || deletingUserId === user.id}
+                        title="Spara ändringar"
+                      >
+                        {savingUserId === user.id ? '…' : <Check className="mx-auto h-4 w-4" />}
+                      </button>
+                      <button
+                        type="button"
+                        className="size-9 min-h-0 shrink-0 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] p-0 text-sm font-semibold transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
+                        onClick={() => handleGenerateRecoveryLink(user.id)}
+                        disabled={isGenerating || user.passkey_count === 0 || savingUserId === user.id || deletingUserId === user.id}
+                        title={user.passkey_count === 0 ? 'Användaren saknar passkeys – använd registreringslänken' : 'Generera återhämtningslänk'}
+                      >
+                        {isGenerating ? '…' : <Link2 className="mx-auto h-4 w-4" />}
+                      </button>
+                      <button
+                        type="button"
+                        className={`size-9 min-h-0 shrink-0 rounded-lg border p-0 text-sm font-semibold transition-colors ${user.group_count > 0 ? 'cursor-not-allowed border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[var(--text-muted)]' : 'border-[var(--danger)] bg-[var(--danger)] text-white hover:opacity-90'}`}
+                        onClick={() => handleDeleteUser(user.id)}
+                        disabled={user.group_count > 0 || savingUserId === user.id || deletingUserId === user.id}
+                        title={user.group_count > 0 ? 'Kan inte radera användare med grupper' : 'Radera användare'}
+                      >
+                        {deletingUserId === user.id ? '...' : '×'}
+                      </button>
                     </div>
-                    <span className="w-16 shrink-0 text-center text-sm text-[var(--text-muted)]">{user.group_count}</span>
-                    <span className="w-16 shrink-0 text-center text-sm text-[var(--text-muted)]">{user.passkey_count}</span>
-                    <button
-                      type="button"
-                      className={`size-9 min-h-0 shrink-0 rounded-lg border p-0 text-sm font-semibold transition-colors ${isDirty ? 'border-[var(--accent)] bg-[var(--accent)] text-white hover:opacity-90' : 'cursor-not-allowed border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[var(--text-muted)]'}`}
-                      onClick={() => handleSaveUser(user.id)}
-                      disabled={!isDirty || savingUserId === user.id || deletingUserId === user.id}
-                      title="Spara ändringar"
-                    >
-                      {savingUserId === user.id ? '…' : <Check className="mx-auto h-4 w-4" />}
-                    </button>
-                    <button
-                      type="button"
-                      className={`size-9 min-h-0 shrink-0 rounded-lg border p-0 text-sm font-semibold transition-colors ${user.group_count > 0 ? 'cursor-not-allowed border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[var(--text-muted)]' : 'border-[var(--danger)] bg-[var(--danger)] text-white hover:opacity-90'}`}
-                      onClick={() => handleDeleteUser(user.id)}
-                      disabled={user.group_count > 0 || savingUserId === user.id || deletingUserId === user.id}
-                      title={user.group_count > 0 ? 'Kan inte radera användare med grupper' : 'Radera användare'}
-                    >
-                      {deletingUserId === user.id ? '...' : '×'}
-                    </button>
+                    {recoveryUrl ? (
+                      <div className="mx-4 mb-2 flex items-center gap-2 rounded-lg border border-[color:color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[color:color-mix(in_srgb,var(--accent)_6%,transparent)] px-3 py-2">
+                        <input
+                          readOnly
+                          value={recoveryUrl}
+                          className="min-w-0 flex-1 bg-transparent text-xs text-[var(--text-secondary)]"
+                          onFocus={(e) => e.target.select()}
+                        />
+                        <button
+                          type="button"
+                          className="btn-secondary shrink-0 px-2 py-1 text-xs"
+                          onClick={() => handleCopyRecoveryUrl(user.id)}
+                        >
+                          Kopiera
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}

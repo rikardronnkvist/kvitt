@@ -247,6 +247,16 @@ export function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_activity_logs_actor_user_id ON activity_logs(actor_user_id);
     CREATE INDEX IF NOT EXISTS idx_activity_logs_group_id ON activity_logs(group_id);
     CREATE INDEX IF NOT EXISTS idx_activity_logs_event_type ON activity_logs(event_type);
+
+    CREATE TABLE IF NOT EXISTS user_recovery_tokens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token TEXT UNIQUE NOT NULL,
+      expires_at DATETIME NOT NULL,
+      used_at DATETIME
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_user_recovery_tokens_token ON user_recovery_tokens(token);
   `);
 
   const userColumns = db.prepare('PRAGMA table_info(users)').all();
