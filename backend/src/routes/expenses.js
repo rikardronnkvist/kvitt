@@ -270,7 +270,7 @@ router.post('/:groupId', (req, res) => {
     Promise.allSettled(subscriptions.map((sub) =>
       sendPushNotification(sub, {
         title: group?.name ?? 'Kvitt',
-        body: `${creatorName} lade till "${title}"`,
+        body: `${creatorName} lade till "${title}" – ${amount.toLocaleString('sv-SE')} ${currency}`,
         url: `/groups/${group?.slug ?? groupId}`,
       }),
     ));
