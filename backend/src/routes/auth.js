@@ -4,6 +4,7 @@ import { db } from '../db/database.js';
 import requireAuth from '../middleware/auth.js';
 import passkeyRoutes from '../auth/passkey.routes.js';
 import { getAuthUserById, signToken } from '../auth/token.js';
+import { resolveRequestIp, tryLogActivity } from '../utils/activity-log.js';
 
 const router = express.Router();
 const isDevboxMode = process.env.DEVBOX === 'true';
@@ -56,6 +57,18 @@ router.post('/devbox/login', (req, res) => {
     return res.status(404).json({ error: 'Användaren hittades inte.' });
   }
 
+  tryLogActivity({
+    eventType: 'auth.login.succeeded',
+    action: 'login',
+    actorUserId: user.id,
+    targetUserId: user.id,
+    entityType: 'session',
+    metadata: {
+      source: 'devbox',
+    },
+    ipAddress: resolveRequestIp(req),
+  });
+
   return res.json({ token: signToken(user), user });
 });
 
@@ -80,13 +93,35 @@ router.put('/profile', requireAuth, async (req, res) => {
   const { full_name, phone, initials } = parsed.data;
   const normalizedInitials = initials && initials.trim().length === 2 ? initials.trim().toUpperCase() : null;
   const normalizedPhone = phone && phone.trim().length > 0 ? phone.trim() : null;
-  const currentUser = db.prepare('SELECT id, is_admin FROM users WHERE id = ?').get(req.user.id);
+  const currentUser = db.prepare('SELECT id, is_admin, full_name, phone, initials FROM users WHERE id = ?').get(req.user.id);
 
   if (!currentUser) {
     return res.status(404).json({ error: 'Användaren hittades inte.' });
   }
 
   db.prepare('UPDATE users SET full_name = ?, phone = ?, initials = ? WHERE id = ?').run(full_name, normalizedPhone, normalizedInitials, req.user.id);
+
+  tryLogActivity({
+    eventType: 'user.profile.updated',
+    action: 'update',
+    actorUserId: req.user.id,
+    targetUserId: req.user.id,
+    entityType: 'user',
+    entityId: req.user.id,
+    metadata: {
+      before: {
+        full_name: currentUser.full_name,
+        phone: currentUser.phone,
+        initials: currentUser.initials,
+      },
+      after: {
+        full_name,
+        phone: normalizedPhone,
+        initials: normalizedInitials,
+      },
+    },
+    ipAddress: resolveRequestIp(req),
+  });
 
   const updatedUser = getAuthUserById(req.user.id);
   return res.json({ token: signToken(updatedUser, { currentPasskeyId: req.user.current_passkey_id }), user: updatedUser });

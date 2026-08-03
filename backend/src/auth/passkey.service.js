@@ -10,6 +10,7 @@ import { challengeStore } from './challenge-store.js';
 import { getWebAuthnConfig } from './webauthn.config.js';
 import { getAuthUserById, signToken } from './token.js';
 import { isValidInviteToken, isValidRegistrationAccessToken } from '../utils/settings.js';
+import { logActivity, tryLogActivity } from '../utils/activity-log.js';
 
 function createHttpError(status, message) {
   const error = new Error(message);
@@ -190,7 +191,7 @@ export async function createRegistrationOptions(displayName, phone, registration
   return { requestId, options };
 }
 
-export async function verifyRegistration({ requestId, response }) {
+export async function verifyRegistration({ requestId, response }, context = {}) {
   const config = getWebAuthnConfig();
   // Consume (not just read) challenge to make each registration challenge single-use.
   const challengeEntry = challengeStore.consume({ requestId, purpose: 'register' });
@@ -223,6 +224,7 @@ export async function verifyRegistration({ requestId, response }) {
 
   const registrationResult = db.transaction(() => {
     const existingUser = db.prepare('SELECT id FROM users WHERE user_handle = ?').get(challengeEntry.userHandle);
+    const createdNewUser = !existingUser;
     const resolvedUserId = existingUser
       ? Number(existingUser.id)
       : createPasskeyUser(challengeEntry.displayName, challengeEntry.phone ?? null, challengeEntry.userHandle);
@@ -236,6 +238,39 @@ export async function verifyRegistration({ requestId, response }) {
       backedUp: credentialBackedUp,
       transports: credential.transports,
     });
+
+    if (createdNewUser) {
+      logActivity({
+        eventType: 'auth.user.created',
+        action: 'create',
+        actorUserId: resolvedUserId,
+        targetUserId: resolvedUserId,
+        entityType: 'user',
+        entityId: resolvedUserId,
+        metadata: {
+          source: 'passkey_registration',
+          full_name: challengeEntry.displayName,
+          has_phone: Boolean(challengeEntry.phone),
+        },
+        ipAddress: context.ipAddress || null,
+      });
+    }
+
+    logActivity({
+      eventType: 'auth.passkey.created',
+      action: 'create',
+      actorUserId: resolvedUserId,
+      targetUserId: resolvedUserId,
+      entityType: 'passkey',
+      entityId: passkeyId,
+      metadata: {
+        mode: createdNewUser ? 'primary' : 'existing_user_primary',
+        device_type: credentialDeviceType,
+        backed_up: Boolean(credentialBackedUp),
+      },
+      ipAddress: context.ipAddress || null,
+    });
+
     return { resolvedUserId, passkeyId };
   })();
 
@@ -291,7 +326,7 @@ export async function createUserPasskeyOptions(userId) {
   return { requestId, options };
 }
 
-export async function verifyUserPasskeyRegistration({ requestId, response, userId }) {
+export async function verifyUserPasskeyRegistration({ requestId, response, userId }, context = {}) {
   const config = getWebAuthnConfig();
   const challengeEntry = challengeStore.consume({ requestId, purpose: 'register-existing' });
   if (!challengeEntry) {
@@ -335,21 +370,54 @@ export async function verifyUserPasskeyRegistration({ requestId, response, userI
     transports: credential.transports,
   });
 
+  tryLogActivity({
+    eventType: 'auth.passkey.created',
+    action: 'create',
+    actorUserId: userId,
+    targetUserId: userId,
+    entityType: 'passkey',
+    entityId: passkeyId,
+    metadata: {
+      mode: 'extra',
+      device_type: credentialDeviceType,
+      backed_up: Boolean(credentialBackedUp),
+    },
+    ipAddress: context.ipAddress || null,
+  });
+
   const user = getAuthUserById(userId);
   return { token: signToken(user, { currentPasskeyId: passkeyId }), user };
 }
 
-export function updateUserPasskeyName(userId, passkeyId, name) {
+export function updateUserPasskeyName(userId, passkeyId, name, context = {}) {
   const passkey = getUserPasskeyById(userId, passkeyId);
   if (!passkey) {
     throw createHttpError(404, 'Passkeyn hittades inte.');
   }
 
   db.prepare('UPDATE passkeys SET name = ? WHERE id = ?').run(name, passkeyId);
+  tryLogActivity({
+    eventType: 'auth.passkey.updated',
+    action: 'update',
+    actorUserId: userId,
+    targetUserId: userId,
+    entityType: 'passkey',
+    entityId: passkeyId,
+    metadata: {
+      before: {
+        name: passkey.name,
+      },
+      after: {
+        name,
+      },
+    },
+    ipAddress: context.ipAddress || null,
+  });
+
   return getPasskeysForUser(userId).find((row) => Number(row.id) === Number(passkeyId)) || null;
 }
 
-export function deleteUserPasskey(userId, passkeyId, currentPasskeyId) {
+export function deleteUserPasskey(userId, passkeyId, currentPasskeyId, context = {}) {
   const passkey = getUserPasskeyById(userId, passkeyId);
   if (!passkey) {
     throw createHttpError(404, 'Passkeyn hittades inte.');
@@ -364,6 +432,18 @@ export function deleteUserPasskey(userId, passkeyId, currentPasskeyId) {
   }
 
   db.prepare('DELETE FROM passkeys WHERE id = ? AND user_id = ?').run(passkeyId, userId);
+  tryLogActivity({
+    eventType: 'auth.passkey.deleted',
+    action: 'delete',
+    actorUserId: userId,
+    targetUserId: userId,
+    entityType: 'passkey',
+    entityId: passkeyId,
+    metadata: {
+      deleted_passkey_name: passkey.name,
+    },
+    ipAddress: context.ipAddress || null,
+  });
 }
 
 export async function createAuthenticationOptions() {
@@ -385,7 +465,7 @@ export async function createAuthenticationOptions() {
   return { requestId, options };
 }
 
-export async function verifyAuthentication({ requestId, response }) {
+export async function verifyAuthentication({ requestId, response }, context = {}) {
   const config = getWebAuthnConfig();
   // Challenges are single-use to prevent replaying signed assertions.
   const challengeEntry = challengeStore.consume({ requestId, purpose: 'login' });
@@ -427,6 +507,20 @@ export async function verifyAuthentication({ requestId, response }) {
   if (!user) {
     throw createHttpError(404, 'Användaren hittades inte.');
   }
+
+  tryLogActivity({
+    eventType: 'auth.login.succeeded',
+    action: 'login',
+    actorUserId: user.id,
+    targetUserId: user.id,
+    entityType: 'session',
+    entityId: passkey.id,
+    metadata: {
+      passkey_id: passkey.id,
+      credential_id: passkey.credential_id,
+    },
+    ipAddress: context.ipAddress || null,
+  });
 
   return { token: signToken(user, { currentPasskeyId: passkey.id }), user };
 }

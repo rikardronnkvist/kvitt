@@ -3,6 +3,7 @@ import { z } from 'zod';
 import authMiddleware from '../middleware/auth.js';
 import { db } from '../db/database.js';
 import { calculateBalances } from '../utils/balance.js';
+import { logActivity, resolveRequestIp } from '../utils/activity-log.js';
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -58,6 +59,27 @@ function isGroupArchived(groupId) {
   return Boolean(group?.archived_at);
 }
 
+function getSettlementSnapshot(settlementId) {
+  const settlement = db.prepare(`
+    SELECT id, group_id, payer_id, receiver_id, amount, settled_at
+    FROM settlements
+    WHERE id = ?
+  `).get(settlementId);
+
+  if (!settlement) {
+    return null;
+  }
+
+  return {
+    id: settlement.id,
+    group_id: settlement.group_id,
+    payer_id: settlement.payer_id,
+    receiver_id: settlement.receiver_id,
+    amount: Math.round(Number(settlement.amount)),
+    settled_at: settlement.settled_at,
+  };
+}
+
 router.get('/:groupId', (req, res) => {
   const groupId = Number(req.params.groupId);
   if (!requireMembership(groupId, req.user.id)) {
@@ -83,6 +105,7 @@ router.get('/:groupId', (req, res) => {
 
 router.post('/:groupId', (req, res) => {
   const groupId = Number(req.params.groupId);
+  const ipAddress = resolveRequestIp(req);
   if (!requireMembership(groupId, req.user.id)) {
     return res.status(403).json({ error: 'Du har inte åtkomst till den här gruppen.' });
   }
@@ -110,10 +133,30 @@ router.post('/:groupId', (req, res) => {
     return res.status(400).json({ error: 'Båda användarna måste vara medlemmar i gruppen.' });
   }
 
-  const result = db.prepare(`
-    INSERT INTO settlements (group_id, payer_id, receiver_id, amount, settled_at)
-    VALUES (?, ?, ?, ?, COALESCE(?, datetime('now', 'localtime')))
-  `).run(groupId, payer_id, receiver_id, amount, settledAt);
+  const result = db.transaction(() => {
+    const insertResult = db.prepare(`
+      INSERT INTO settlements (group_id, payer_id, receiver_id, amount, settled_at)
+      VALUES (?, ?, ?, ?, COALESCE(?, datetime('now', 'localtime')))
+    `).run(groupId, payer_id, receiver_id, amount, settledAt);
+
+    logActivity({
+      eventType: 'settlement.created',
+      action: 'create',
+      actorUserId: req.user.id,
+      groupId,
+      entityType: 'settlement',
+      entityId: Number(insertResult.lastInsertRowid),
+      metadata: {
+        payer_id,
+        receiver_id,
+        amount,
+        settled_at: settledAt,
+      },
+      ipAddress,
+    });
+
+    return insertResult;
+  })();
 
   const settlement = db.prepare(`
     SELECT s.id, s.group_id, s.payer_id, s.receiver_id, s.amount, s.settled_at,
@@ -131,6 +174,7 @@ router.post('/:groupId', (req, res) => {
 router.put('/:groupId/:settlementId', (req, res) => {
   const groupId = Number(req.params.groupId);
   const settlementId = Number(req.params.settlementId);
+  const ipAddress = resolveRequestIp(req);
 
   if (!requireMembership(groupId, req.user.id)) {
     return res.status(403).json({ error: 'Du har inte åtkomst till den här gruppen.' });
@@ -159,16 +203,42 @@ router.put('/:groupId/:settlementId', (req, res) => {
     return res.status(400).json({ error: 'Båda användarna måste vara medlemmar i gruppen.' });
   }
 
-  const existing = db.prepare('SELECT id FROM settlements WHERE id = ? AND group_id = ?').get(settlementId, groupId);
+  const existing = getSettlementSnapshot(settlementId);
+  if (existing && Number(existing.group_id) !== Number(groupId)) {
+    return res.status(404).json({ error: 'Betalningen hittades inte.' });
+  }
   if (!existing) {
     return res.status(404).json({ error: 'Betalningen hittades inte.' });
   }
 
-  db.prepare(`
-    UPDATE settlements
-    SET payer_id = ?, receiver_id = ?, amount = ?, settled_at = COALESCE(?, settled_at)
-    WHERE id = ?
-  `).run(payer_id, receiver_id, amount, settledAt, settlementId);
+  db.transaction(() => {
+    db.prepare(`
+      UPDATE settlements
+      SET payer_id = ?, receiver_id = ?, amount = ?, settled_at = COALESCE(?, settled_at)
+      WHERE id = ?
+    `).run(payer_id, receiver_id, amount, settledAt, settlementId);
+
+    logActivity({
+      eventType: 'settlement.updated',
+      action: 'update',
+      actorUserId: req.user.id,
+      groupId,
+      entityType: 'settlement',
+      entityId: settlementId,
+      metadata: {
+        before: existing,
+        after: {
+          id: settlementId,
+          group_id: groupId,
+          payer_id,
+          receiver_id,
+          amount,
+          settled_at: settledAt || existing.settled_at,
+        },
+      },
+      ipAddress,
+    });
+  })();
 
   const settlement = db.prepare(`
     SELECT s.id, s.group_id, s.payer_id, s.receiver_id, s.amount, s.settled_at,
@@ -186,6 +256,7 @@ router.put('/:groupId/:settlementId', (req, res) => {
 router.delete('/:groupId/:settlementId', (req, res) => {
   const groupId = Number(req.params.groupId);
   const settlementId = Number(req.params.settlementId);
+  const ipAddress = resolveRequestIp(req);
 
   if (!requireMembership(groupId, req.user.id)) {
     return res.status(403).json({ error: 'Du har inte åtkomst till den här gruppen.' });
@@ -194,12 +265,30 @@ router.delete('/:groupId/:settlementId', (req, res) => {
     return res.status(409).json({ error: 'Gruppen är arkiverad och skrivskyddad.' });
   }
 
-  const existing = db.prepare('SELECT id FROM settlements WHERE id = ? AND group_id = ?').get(settlementId, groupId);
+  const existing = getSettlementSnapshot(settlementId);
+  if (existing && Number(existing.group_id) !== Number(groupId)) {
+    return res.status(404).json({ error: 'Betalningen hittades inte.' });
+  }
   if (!existing) {
     return res.status(404).json({ error: 'Betalningen hittades inte.' });
   }
 
-  db.prepare('DELETE FROM settlements WHERE id = ?').run(settlementId);
+  db.transaction(() => {
+    db.prepare('DELETE FROM settlements WHERE id = ?').run(settlementId);
+    logActivity({
+      eventType: 'settlement.deleted',
+      action: 'delete',
+      actorUserId: req.user.id,
+      groupId,
+      entityType: 'settlement',
+      entityId: settlementId,
+      metadata: {
+        before: existing,
+      },
+      ipAddress,
+    });
+  })();
+
   return res.status(204).end();
 });
 

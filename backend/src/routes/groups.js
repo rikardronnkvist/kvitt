@@ -5,6 +5,7 @@ import authMiddleware from '../middleware/auth.js';
 import { db } from '../db/database.js';
 import { calculateMemberBalances } from '../utils/balance.js';
 import { createUniqueSlug, slugifyGroupName } from '../utils/slug.js';
+import { logActivity, resolveRequestIp } from '../utils/activity-log.js';
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -52,7 +53,7 @@ function resolveGroupId(identifier) {
 }
 
 function getGroupState(groupId) {
-  return db.prepare('SELECT id, name, created_by, archived_at FROM groups WHERE id = ?').get(groupId);
+  return db.prepare('SELECT id, name, slug, theme_color, mileage_rate, created_by, archived_at FROM groups WHERE id = ?').get(groupId);
 }
 
 function ensureGroupWritable(groupId) {
@@ -119,6 +120,8 @@ router.post('/', (req, res) => {
     return res.status(400).json({ error: 'Ogiltigt gruppnamn.', details: parsed.error.flatten() });
   }
 
+  const ipAddress = resolveRequestIp(req);
+
   const tx = db.transaction(() => {
     const baseSlug = slugifyGroupName(parsed.data.name);
     const slug = createUniqueSlug(baseSlug, (candidate) => Boolean(db.prepare('SELECT 1 FROM groups WHERE slug = ?').get(candidate)));
@@ -130,6 +133,24 @@ router.post('/', (req, res) => {
     );
     db.prepare('UPDATE groups SET slug = ? WHERE id = ?').run(slug, result.lastInsertRowid);
     db.prepare('INSERT INTO group_members (group_id, user_id) VALUES (?, ?)').run(result.lastInsertRowid, req.user.id);
+
+    logActivity({
+      eventType: 'group.created',
+      action: 'create',
+      actorUserId: req.user.id,
+      targetUserId: req.user.id,
+      groupId: Number(result.lastInsertRowid),
+      entityType: 'group',
+      entityId: Number(result.lastInsertRowid),
+      metadata: {
+        name: parsed.data.name,
+        slug,
+        theme_color: parsed.data.theme_color ?? null,
+        mileage_rate: parsed.data.mileage_rate ?? 20,
+      },
+      ipAddress,
+    });
+
     return result.lastInsertRowid;
   });
 
@@ -220,6 +241,7 @@ router.post('/:id/members', requireMembership, (req, res) => {
   }
 
   const groupId = req.groupId;
+  const ipAddress = resolveRequestIp(req);
   const writable = ensureGroupWritable(groupId);
   if (!writable.ok) {
     return res.status(writable.status).json({ error: writable.error });
@@ -235,12 +257,28 @@ router.post('/:id/members', requireMembership, (req, res) => {
   }
 
   db.prepare('INSERT INTO group_members (group_id, user_id) VALUES (?, ?)').run(groupId, user.id);
+
+  logActivity({
+    eventType: 'group.member.added',
+    action: 'add',
+    actorUserId: req.user.id,
+    targetUserId: user.id,
+    groupId,
+    entityType: 'group_member',
+    entityId: user.id,
+    metadata: {
+      member_full_name: user.full_name,
+    },
+    ipAddress,
+  });
+
   return res.status(201).json(user);
 });
 
 router.delete('/:id/members/:userId', requireMembership, (req, res) => {
   const groupId = req.groupId;
   const userId = Number(req.params.userId);
+  const ipAddress = resolveRequestIp(req);
   const writable = ensureGroupWritable(groupId);
   if (!writable.ok) {
     return res.status(writable.status).json({ error: writable.error });
@@ -260,6 +298,18 @@ router.delete('/:id/members/:userId', requireMembership, (req, res) => {
   }
 
   db.prepare('DELETE FROM group_members WHERE group_id = ? AND user_id = ?').run(groupId, userId);
+
+  logActivity({
+    eventType: 'group.member.removed',
+    action: 'remove',
+    actorUserId: req.user.id,
+    targetUserId: userId,
+    groupId,
+    entityType: 'group_member',
+    entityId: userId,
+    ipAddress,
+  });
+
   return res.status(204).send();
 });
 
@@ -275,6 +325,13 @@ router.patch('/:id', requireMembership, (req, res) => {
     return res.status(writable.status).json({ error: writable.error });
   }
   const { name, theme_color, mileage_rate } = parsed.data;
+  const ipAddress = resolveRequestIp(req);
+  const before = {
+    name: writable.group.name,
+    slug: writable.group.slug,
+    theme_color: writable.group.theme_color,
+    mileage_rate: writable.group.mileage_rate,
+  };
 
   if (name !== undefined) {
     if (Number(writable.group.created_by) !== Number(req.user.id)) {
@@ -299,11 +356,32 @@ router.patch('/:id', requireMembership, (req, res) => {
   }
 
   const group = db.prepare('SELECT id, name, slug, theme_color, mileage_rate, created_by, created_at, archived_at FROM groups WHERE id = ?').get(groupId);
+
+  logActivity({
+    eventType: 'group.updated',
+    action: 'update',
+    actorUserId: req.user.id,
+    groupId,
+    entityType: 'group',
+    entityId: groupId,
+    metadata: {
+      before,
+      after: {
+        name: group.name,
+        slug: group.slug,
+        theme_color: group.theme_color,
+        mileage_rate: group.mileage_rate,
+      },
+    },
+    ipAddress,
+  });
+
   return res.json(group);
 });
 
 router.post('/:id/archive', requireMembership, (req, res) => {
   const groupId = req.groupId;
+  const ipAddress = resolveRequestIp(req);
   const group = getGroupState(groupId);
   if (!group) {
     return res.status(404).json({ error: 'Gruppen hittades inte.' });
@@ -318,6 +396,15 @@ router.post('/:id/archive', requireMembership, (req, res) => {
   }
   if (!group.archived_at) {
     db.prepare("UPDATE groups SET archived_at = datetime('now', 'localtime') WHERE id = ?").run(groupId);
+    logActivity({
+      eventType: 'group.archived',
+      action: 'archive',
+      actorUserId: req.user.id,
+      groupId,
+      entityType: 'group',
+      entityId: groupId,
+      ipAddress,
+    });
   }
 
   const archivedGroup = db.prepare('SELECT id, name, slug, theme_color, mileage_rate, created_by, created_at, archived_at FROM groups WHERE id = ?').get(groupId);
@@ -326,6 +413,7 @@ router.post('/:id/archive', requireMembership, (req, res) => {
 
 router.post('/:id/unarchive', requireMembership, (req, res) => {
   const groupId = req.groupId;
+  const ipAddress = resolveRequestIp(req);
   const group = getGroupState(groupId);
   if (!group) {
     return res.status(404).json({ error: 'Gruppen hittades inte.' });
@@ -335,6 +423,15 @@ router.post('/:id/unarchive', requireMembership, (req, res) => {
   }
   if (group.archived_at) {
     db.prepare('UPDATE groups SET archived_at = NULL WHERE id = ?').run(groupId);
+    logActivity({
+      eventType: 'group.unarchived',
+      action: 'unarchive',
+      actorUserId: req.user.id,
+      groupId,
+      entityType: 'group',
+      entityId: groupId,
+      ipAddress,
+    });
   }
 
   const unarchivedGroup = db.prepare('SELECT id, name, slug, theme_color, mileage_rate, created_by, created_at, archived_at FROM groups WHERE id = ?').get(groupId);
@@ -343,6 +440,7 @@ router.post('/:id/unarchive', requireMembership, (req, res) => {
 
 router.delete('/:id', requireMembership, (req, res) => {
   const groupId = req.groupId;
+  const ipAddress = resolveRequestIp(req);
   const group = getGroupState(groupId);
   if (!group) {
     return res.status(404).json({ error: 'Gruppen hittades inte.' });
@@ -351,7 +449,24 @@ router.delete('/:id', requireMembership, (req, res) => {
     return res.status(403).json({ error: 'Endast gruppens skapare kan radera gruppen.' });
   }
 
-  db.prepare('DELETE FROM groups WHERE id = ?').run(groupId);
+  const tx = db.transaction(() => {
+    logActivity({
+      eventType: 'group.deleted',
+      action: 'delete',
+      actorUserId: req.user.id,
+      groupId,
+      entityType: 'group',
+      entityId: groupId,
+      metadata: {
+        name: group.name,
+        slug: group.slug,
+      },
+      ipAddress,
+    });
+    db.prepare('DELETE FROM groups WHERE id = ?').run(groupId);
+  });
+
+  tx();
   return res.status(204).end();
 });
 
@@ -367,6 +482,7 @@ router.post('/:id/members/placeholder', requireMembership, (req, res) => {
   }
 
   const groupId = req.groupId;
+  const ipAddress = resolveRequestIp(req);
   const group = getGroupState(groupId);
   if (Number(group.created_by) !== Number(req.user.id)) {
     return res.status(403).json({ error: 'Endast gruppens skapare kan lägga till platshållare.' });
@@ -383,6 +499,19 @@ router.post('/:id/members/placeholder', requireMembership, (req, res) => {
     ).run(parsed.data.display_name, userHandle);
     const userId = result.lastInsertRowid;
     db.prepare('INSERT INTO group_members (group_id, user_id) VALUES (?, ?)').run(groupId, userId);
+    logActivity({
+      eventType: 'group.member.placeholder_added',
+      action: 'add',
+      actorUserId: req.user.id,
+      targetUserId: Number(userId),
+      groupId,
+      entityType: 'group_member',
+      entityId: Number(userId),
+      metadata: {
+        display_name: parsed.data.display_name,
+      },
+      ipAddress,
+    });
     return db.prepare('SELECT id, full_name, is_placeholder FROM users WHERE id = ?').get(userId);
   });
 
@@ -393,6 +522,7 @@ router.post('/:id/members/placeholder', requireMembership, (req, res) => {
 // Create or replace invite link for a group (30-day expiry) — only group creator
 router.post('/:id/invite', requireMembership, (req, res) => {
   const groupId = req.groupId;
+  const ipAddress = resolveRequestIp(req);
   const group = getGroupState(groupId);
   if (Number(group.created_by) !== Number(req.user.id)) {
     return res.status(403).json({ error: 'Endast gruppens skapare kan skapa inbjudningslänkar.' });
@@ -408,6 +538,19 @@ router.post('/:id/invite', requireMembership, (req, res) => {
   db.prepare('DELETE FROM group_invites WHERE group_id = ? AND token != ?').run(groupId, token);
 
   const invite = db.prepare('SELECT token, expires_at FROM group_invites WHERE group_id = ?').get(groupId);
+
+  logActivity({
+    eventType: 'group.invite.created',
+    action: 'create',
+    actorUserId: req.user.id,
+    groupId,
+    entityType: 'group_invite',
+    metadata: {
+      expires_at: invite?.expires_at || null,
+    },
+    ipAddress,
+  });
+
   return res.status(201).json(invite);
 });
 
@@ -429,12 +572,23 @@ router.get('/:id/invite', requireMembership, (req, res) => {
 // Revoke invite link — only group creator
 router.delete('/:id/invite', requireMembership, (req, res) => {
   const groupId = req.groupId;
+  const ipAddress = resolveRequestIp(req);
   const group = getGroupState(groupId);
   if (Number(group.created_by) !== Number(req.user.id)) {
     return res.status(403).json({ error: 'Endast gruppens skapare kan återkalla inbjudningslänkar.' });
   }
 
   db.prepare('DELETE FROM group_invites WHERE group_id = ?').run(groupId);
+
+  logActivity({
+    eventType: 'group.invite.revoked',
+    action: 'delete',
+    actorUserId: req.user.id,
+    groupId,
+    entityType: 'group_invite',
+    ipAddress,
+  });
+
   return res.status(204).send();
 });
 

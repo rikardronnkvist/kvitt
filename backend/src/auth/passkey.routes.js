@@ -14,6 +14,7 @@ import {
   verifyRegistration,
   verifyUserPasskeyRegistration,
 } from './passkey.service.js';
+import { resolveRequestIp, tryLogActivity } from '../utils/activity-log.js';
 
 const router = express.Router();
 
@@ -69,7 +70,7 @@ router.post('/register/verify', async (req, res, next) => {
   }
 
   try {
-    const data = await verifyRegistration(parsed.data);
+    const data = await verifyRegistration(parsed.data, { ipAddress: resolveRequestIp(req) });
     return res.status(201).json(data);
   } catch (error) {
     return next(error);
@@ -101,7 +102,10 @@ router.post('/mine/verify', requireAuth, async (req, res, next) => {
   }
 
   try {
-    const data = await verifyUserPasskeyRegistration({ ...parsed.data, userId: req.user.id });
+    const data = await verifyUserPasskeyRegistration(
+      { ...parsed.data, userId: req.user.id },
+      { ipAddress: resolveRequestIp(req) },
+    );
     return res.status(201).json(data);
   } catch (error) {
     return next(error);
@@ -120,7 +124,7 @@ router.put('/mine/:passkeyId', requireAuth, (req, res, next) => {
   }
 
   try {
-    const updated = updateUserPasskeyName(req.user.id, passkeyId, parsed.data.name);
+    const updated = updateUserPasskeyName(req.user.id, passkeyId, parsed.data.name, { ipAddress: resolveRequestIp(req) });
     if (!updated) {
       return res.status(404).json({ error: 'Passkeyn hittades inte.' });
     }
@@ -137,7 +141,7 @@ router.delete('/mine/:passkeyId', requireAuth, (req, res, next) => {
   }
 
   try {
-    deleteUserPasskey(req.user.id, passkeyId, req.user.current_passkey_id);
+    deleteUserPasskey(req.user.id, passkeyId, req.user.current_passkey_id, { ipAddress: resolveRequestIp(req) });
     return res.status(204).send();
   } catch (error) {
     return next(error);
@@ -160,9 +164,23 @@ router.post('/login/verify', async (req, res, next) => {
   }
 
   try {
-    const data = await verifyAuthentication(parsed.data);
+    const data = await verifyAuthentication(parsed.data, { ipAddress: resolveRequestIp(req) });
     return res.json(data);
   } catch (error) {
+    const credentialId = typeof parsed.data.response?.id === 'string'
+      ? parsed.data.response.id
+      : null;
+    const errorMessage = typeof error?.message === 'string' ? error.message : 'Inloggningen misslyckades.';
+    tryLogActivity({
+      eventType: 'auth.login.failed',
+      action: 'login',
+      entityType: 'session',
+      metadata: {
+        credential_id: credentialId,
+        reason: errorMessage,
+      },
+      ipAddress: resolveRequestIp(req),
+    });
     return next(error);
   }
 });

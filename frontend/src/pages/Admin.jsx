@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Check, Link2, RefreshCw, Settings, ShieldCheck, Tags, Users, UsersRound } from 'lucide-react';
+import { Check, History, Link2, RefreshCw, Settings, ShieldCheck, Tags, Users, UsersRound } from 'lucide-react';
 import { get, post, put, del } from '../api/client.js';
 import { CATEGORY_ICON_OPTIONS, getCategoryIcon } from '../lib/expenseCategories.js';
 import { GROUP_THEMES, getThemeForGroup } from '../lib/groupTheme.js';
@@ -17,6 +17,41 @@ function AdminSkeleton() {
       ))}
     </div>
   );
+}
+
+const ACTIVITY_PAGE_SIZE = 25;
+
+const ACTIVITY_EVENT_OPTIONS = [
+  { value: '', label: 'Alla händelser' },
+  { value: 'auth.login.succeeded', label: 'Inloggning lyckad' },
+  { value: 'auth.login.failed', label: 'Inloggning misslyckad' },
+  { value: 'auth.passkey.created', label: 'Passkey skapad' },
+  { value: 'auth.passkey.updated', label: 'Passkey uppdaterad' },
+  { value: 'auth.passkey.deleted', label: 'Passkey borttagen' },
+  { value: 'expense.created', label: 'Utgift skapad' },
+  { value: 'expense.updated', label: 'Utgift uppdaterad' },
+  { value: 'expense.deleted', label: 'Utgift borttagen' },
+  { value: 'settlement.created', label: 'Betalning skapad' },
+  { value: 'settlement.updated', label: 'Betalning uppdaterad' },
+  { value: 'settlement.deleted', label: 'Betalning borttagen' },
+  { value: 'group.created', label: 'Grupp skapad' },
+  { value: 'group.updated', label: 'Grupp uppdaterad' },
+  { value: 'group.archived', label: 'Grupp arkiverad' },
+  { value: 'group.unarchived', label: 'Grupp återaktiverad' },
+  { value: 'group.deleted', label: 'Grupp borttagen' },
+  { value: 'group.member.added', label: 'Medlem tillagd' },
+  { value: 'group.member.removed', label: 'Medlem borttagen' },
+  { value: 'admin.user.updated', label: 'Admin: användare uppdaterad' },
+  { value: 'admin.user.deleted', label: 'Admin: användare borttagen' },
+  { value: 'admin.group.updated', label: 'Admin: grupp uppdaterad' },
+  { value: 'admin.category.updated', label: 'Admin: kategori uppdaterad' },
+];
+
+function formatDateTime(value) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString('sv-SE');
 }
 
 export default function Admin() {
@@ -38,6 +73,19 @@ export default function Admin() {
   const [registrationUrl, setRegistrationUrl] = useState('');
   const [savingRegistration, setSavingRegistration] = useState(false);
   const [resettingRegistration, setResettingRegistration] = useState(false);
+  const [activityLogs, setActivityLogs] = useState([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityTotal, setActivityTotal] = useState(0);
+  const [activityPage, setActivityPage] = useState(1);
+  const [expandedActivityId, setExpandedActivityId] = useState(null);
+  const [activityFilters, setActivityFilters] = useState({
+    event_type: '',
+    actor_user_id: '',
+    group_id: '',
+    query: '',
+    from: '',
+    to: '',
+  });
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -239,11 +287,48 @@ export default function Admin() {
     }
   };
 
+  const loadActivityLogs = useCallback(async () => {
+    setActivityLoading(true);
+    setError('');
+    try {
+      const params = new URLSearchParams();
+      params.set('page', String(activityPage));
+      params.set('pageSize', String(ACTIVITY_PAGE_SIZE));
+      if (activityFilters.event_type) params.set('event_type', activityFilters.event_type);
+      if (activityFilters.actor_user_id) params.set('actor_user_id', String(activityFilters.actor_user_id));
+      if (activityFilters.group_id) params.set('group_id', String(activityFilters.group_id));
+      if (activityFilters.query) params.set('query', activityFilters.query);
+      if (activityFilters.from) params.set('from', activityFilters.from);
+      if (activityFilters.to) params.set('to', activityFilters.to);
+
+      const data = await get(`/api/admin/activity-logs?${params.toString()}`);
+      setActivityLogs(Array.isArray(data.items) ? data.items : []);
+      setActivityTotal(Number(data.total || 0));
+    } catch (loadError) {
+      setError(loadError.message);
+    } finally {
+      setActivityLoading(false);
+    }
+  }, [activityFilters, activityPage]);
+
+  useEffect(() => {
+    if (loading || activeTab !== 'activity') {
+      return;
+    }
+    loadActivityLogs();
+  }, [activeTab, loading, loadActivityLogs]);
+
+  const handleActivityFilterChange = (key, value) => {
+    setActivityPage(1);
+    setActivityFilters((previous) => ({ ...previous, [key]: value }));
+  };
+
   const tabs = [
     { id: 'admin', label: 'Admin', icon: Settings, count: null },
     { id: 'users', label: 'Användare', icon: Users, count: users.length },
     { id: 'groups', label: 'Grupper', icon: UsersRound, count: groups.length },
     { id: 'categories', label: 'Kategorier', icon: Tags, count: categories.length },
+    { id: 'activity', label: 'Aktivitetslogg', icon: History, count: activityTotal },
   ];
   const selectedGroup = groups.find((group) => group.id === selectedGroupId) ?? null;
   const selectedGroupDraft = selectedGroup ? (groupDrafts[selectedGroup.id] ?? {
@@ -544,6 +629,141 @@ export default function Admin() {
                   </article>
                 );
               })}
+            </div>
+          ) : null}
+
+          {!loading && activeTab === 'activity' ? (
+            <div className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                <label className="field-label">
+                  Händelse
+                  <select
+                    value={activityFilters.event_type}
+                    onChange={(event) => handleActivityFilterChange('event_type', event.target.value)}
+                  >
+                    {ACTIVITY_EVENT_OPTIONS.map((option) => (
+                      <option key={option.value || 'all'} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field-label">
+                  Användare
+                  <select
+                    value={activityFilters.actor_user_id}
+                    onChange={(event) => handleActivityFilterChange('actor_user_id', event.target.value)}
+                  >
+                    <option value="">Alla användare</option>
+                    {users.map((user) => (
+                      <option key={user.id} value={user.id}>{getUserDisplayName(user)}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field-label">
+                  Grupp
+                  <select
+                    value={activityFilters.group_id}
+                    onChange={(event) => handleActivityFilterChange('group_id', event.target.value)}
+                  >
+                    <option value="">Alla grupper</option>
+                    {groups.map((group) => (
+                      <option key={group.id} value={group.id}>{group.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="field-label">
+                  Från
+                  <input
+                    type="datetime-local"
+                    value={activityFilters.from}
+                    onChange={(event) => handleActivityFilterChange('from', event.target.value)}
+                  />
+                </label>
+                <label className="field-label">
+                  Till
+                  <input
+                    type="datetime-local"
+                    value={activityFilters.to}
+                    onChange={(event) => handleActivityFilterChange('to', event.target.value)}
+                  />
+                </label>
+                <label className="field-label">
+                  Söktext
+                  <input
+                    value={activityFilters.query}
+                    onChange={(event) => handleActivityFilterChange('query', event.target.value)}
+                    placeholder="Sök i händelser och metadata"
+                  />
+                </label>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-[var(--text-secondary)]">
+                <span>{activityTotal} händelser</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    disabled={activityLoading || activityPage <= 1}
+                    onClick={() => setActivityPage((previous) => Math.max(1, previous - 1))}
+                  >
+                    Föregående
+                  </button>
+                  <span>Sida {activityPage}</span>
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    disabled={activityLoading || activityPage * ACTIVITY_PAGE_SIZE >= activityTotal}
+                    onClick={() => setActivityPage((previous) => previous + 1)}
+                  >
+                    Nästa
+                  </button>
+                </div>
+              </div>
+
+              {activityLoading ? (
+                <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4 text-sm text-[var(--text-secondary)]">
+                  Laddar aktivitetslogg...
+                </div>
+              ) : null}
+
+              {!activityLoading ? (
+                <div className="divide-y divide-[var(--border-subtle)] rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)]">
+                  {activityLogs.map((item) => {
+                    const actorName = item.actor_full_name || (item.actor_user_id ? `Användare ${item.actor_user_id}` : 'Okänd');
+                    const targetName = item.target_full_name || (item.target_user_id ? `Användare ${item.target_user_id}` : null);
+                    const isExpanded = expandedActivityId === item.id;
+                    return (
+                      <article key={item.id} className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedActivityId((previous) => (previous === item.id ? null : item.id))}
+                          className="w-full text-left"
+                        >
+                          <div className="grid gap-2 md:grid-cols-[180px_minmax(0,1fr)_180px] md:items-center">
+                            <p className="m-0 text-xs text-[var(--text-muted)]">{formatDateTime(item.created_at)}</p>
+                            <div className="min-w-0">
+                              <p className="m-0 truncate text-sm font-semibold">{item.event_type}</p>
+                              <p className="m-0 truncate text-xs text-[var(--text-secondary)]">
+                                {actorName}
+                                {targetName ? ` → ${targetName}` : ''}
+                                {item.group_name ? ` • ${item.group_name}` : ''}
+                              </p>
+                            </div>
+                            <p className="m-0 text-xs text-[var(--text-muted)] md:text-right">{item.entity_type}{item.entity_id ? ` #${item.entity_id}` : ''}</p>
+                          </div>
+                        </button>
+                        {isExpanded ? (
+                          <pre className="mt-3 overflow-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] p-3 text-xs text-[var(--text-secondary)]">
+{JSON.stringify(item.metadata || {}, null, 2)}
+                          </pre>
+                        ) : null}
+                      </article>
+                    );
+                  })}
+                  {!activityLogs.length ? (
+                    <p className="m-0 px-4 py-6 text-sm text-[var(--text-secondary)]">Inga händelser matchar filtret.</p>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>
