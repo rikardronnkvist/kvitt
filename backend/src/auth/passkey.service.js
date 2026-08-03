@@ -45,6 +45,22 @@ function parseStoredTransports(transports) {
   }
 }
 
+function buildPasskeyUserName(displayName, uniqueSuffix) {
+  const normalized = String(displayName || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9\s._-]/g, '')
+    .trim()
+    .replace(/\s+/g, '.');
+
+  const base = normalized.length > 0 ? normalized : 'kvitt-user';
+  const suffix = String(uniqueSuffix || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10);
+  const maxBaseLength = suffix ? 48 : 60;
+  const truncatedBase = base.slice(0, maxBaseLength);
+
+  return suffix ? `${truncatedBase}.${suffix}` : truncatedBase;
+}
+
 function getFirstUserAdminFlag() {
   const userCount = db.prepare('SELECT COUNT(*) AS count FROM users').get();
   return Number(userCount.count) === 0 ? 1 : 0;
@@ -148,7 +164,9 @@ export async function createRegistrationOptions(displayName, phone, registration
   const options = await generateRegistrationOptions({
     rpName: config.rpName,
     rpID: config.rpID,
-    userName: `passkey-${userHandle}`,
+    // Edge account chooser often prioritizes userName over userDisplayName.
+    // Keep it readable so users can pick the right profile.
+    userName: buildPasskeyUserName(displayName, userHandle),
     userDisplayName: displayName,
     // Persisting a stable user handle lets us identify accounts independently of user profile fields.
     userID: new TextEncoder().encode(userHandle),
@@ -247,7 +265,7 @@ export async function createUserPasskeyOptions(userId) {
   const options = await generateRegistrationOptions({
     rpName: config.rpName,
     rpID: config.rpID,
-    userName: `passkey-${user.user_handle}`,
+    userName: buildPasskeyUserName(displayName, user.id),
     userDisplayName: displayName,
     userID: new TextEncoder().encode(user.user_handle),
     attestationType: 'none',
