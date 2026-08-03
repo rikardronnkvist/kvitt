@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Bell, BellOff, ChevronDown, FolderPlus, Info, KeyRound, LogOut, Menu, Settings, UserCircle2, X } from 'lucide-react';
+import { Bell, BellOff, ChevronDown, FolderPlus, Info, KeyRound, LogOut, Menu, ScanLine, Settings, UserCircle2, X } from 'lucide-react';
 import { parseUser } from '../lib/session.js';
 import { getUserDisplayName } from '../lib/users.js';
 import { get, post, put } from '../api/client.js';
 import { GROUP_THEMES } from '../lib/groupTheme.js';
+import InviteQrScannerModal from './InviteQrScannerModal.jsx';
 import {
   addPasskeyToAccount,
   deleteMyPasskey,
@@ -36,6 +37,7 @@ export default function AppShell() {
   const [passkeysSaving, setPasskeysSaving] = useState(false);
   const [passkeysActionId, setPasskeysActionId] = useState(null);
   const [passkeysError, setPasskeysError] = useState('');
+  const [scannerOpen, setScannerOpen] = useState(false);
   const [user, setUser] = useState(() => parseUser());
   const dropdownRef = useRef(null);
   const [notifState, setNotifState] = useState('loading'); // loading | unsupported | default | subscribed | denied | dismissed
@@ -61,6 +63,11 @@ export default function AppShell() {
   const handleLogout = () => {
     localStorage.removeItem('token');
     navigate('/login');
+  };
+
+  const handleInviteDetected = (inviteToken) => {
+    setScannerOpen(false);
+    navigate(`/invite/${inviteToken}`);
   };
 
   useEffect(() => {
@@ -272,6 +279,14 @@ export default function AppShell() {
                       Skapa grupp
                     </button>
                   ) : null}
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-3 whitespace-nowrap px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)] md:hidden"
+                    onClick={() => { setDropdownOpen(false); setScannerOpen(true); }}
+                  >
+                    <ScanLine className="h-4 w-4 text-[var(--text-secondary)]" />
+                    Skanna QR-kod
+                  </button>
                   <button
                     type="button"
                     className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
@@ -566,6 +581,13 @@ export default function AppShell() {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {scannerOpen ? (
+        <InviteQrScannerModal
+          onClose={() => setScannerOpen(false)}
+          onDetected={handleInviteDetected}
+        />
       ) : null}
     </div>
   );
