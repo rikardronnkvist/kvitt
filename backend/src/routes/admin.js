@@ -8,6 +8,7 @@ import {
   setRegistrationAccessToken,
 } from '../utils/settings.js';
 import { getFrontendPublicOrigin } from '../utils/public-origin.js';
+import { createUniqueSlug, slugifyGroupName } from '../utils/slug.js';
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -157,7 +158,7 @@ router.put('/groups/:id', (req, res) => {
     return res.status(400).json({ error: 'Ogiltig gruppdata.', details: parsed.error.flatten() });
   }
 
-  const group = db.prepare('SELECT id, archived_at FROM groups WHERE id = ?').get(groupId);
+  const group = db.prepare('SELECT id, name, archived_at FROM groups WHERE id = ?').get(groupId);
   if (!group) {
     return res.status(404).json({ error: 'Gruppen hittades inte.' });
   }
@@ -165,11 +166,25 @@ router.put('/groups/:id', (req, res) => {
     return res.status(409).json({ error: 'Gruppen är arkiverad och skrivskyddad.' });
   }
 
-  db.prepare('UPDATE groups SET name = ?, theme_color = ? WHERE id = ?').run(
-    parsed.data.name,
-    parsed.data.theme_color ?? null,
-    groupId
-  );
+  if (parsed.data.name !== group.name) {
+    const baseSlug = slugifyGroupName(parsed.data.name);
+    const slug = createUniqueSlug(
+      baseSlug,
+      (candidate) => Boolean(db.prepare('SELECT 1 FROM groups WHERE slug = ? AND id != ?').get(candidate, groupId)),
+    );
+    db.prepare('UPDATE groups SET name = ?, slug = ?, theme_color = ? WHERE id = ?').run(
+      parsed.data.name,
+      slug,
+      parsed.data.theme_color ?? null,
+      groupId
+    );
+  } else {
+    db.prepare('UPDATE groups SET name = ?, theme_color = ? WHERE id = ?').run(
+      parsed.data.name,
+      parsed.data.theme_color ?? null,
+      groupId
+    );
+  }
   if (parsed.data.mileage_rate !== undefined) {
     db.prepare('UPDATE groups SET mileage_rate = ? WHERE id = ?').run(parsed.data.mileage_rate, groupId);
   }

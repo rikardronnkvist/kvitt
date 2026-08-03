@@ -132,6 +132,8 @@ export default function GroupView() {
   const [inviteCopied, setInviteCopied] = useState(false);
   const [placeholderName, setPlaceholderName] = useState('');
   const [addingPlaceholder, setAddingPlaceholder] = useState(false);
+  const [groupNameDraft, setGroupNameDraft] = useState('');
+  const [renamingGroup, setRenamingGroup] = useState(false);
   const [mileageRateDraft, setMileageRateDraft] = useState('20');
   const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [editingSettlementId, setEditingSettlementId] = useState(null);
@@ -199,6 +201,7 @@ export default function GroupView() {
 
   useEffect(() => {
     if (!group) return;
+    setGroupNameDraft(group.name || '');
     setMileageRateDraft(String(Number(group.mileage_rate) > 0 ? Number(group.mileage_rate) : 20));
   }, [group]);
 
@@ -403,6 +406,36 @@ export default function GroupView() {
       setError('');
     } catch (updateError) {
       setError(updateError.message);
+    }
+  };
+
+  const handleRenameGroup = async () => {
+    if (isArchived) {
+      setError('Gruppen är arkiverad och skrivskyddad.');
+      return;
+    }
+    const trimmedName = groupNameDraft.trim();
+    if (!trimmedName) {
+      setError('Gruppnamn måste anges.');
+      return;
+    }
+    if (trimmedName === (group?.name || '').trim()) {
+      setError('');
+      return;
+    }
+    setRenamingGroup(true);
+    try {
+      const updated = await patch(`/api/groups/${groupSlug}`, { name: trimmedName });
+      setGroup((previous) => ({ ...previous, ...updated }));
+      setGroupNameDraft(updated.name || trimmedName);
+      setError('');
+      if (updated.slug && updated.slug !== slug) {
+        navigate(`/groups/${updated.slug}`, { replace: true });
+      }
+    } catch (renameError) {
+      setError(renameError.message);
+    } finally {
+      setRenamingGroup(false);
     }
   };
 
@@ -655,6 +688,31 @@ export default function GroupView() {
             {/* Inställningar */}
             <div className="space-y-4 pb-6">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">Inställningar</h3>
+              <div className="space-y-3">
+                <label className="field-label">
+                  Gruppnamn
+                  <input
+                    type="text"
+                    value={groupNameDraft}
+                    onChange={(event) => setGroupNameDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        handleRenameGroup();
+                      }
+                    }}
+                    disabled={isArchived || renamingGroup}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={handleRenameGroup}
+                  disabled={isArchived || renamingGroup || !groupNameDraft.trim() || groupNameDraft.trim() === (group?.name || '').trim()}
+                >
+                  Byt gruppnamn
+                </button>
+              </div>
               <div className="space-y-3">
                 <p className="field-label">Färgtema</p>
                 <div className="flex flex-wrap gap-2">

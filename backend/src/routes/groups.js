@@ -52,7 +52,7 @@ function resolveGroupId(identifier) {
 }
 
 function getGroupState(groupId) {
-  return db.prepare('SELECT id, created_by, archived_at FROM groups WHERE id = ?').get(groupId);
+  return db.prepare('SELECT id, name, created_by, archived_at FROM groups WHERE id = ?').get(groupId);
 }
 
 function ensureGroupWritable(groupId) {
@@ -260,7 +260,19 @@ router.patch('/:id', requireMembership, (req, res) => {
   const { name, theme_color, mileage_rate } = parsed.data;
 
   if (name !== undefined) {
-    db.prepare('UPDATE groups SET name = ? WHERE id = ?').run(name, groupId);
+    if (Number(writable.group.created_by) !== Number(req.user.id)) {
+      return res.status(403).json({ error: 'Endast gruppens skapare kan byta gruppnamn.' });
+    }
+    if (name !== writable.group.name) {
+      const baseSlug = slugifyGroupName(name);
+      const slug = createUniqueSlug(
+        baseSlug,
+        (candidate) => Boolean(db.prepare('SELECT 1 FROM groups WHERE slug = ? AND id != ?').get(candidate, groupId)),
+      );
+      db.prepare('UPDATE groups SET name = ?, slug = ? WHERE id = ?').run(name, slug, groupId);
+    } else {
+      db.prepare('UPDATE groups SET name = ? WHERE id = ?').run(name, groupId);
+    }
   }
   if (theme_color !== undefined) {
     db.prepare('UPDATE groups SET theme_color = ? WHERE id = ?').run(theme_color, groupId);
