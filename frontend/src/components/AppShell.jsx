@@ -40,6 +40,13 @@ export default function AppShell() {
   const dropdownRef = useRef(null);
   const [notifState, setNotifState] = useState('loading'); // loading | unsupported | default | subscribed | denied | dismissed
 
+  // JWT no longer carries profile fields; fetch them from the API on mount
+  useEffect(() => {
+    get('/api/auth/me').then(({ user: profile }) => {
+      setUser((prev) => ({ ...prev, ...profile }));
+    }).catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (!dropdownOpen) return;
     const handleClickOutside = (event) => {
@@ -129,7 +136,8 @@ export default function AppShell() {
     try {
       const data = await addPasskeyToAccount();
       localStorage.setItem('token', data.token);
-      setUser(parseUser());
+      const { user: profile } = await get('/api/auth/me');
+      setUser((prev) => ({ ...prev, ...profile }));
       await refreshPasskeys();
     } catch (err) {
       setPasskeysError(getPasskeyErrorMessage(err, 'register'));
@@ -180,7 +188,7 @@ export default function AppShell() {
       };
       const data = await put('/api/auth/profile', body);
       localStorage.setItem('token', data.token);
-      setUser(parseUser());
+      setUser((prev) => ({ ...prev, ...data.user }));
       setEditingProfile(false);
     } catch (err) {
       setProfileError(err.message || 'Något gick fel.');

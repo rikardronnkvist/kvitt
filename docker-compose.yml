@@ -3,7 +3,7 @@ services:
   backend:
     build: ./backend
     environment:
-      - JWT_SECRET=${JWT_SECRET:-changeme-use-a-strong-secret}
+      - JWT_SECRET=${JWT_SECRET}
       - PORT=${PORT:-3000}
       - DB_PATH=/app/data/kvitt.db
       - PASSKEY_RP_ID=${PASSKEY_RP_ID:-localhost}

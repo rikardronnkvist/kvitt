@@ -1,3 +1,5 @@
+const MAX_ENTRIES = 1000;
+
 class ChallengeStore {
   constructor() {
     this.store = new Map();
@@ -14,6 +16,9 @@ class ChallengeStore {
 
   set(entry) {
     this.pruneExpired();
+    if (this.store.size >= MAX_ENTRIES) {
+      this.store.delete(this.store.keys().next().value);
+    }
     this.store.set(entry.requestId, entry);
   }
 
@@ -35,3 +40,5 @@ class ChallengeStore {
 }
 
 export const challengeStore = new ChallengeStore();
+
+setInterval(() => challengeStore.pruneExpired(), 60_000);
