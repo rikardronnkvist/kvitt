@@ -632,6 +632,20 @@ export default function GroupView() {
 
             <div className="grid gap-4 md:grid-cols-2">
               <article className="rounded-lg border p-4" style={{ background: theme.bgSoft, borderColor: theme.borderSoft }}>
+                <p className="section-eyebrow">Balans</p>
+                <div className="mt-2 space-y-1.5">
+                  {memberBalancesAscending.map((member) => (
+                    <div key={member.id} className="flex items-center justify-between gap-3 text-sm">
+                      <span className="font-medium">{getUserDisplayName(member)}</span>
+                      <span className={`font-semibold ${member.balance > 0 ? 'amount-positive' : member.balance < 0 ? 'amount-negative' : 'amount-neutral'}`}>
+                        {member.balance < 0 ? '-' : ''}
+                        {formatCurrency(Math.abs(member.balance), { precise: true })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </article>
+              <article className="rounded-lg border p-4" style={{ background: theme.bgSoft, borderColor: theme.borderSoft }}>
                 <div className="mt-2 space-y-1.5">
                   {summary.byCategory.map((category) => {
                     const CategoryIcon = getCategoryIcon(category.icon);
@@ -649,20 +663,6 @@ export default function GroupView() {
                 <div className="mt-3 flex items-center justify-between gap-3 border-t pt-2" style={{ borderColor: theme.borderSoft }}>
                   <span className="text-sm text-[var(--text-secondary)]">Totalt</span>
                   <span className="m-0 text-lg font-semibold amount-neutral">{formatCurrency(summary.totalExpenses, { precise: true })}</span>
-                </div>
-              </article>
-              <article className="rounded-lg border p-4" style={{ background: theme.bgSoft, borderColor: theme.borderSoft }}>
-                <p className="section-eyebrow">Balans</p>
-                <div className="mt-2 space-y-1.5">
-                  {memberBalancesAscending.map((member) => (
-                    <div key={member.id} className="flex items-center justify-between gap-3 text-sm">
-                      <span className="font-medium">{getUserDisplayName(member)}</span>
-                      <span className={`font-semibold ${member.balance > 0 ? 'amount-positive' : member.balance < 0 ? 'amount-negative' : 'amount-neutral'}`}>
-                        {member.balance < 0 ? '-' : ''}
-                        {formatCurrency(Math.abs(member.balance), { precise: true })}
-                      </span>
-                    </div>
-                  ))}
                 </div>
               </article>
             </div>
@@ -696,7 +696,11 @@ export default function GroupView() {
                     result.push(
                       <div key={`month-${monthKey}`} className="flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-5 py-2">
                         <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">{formatMonthYear(new Date(item.activityTimestamp))}</span>
-                        <span className="text-xs font-medium" style={{ color: theme.base }}>{parts.join(' · ')}</span>
+                        <span className="flex flex-col text-right text-xs font-medium sm:block" style={{ color: theme.base }}>
+                          {parts.map((part, i) => (
+                            <span key={i} className={i > 0 ? 'sm:before:content-["_·_"]' : ''}>{part}</span>
+                          ))}
+                        </span>
                       </div>,
                     );
                   }
