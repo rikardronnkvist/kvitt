@@ -100,16 +100,22 @@ export default function NewSettlementModal({
   const showSwishSection = Boolean(formData.receiver_id && receiverSwishPhone);
   const canSwish = Boolean(swishLink && formData.payer_id && formData.receiver_id && !isReceiverCurrentUser);
 
+  const handleClose = () => {
+    const isDirty = formData.amount !== '' || formData.receiver_id !== '';
+    if (isDirty && !window.confirm('Avbryta? Det du fyllt i kommer att försvinna.')) return;
+    onClose();
+  };
+
   useEffect(() => {
     const handleEscape = (event) => {
       if (event.key === 'Escape') {
-        onClose();
+        handleClose();
       }
     };
 
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [onClose]);
+  }, [handleClose]);
 
   useEffect(() => {
     if (!formData.receiver_id) {
@@ -170,7 +176,7 @@ export default function NewSettlementModal({
     <ModalShell
       title="Kvitta skuld"
       description=""
-      onClose={onClose}
+      onClose={handleClose}
     >
       <form onSubmit={handleSubmit} className="space-y-5">
         <section className="space-y-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
@@ -261,7 +267,7 @@ export default function NewSettlementModal({
         {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
 
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-          <button type="button" className="btn-secondary" onClick={onClose} disabled={saving}>
+          <button type="button" className="btn-secondary" onClick={handleClose} disabled={saving}>
             Avbryt
           </button>
           <button type="submit" className="btn-primary" disabled={saving}>

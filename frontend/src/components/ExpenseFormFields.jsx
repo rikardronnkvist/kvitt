@@ -47,6 +47,10 @@ export default function ExpenseFormFields({
   const isCarTripTitle = (title) => /^(?:Bil|Bilresa)(?:\s+\d+\s+mil)?$/u.test(title.trim());
   const getCarTripTitle = (distanceMil) => `Bil ${distanceMil} mil`;
 
+  function handleCancel() {
+    onCancel();
+  }
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     try {
@@ -330,7 +334,7 @@ export default function ExpenseFormFields({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>{onDelete ? <button type="button" className="btn-danger w-full sm:w-auto" onClick={onDelete} disabled={saving}>Ta bort</button> : null}</div>
         <div className="flex flex-col gap-3 sm:flex-row">
-          <button type="button" className="btn-secondary w-full sm:w-auto" onClick={onCancel} disabled={saving}>
+          <button type="button" className="btn-secondary w-full sm:w-auto" onClick={handleCancel} disabled={saving}>
             Avbryt
           </button>
           <button type="submit" className="btn-primary w-full sm:w-auto" disabled={saving}>
