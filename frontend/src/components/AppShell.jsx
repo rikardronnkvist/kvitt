@@ -14,7 +14,7 @@ import {
 } from '../auth/passkey.js';
 import { formatDateTime } from '../lib/format.js';
 import { formatSwedishPhone, sanitizePhoneInput } from '../lib/phone.js';
-import { isPushSupported, subscribeToPush, unsubscribeFromPush, getSubscriptionState } from '../lib/pushNotifications.js';
+import { isPushSupported, isIosNonStandalone, subscribeToPush, unsubscribeFromPush, getSubscriptionState } from '../lib/pushNotifications.js';
 
 export default function AppShell() {
   const navigate = useNavigate();
@@ -58,6 +58,7 @@ export default function AppShell() {
 
   useEffect(() => {
     if (!isPushSupported()) { setNotifState('unsupported'); return; }
+    if (isIosNonStandalone()) { setNotifState('ios_install'); return; }
     if (localStorage.getItem('notifications_dismissed')) { setNotifState('dismissed'); return; }
     getSubscriptionState().then(setNotifState);
   }, []);
@@ -68,6 +69,8 @@ export default function AppShell() {
       setNotifState('subscribed');
     } catch (err) {
       if (err.message === 'permission_denied') setNotifState('denied');
+      else if (err.message === 'ios_install') setNotifState('ios_install');
+      else { console.error('[push]', err); setNotifState('dismissed'); }
     }
   };
 
@@ -339,6 +342,16 @@ export default function AppShell() {
                     <X className="h-4 w-4" />
                   </button>
                 </div>
+              </div>
+            ) : notifState === 'ios_install' ? (
+              <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-4 py-3 shadow-[var(--shadow-soft)]">
+                <div className="flex items-center gap-3">
+                  <Bell className="h-4 w-4 shrink-0 text-[var(--text-secondary)]" />
+                  <p className="m-0 text-sm text-[var(--text-secondary)]">Lägg till Kvitt på hemskärmen för att aktivera notiser i Safari.</p>
+                </div>
+                <button type="button" className="icon-button shrink-0" aria-label="Stäng" onClick={handleDismissNotifications}>
+                  <X className="h-4 w-4" />
+                </button>
               </div>
             ) : null}
             <Outlet />
