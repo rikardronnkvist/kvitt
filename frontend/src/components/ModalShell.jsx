@@ -2,15 +2,15 @@ import { X } from 'lucide-react';
 import { t } from '../lib/i18n.js';
 
 export default function ModalShell({ title, description, onClose, children }) {
+  const handleBackdropClick = (event) => {
+    if (event.target === event.currentTarget) {
+      onClose();
+    }
+  };
+
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div
-        className="modal-sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        onClick={(event) => event.stopPropagation()}
-      >
+    <dialog className="modal-backdrop" open onClick={handleBackdropClick} aria-label={title}>
+      <div className="modal-sheet">
         <section className="space-y-6">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1">
@@ -24,6 +24,6 @@ export default function ModalShell({ title, description, onClose, children }) {
           {children}
         </section>
       </div>
-    </div>
+    </dialog>
   );
 }
