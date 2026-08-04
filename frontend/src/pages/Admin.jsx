@@ -54,6 +54,35 @@ function formatDateTime(value) {
   return date.toLocaleString('sv-SE');
 }
 
+function toGroupDraft(group) {
+  return {
+    name: group.name,
+    theme_color: group.theme_color ?? null,
+    mileage_rate: Number(group.mileage_rate) > 0 ? group.mileage_rate : 20,
+  };
+}
+
+function applyUpdatedGroupState(groupId, updated, setGroups, setGroupDrafts) {
+  setGroups((previous) => previous.map((group) => (group.id === groupId ? updated : group)));
+  setGroupDrafts((previous) => ({
+    ...previous,
+    [groupId]: toGroupDraft(updated),
+  }));
+}
+
+function buildActivityLogQuery(activityPage, activityFilters) {
+  const params = new URLSearchParams();
+  params.set('page', String(activityPage));
+  params.set('pageSize', String(ACTIVITY_PAGE_SIZE));
+  if (activityFilters.event_type) params.set('event_type', activityFilters.event_type);
+  if (activityFilters.actor_user_id) params.set('actor_user_id', String(activityFilters.actor_user_id));
+  if (activityFilters.group_id) params.set('group_id', String(activityFilters.group_id));
+  if (activityFilters.query) params.set('query', activityFilters.query);
+  if (activityFilters.from) params.set('from', activityFilters.from);
+  if (activityFilters.to) params.set('to', activityFilters.to);
+  return params.toString();
+}
+
 export default function Admin() {
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -107,9 +136,7 @@ export default function Admin() {
         full_name: user.full_name,
       }])));
       setGroupDrafts(Object.fromEntries(groupsData.map((group) => [group.id, {
-        name: group.name,
-        theme_color: group.theme_color ?? null,
-        mileage_rate: Number(group.mileage_rate) > 0 ? group.mileage_rate : 20,
+        ...toGroupDraft(group),
       }])));
       setCategoryDrafts(Object.fromEntries(categoriesData.map((category) => [category.id, {
         name: category.name,
@@ -241,15 +268,7 @@ export default function Admin() {
         theme_color: draft.theme_color ?? null,
         mileage_rate: Number(draft.mileage_rate) > 0 ? Number(draft.mileage_rate) : 20,
       });
-      setGroups((previous) => previous.map((group) => (group.id === groupId ? updated : group)));
-      setGroupDrafts((previous) => ({
-        ...previous,
-        [groupId]: {
-          name: updated.name,
-          theme_color: updated.theme_color ?? null,
-          mileage_rate: Number(updated.mileage_rate) > 0 ? updated.mileage_rate : 20,
-        },
-      }));
+      applyUpdatedGroupState(groupId, updated, setGroups, setGroupDrafts);
     } catch (saveError) {
       setError(saveError.message);
     } finally {
@@ -262,15 +281,7 @@ export default function Admin() {
     setError('');
     try {
       const updated = await post(`/api/admin/groups/${groupId}/archive`, {});
-      setGroups((previous) => previous.map((group) => (group.id === groupId ? updated : group)));
-      setGroupDrafts((previous) => ({
-        ...previous,
-        [groupId]: {
-          name: updated.name,
-          theme_color: updated.theme_color ?? null,
-          mileage_rate: Number(updated.mileage_rate) > 0 ? updated.mileage_rate : 20,
-        },
-      }));
+      applyUpdatedGroupState(groupId, updated, setGroups, setGroupDrafts);
     } catch (actionError) {
       setError(actionError.message);
     } finally {
@@ -283,15 +294,7 @@ export default function Admin() {
     setError('');
     try {
       const updated = await post(`/api/admin/groups/${groupId}/unarchive`, {});
-      setGroups((previous) => previous.map((group) => (group.id === groupId ? updated : group)));
-      setGroupDrafts((previous) => ({
-        ...previous,
-        [groupId]: {
-          name: updated.name,
-          theme_color: updated.theme_color ?? null,
-          mileage_rate: Number(updated.mileage_rate) > 0 ? updated.mileage_rate : 20,
-        },
-      }));
+      applyUpdatedGroupState(groupId, updated, setGroups, setGroupDrafts);
     } catch (actionError) {
       setError(actionError.message);
     } finally {
@@ -401,17 +404,7 @@ export default function Admin() {
     setActivityLoading(true);
     setError('');
     try {
-      const params = new URLSearchParams();
-      params.set('page', String(activityPage));
-      params.set('pageSize', String(ACTIVITY_PAGE_SIZE));
-      if (activityFilters.event_type) params.set('event_type', activityFilters.event_type);
-      if (activityFilters.actor_user_id) params.set('actor_user_id', String(activityFilters.actor_user_id));
-      if (activityFilters.group_id) params.set('group_id', String(activityFilters.group_id));
-      if (activityFilters.query) params.set('query', activityFilters.query);
-      if (activityFilters.from) params.set('from', activityFilters.from);
-      if (activityFilters.to) params.set('to', activityFilters.to);
-
-      const data = await get(`/api/admin/activity-logs?${params.toString()}`);
+      const data = await get(`/api/admin/activity-logs?${buildActivityLogQuery(activityPage, activityFilters)}`);
       setActivityLogs(Array.isArray(data.items) ? data.items : []);
       setActivityTotal(Number(data.total || 0));
     } catch (loadError) {
