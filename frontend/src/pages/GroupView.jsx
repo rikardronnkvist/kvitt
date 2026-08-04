@@ -126,6 +126,281 @@ function SettlementItem({ settlement, onEdit, readOnly = false }) {
   );
 }
 
+async function generateInvite({ groupSlug, setInviteLoading, setInviteToken, setInviteExpiresAt, setError }) {
+  setInviteLoading(true);
+  try {
+    const data = await post(`/api/groups/${groupSlug}/invite`, {});
+    setInviteToken(data.token);
+    setInviteExpiresAt(data.expires_at);
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setInviteLoading(false);
+  }
+}
+
+async function ensureInviteToken({ inviteToken, inviteExpiresAt, groupSlug, setInviteToken, setInviteExpiresAt }) {
+  if (inviteToken) {
+    return { token: inviteToken, expiresAt: inviteExpiresAt };
+  }
+  const data = await post(`/api/groups/${groupSlug}/invite`, {});
+  setInviteToken(data.token);
+  setInviteExpiresAt(data.expires_at);
+  return { token: data.token, expiresAt: data.expires_at };
+}
+
+async function revokeInvite({ groupSlug, setInviteToken, setInviteExpiresAt, setError }) {
+  if (!window.confirm('Är du säker? Befintlig länk slutar fungera direkt.')) return;
+  try {
+    await del(`/api/groups/${groupSlug}/invite`);
+    setInviteToken(null);
+    setInviteExpiresAt(null);
+  } catch (err) {
+    setError(err.message);
+  }
+}
+
+async function copyInviteLink({ ensureInvite, setInviteCopied, setError }) {
+  try {
+    const { token } = await ensureInvite();
+    const url = buildInviteUrl(token);
+    await navigator.clipboard.writeText(url);
+    setInviteCopied(true);
+    setTimeout(() => setInviteCopied(false), 2000);
+  } catch (err) {
+    setError(err.message || 'Kunde inte kopiera inbjudningslänken.');
+  }
+}
+
+async function shareInvite({ ensureInvite, groupName, setInviteCopied, setInviteSharing, setError }) {
+  setInviteSharing(true);
+  try {
+    const { token } = await ensureInvite();
+    const url = buildInviteUrl(token);
+
+    if (navigator.share) {
+      await navigator.share({
+        title: `Gå med i ${groupName || 'gruppen'}`,
+        text: 'Gå med i vår grupp på Kvitt',
+        url,
+      });
+      return;
+    }
+
+    await navigator.clipboard.writeText(url);
+    setInviteCopied(true);
+    setTimeout(() => setInviteCopied(false), 2000);
+  } catch (err) {
+    if (err?.name !== 'AbortError') {
+      setError(err.message || 'Kunde inte dela inbjudan.');
+    }
+  } finally {
+    setInviteSharing(false);
+  }
+}
+
+async function openInviteQr({ ensureInvite, setIsInviteQrOpen, setError }) {
+  try {
+    await ensureInvite();
+    setIsInviteQrOpen(true);
+  } catch (err) {
+    setError(err.message || 'Kunde inte skapa QR-kod för inbjudan.');
+  }
+}
+
+async function addPlaceholderMember({ placeholderName, setAddingPlaceholder, setPlaceholderName, groupSlug, loadData, setError }) {
+  const name = placeholderName.trim();
+  if (!name) return;
+  setAddingPlaceholder(true);
+  try {
+    await post(`/api/groups/${groupSlug}/members/placeholder`, { display_name: name });
+    setPlaceholderName('');
+    await loadData();
+  } catch (err) {
+    setError(err.message);
+  } finally {
+    setAddingPlaceholder(false);
+  }
+}
+
+async function removeGroupMember({ isArchived, groupSlug, userId, loadData, setError }) {
+  if (isArchived) {
+    setError('Gruppen är arkiverad och skrivskyddad.');
+    return;
+  }
+  try {
+    await del(`/api/groups/${groupSlug}/members/${userId}`);
+    await loadData();
+  } catch (deleteError) {
+    setError(deleteError.message);
+  }
+}
+
+async function updateGroupTheme({ isArchived, groupSlug, themeId, setGroup, setError }) {
+  if (isArchived) {
+    setError('Gruppen är arkiverad och skrivskyddad.');
+    return;
+  }
+  try {
+    const updated = await patch(`/api/groups/${groupSlug}`, { theme_color: themeId });
+    setGroup((previous) => ({ ...previous, ...updated }));
+  } catch (updateError) {
+    setError(updateError.message);
+  }
+}
+
+async function updateGroupMileageRate({ isArchived, mileageRateDraft, groupSlug, setGroup, setMileageRateDraft, setError }) {
+  if (isArchived) {
+    setError('Gruppen är arkiverad och skrivskyddad.');
+    return;
+  }
+  const parsed = Number(mileageRateDraft);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    setError('Milkostnad måste vara större än 0.');
+    return;
+  }
+  try {
+    const updated = await patch(`/api/groups/${groupSlug}`, { mileage_rate: parsed });
+    setGroup((previous) => ({ ...previous, ...updated }));
+    setMileageRateDraft(String(parsed));
+    setError('');
+  } catch (updateError) {
+    setError(updateError.message);
+  }
+}
+
+async function renameGroup({ isArchived, groupNameDraft, currentGroupName, groupSlug, slug, navigate, setRenamingGroup, setGroup, setGroupNameDraft, setError }) {
+  if (isArchived) {
+    setError('Gruppen är arkiverad och skrivskyddad.');
+    return;
+  }
+  const trimmedName = groupNameDraft.trim();
+  if (!trimmedName) {
+    setError('Gruppnamn måste anges.');
+    return;
+  }
+  if (trimmedName === currentGroupName.trim()) {
+    setError('');
+    return;
+  }
+  setRenamingGroup(true);
+  try {
+    const updated = await patch(`/api/groups/${groupSlug}`, { name: trimmedName });
+    setGroup((previous) => ({ ...previous, ...updated }));
+    setGroupNameDraft(updated.name || trimmedName);
+    setError('');
+    if (updated.slug && updated.slug !== slug) {
+      navigate(`/groups/${updated.slug}`, { replace: true });
+    }
+  } catch (renameError) {
+    setError(renameError.message);
+  } finally {
+    setRenamingGroup(false);
+  }
+}
+
+async function deleteExpenseEntry({ isArchived, expenseId, setExpenses, loadData, setError }) {
+  if (isArchived) {
+    setError('Gruppen är arkiverad och skrivskyddad.');
+    return;
+  }
+  try {
+    setExpenses((previous) => previous.filter((expense) => expense.id !== expenseId));
+    setError('');
+    await loadData({ silent: true });
+  } catch (deleteError) {
+    setError(deleteError.message);
+  }
+}
+
+function saveExpenseEntry({ isArchived, updated, setExpenses, loadData, setError }) {
+  if (isArchived) {
+    setError('Gruppen är arkiverad och skrivskyddad.');
+    return;
+  }
+  setExpenses((previous) => previous.map((expense) => (expense.id === updated.id ? updated : expense)));
+  loadData();
+}
+
+function saveSettlementEntry({ isArchived, updated, setSettlements, loadData, setError }) {
+  if (isArchived) {
+    setError('Gruppen är arkiverad och skrivskyddad.');
+    return;
+  }
+  setSettlements((previous) => previous.map((settlement) => (settlement.id === updated.id ? updated : settlement)));
+  loadData();
+}
+
+async function deleteSettlementEntry({ isArchived, settlementId, setSettlements, loadData, setError }) {
+  if (isArchived) {
+    setError('Gruppen är arkiverad och skrivskyddad.');
+    return;
+  }
+  setSettlements((previous) => previous.filter((settlement) => settlement.id !== settlementId));
+  setError('');
+  await loadData({ silent: true });
+}
+
+async function archiveGroup({ canArchiveGroup, groupSlug, setGroup, setIsSettingsOpen, setIsAddingExpense, setIsAddingSettlement, setEditingExpenseId, setEditingSettlementId, setError }) {
+  if (!canArchiveGroup) {
+    return;
+  }
+  if (!window.confirm('Är du säker på att du vill arkivera gruppen? Gruppen blir skrivskyddad.')) {
+    return;
+  }
+
+  try {
+    const updated = await post(`/api/groups/${groupSlug}/archive`, {});
+    setGroup((previous) => ({ ...previous, ...updated }));
+    setIsSettingsOpen(false);
+    setIsAddingExpense(false);
+    setIsAddingSettlement(false);
+    setEditingExpenseId(null);
+    setEditingSettlementId(null);
+    setError('');
+  } catch (archiveError) {
+    setError(archiveError.message);
+  }
+}
+
+async function unarchiveGroup({ isGroupOwner, isArchived, groupActionSaving, groupSlug, setGroupActionSaving, setGroup, setError }) {
+  if (!isGroupOwner || !isArchived || groupActionSaving) {
+    return;
+  }
+  if (!window.confirm('Är du säker på att du vill återaktivera gruppen?')) {
+    return;
+  }
+
+  setGroupActionSaving(true);
+  try {
+    const updated = await post(`/api/groups/${groupSlug}/unarchive`, {});
+    setGroup((previous) => ({ ...previous, ...updated }));
+    setError('');
+  } catch (unarchiveError) {
+    setError(unarchiveError.message);
+  } finally {
+    setGroupActionSaving(false);
+  }
+}
+
+async function deleteGroupPermanently({ isGroupOwner, groupActionSaving, groupSlug, navigate, setGroupActionSaving, setError }) {
+  if (!isGroupOwner || groupActionSaving) {
+    return;
+  }
+  if (!window.confirm('Är du säker på att du vill radera gruppen permanent? Detta kan inte ångras.')) {
+    return;
+  }
+
+  setGroupActionSaving(true);
+  try {
+    await del(`/api/groups/${groupSlug}`);
+    navigate('/');
+  } catch (deleteError) {
+    setError(deleteError.message);
+    setGroupActionSaving(false);
+  }
+}
+
 export default function GroupView() {
   const navigate = useNavigate();
   const { slug } = useParams();
@@ -386,280 +661,148 @@ export default function GroupView() {
     };
   }, [expenses, expenseCategories]);
 
-  const handleGenerateInvite = async () => {
-    setInviteLoading(true);
-    try {
-      const data = await post(`/api/groups/${groupSlug}/invite`, {});
-      setInviteToken(data.token);
-      setInviteExpiresAt(data.expires_at);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setInviteLoading(false);
-    }
-  };
+  const ensureInvite = () => ensureInviteToken({
+    inviteToken,
+    inviteExpiresAt,
+    groupSlug,
+    setInviteToken,
+    setInviteExpiresAt,
+  });
 
-  const ensureInvite = async () => {
-    if (inviteToken) {
-      return { token: inviteToken, expiresAt: inviteExpiresAt };
-    }
-    const data = await post(`/api/groups/${groupSlug}/invite`, {});
-    setInviteToken(data.token);
-    setInviteExpiresAt(data.expires_at);
-    return { token: data.token, expiresAt: data.expires_at };
-  };
+  const handleGenerateInvite = () => generateInvite({
+    groupSlug,
+    setInviteLoading,
+    setInviteToken,
+    setInviteExpiresAt,
+    setError,
+  });
 
-  const handleRevokeInvite = async () => {
-    if (!window.confirm('Är du säker? Befintlig länk slutar fungera direkt.')) return;
-    try {
-      await del(`/api/groups/${groupSlug}/invite`);
-      setInviteToken(null);
-      setInviteExpiresAt(null);
-    } catch (err) {
-      setError(err.message);
-    }
-  };
+  const handleRevokeInvite = () => revokeInvite({
+    groupSlug,
+    setInviteToken,
+    setInviteExpiresAt,
+    setError,
+  });
 
-  const handleCopyInviteLink = async () => {
-    try {
-      const { token } = await ensureInvite();
-      const url = buildInviteUrl(token);
-      await navigator.clipboard.writeText(url);
-      setInviteCopied(true);
-      setTimeout(() => setInviteCopied(false), 2000);
-    } catch (err) {
-      setError(err.message || 'Kunde inte kopiera inbjudningslänken.');
-    }
-  };
+  const handleCopyInviteLink = () => copyInviteLink({ ensureInvite, setInviteCopied, setError });
+  const handleShareInvite = () => shareInvite({
+    ensureInvite,
+    groupName: group?.name,
+    setInviteCopied,
+    setInviteSharing,
+    setError,
+  });
+  const handleOpenInviteQr = () => openInviteQr({ ensureInvite, setIsInviteQrOpen, setError });
 
-  const handleShareInvite = async () => {
-    setInviteSharing(true);
-    try {
-      const { token } = await ensureInvite();
-      const url = buildInviteUrl(token);
+  const handleAddPlaceholder = () => addPlaceholderMember({
+    placeholderName,
+    setAddingPlaceholder,
+    setPlaceholderName,
+    groupSlug,
+    loadData,
+    setError,
+  });
 
-      if (navigator.share) {
-        await navigator.share({
-          title: `Gå med i ${group?.name || 'gruppen'}`,
-          text: 'Gå med i vår grupp på Kvitt',
-          url,
-        });
-        return;
-      }
+  const handleRemoveMember = (userId) => removeGroupMember({
+    isArchived,
+    groupSlug,
+    userId,
+    loadData,
+    setError,
+  });
 
-      await navigator.clipboard.writeText(url);
-      setInviteCopied(true);
-      setTimeout(() => setInviteCopied(false), 2000);
-    } catch (err) {
-      if (err?.name === 'AbortError') return;
-      setError(err.message || 'Kunde inte dela inbjudan.');
-    } finally {
-      setInviteSharing(false);
-    }
-  };
+  const handleUpdateTheme = (themeId) => updateGroupTheme({
+    isArchived,
+    groupSlug,
+    themeId,
+    setGroup,
+    setError,
+  });
 
-  const handleOpenInviteQr = async () => {
-    try {
-      await ensureInvite();
-      setIsInviteQrOpen(true);
-    } catch (err) {
-      setError(err.message || 'Kunde inte skapa QR-kod för inbjudan.');
-    }
-  };
+  const handleUpdateMileageRate = () => updateGroupMileageRate({
+    isArchived,
+    mileageRateDraft,
+    groupSlug,
+    setGroup,
+    setMileageRateDraft,
+    setError,
+  });
 
-  const handleAddPlaceholder = async () => {
-    const name = placeholderName.trim();
-    if (!name) return;
-    setAddingPlaceholder(true);
-    try {
-      await post(`/api/groups/${groupSlug}/members/placeholder`, { display_name: name });
-      setPlaceholderName('');
-      await loadData();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setAddingPlaceholder(false);
-    }
-  };
+  const handleRenameGroup = () => renameGroup({
+    isArchived,
+    groupNameDraft,
+    currentGroupName: group?.name || '',
+    groupSlug,
+    slug,
+    navigate,
+    setRenamingGroup,
+    setGroup,
+    setGroupNameDraft,
+    setError,
+  });
 
+  const handleDeleteExpense = (expenseId) => deleteExpenseEntry({
+    isArchived,
+    expenseId,
+    setExpenses,
+    loadData,
+    setError,
+  });
 
-  const handleRemoveMember = async (userId) => {
-    if (isArchived) {
-      setError('Gruppen är arkiverad och skrivskyddad.');
-      return;
-    }
-    try {
-      await del(`/api/groups/${groupSlug}/members/${userId}`);
-      await loadData();
-    } catch (deleteError) {
-      setError(deleteError.message);
-    }
-  };
+  const handleSaveExpense = (updated) => saveExpenseEntry({
+    isArchived,
+    updated,
+    setExpenses,
+    loadData,
+    setError,
+  });
 
-  const handleUpdateTheme = async (themeId) => {
-    if (isArchived) {
-      setError('Gruppen är arkiverad och skrivskyddad.');
-      return;
-    }
-    try {
-      const updated = await patch(`/api/groups/${groupSlug}`, { theme_color: themeId });
-      setGroup((previous) => ({ ...previous, ...updated }));
-    } catch (updateError) {
-      setError(updateError.message);
-    }
-  };
+  const handleSaveSettlement = (updated) => saveSettlementEntry({
+    isArchived,
+    updated,
+    setSettlements,
+    loadData,
+    setError,
+  });
 
-  const handleUpdateMileageRate = async () => {
-    if (isArchived) {
-      setError('Gruppen är arkiverad och skrivskyddad.');
-      return;
-    }
-    const parsed = Number(mileageRateDraft);
-    if (!Number.isFinite(parsed) || parsed <= 0) {
-      setError('Milkostnad måste vara större än 0.');
-      return;
-    }
-    try {
-      const updated = await patch(`/api/groups/${groupSlug}`, { mileage_rate: parsed });
-      setGroup((previous) => ({ ...previous, ...updated }));
-      setMileageRateDraft(String(parsed));
-      setError('');
-    } catch (updateError) {
-      setError(updateError.message);
-    }
-  };
+  const handleDeleteSettlement = (settlementId) => deleteSettlementEntry({
+    isArchived,
+    settlementId,
+    setSettlements,
+    loadData,
+    setError,
+  });
 
-  const handleRenameGroup = async () => {
-    if (isArchived) {
-      setError('Gruppen är arkiverad och skrivskyddad.');
-      return;
-    }
-    const trimmedName = groupNameDraft.trim();
-    if (!trimmedName) {
-      setError('Gruppnamn måste anges.');
-      return;
-    }
-    if (trimmedName === (group?.name || '').trim()) {
-      setError('');
-      return;
-    }
-    setRenamingGroup(true);
-    try {
-      const updated = await patch(`/api/groups/${groupSlug}`, { name: trimmedName });
-      setGroup((previous) => ({ ...previous, ...updated }));
-      setGroupNameDraft(updated.name || trimmedName);
-      setError('');
-      if (updated.slug && updated.slug !== slug) {
-        navigate(`/groups/${updated.slug}`, { replace: true });
-      }
-    } catch (renameError) {
-      setError(renameError.message);
-    } finally {
-      setRenamingGroup(false);
-    }
-  };
+  const handleArchiveGroup = () => archiveGroup({
+    canArchiveGroup,
+    groupSlug,
+    setGroup,
+    setIsSettingsOpen,
+    setIsAddingExpense,
+    setIsAddingSettlement,
+    setEditingExpenseId,
+    setEditingSettlementId,
+    setError,
+  });
 
-  const handleDeleteExpense = async (expenseId) => {
-    if (isArchived) {
-      setError('Gruppen är arkiverad och skrivskyddad.');
-      return;
-    }
-    try {
-      setExpenses((previous) => previous.filter((expense) => expense.id !== expenseId));
-      setError('');
-      await loadData({ silent: true });
-    } catch (deleteError) {
-      setError(deleteError.message);
-    }
-  };
+  const handleUnarchiveGroup = () => unarchiveGroup({
+    isGroupOwner,
+    isArchived,
+    groupActionSaving,
+    groupSlug,
+    setGroupActionSaving,
+    setGroup,
+    setError,
+  });
 
-  const handleSaveExpense = (updated) => {
-    if (isArchived) {
-      setError('Gruppen är arkiverad och skrivskyddad.');
-      return;
-    }
-    setExpenses((previous) => previous.map((expense) => (expense.id === updated.id ? updated : expense)));
-    loadData();
-  };
-
-  const handleSaveSettlement = (updated) => {
-    if (isArchived) {
-      setError('Gruppen är arkiverad och skrivskyddad.');
-      return;
-    }
-    setSettlements((previous) => previous.map((settlement) => (settlement.id === updated.id ? updated : settlement)));
-    loadData();
-  };
-
-  const handleDeleteSettlement = async (settlementId) => {
-    if (isArchived) {
-      setError('Gruppen är arkiverad och skrivskyddad.');
-      return;
-    }
-    setSettlements((previous) => previous.filter((settlement) => settlement.id !== settlementId));
-    setError('');
-    await loadData({ silent: true });
-  };
-
-  const handleArchiveGroup = async () => {
-    if (!canArchiveGroup) {
-      return;
-    }
-    if (!window.confirm('Är du säker på att du vill arkivera gruppen? Gruppen blir skrivskyddad.')) {
-      return;
-    }
-
-    try {
-      const updated = await post(`/api/groups/${groupSlug}/archive`, {});
-      setGroup((previous) => ({ ...previous, ...updated }));
-      setIsSettingsOpen(false);
-      setIsAddingExpense(false);
-      setIsAddingSettlement(false);
-      setEditingExpenseId(null);
-      setEditingSettlementId(null);
-      setError('');
-    } catch (archiveError) {
-      setError(archiveError.message);
-    }
-  };
-
-  const handleUnarchiveGroup = async () => {
-    if (!isGroupOwner || !isArchived || groupActionSaving) {
-      return;
-    }
-    if (!window.confirm('Är du säker på att du vill återaktivera gruppen?')) {
-      return;
-    }
-
-    setGroupActionSaving(true);
-    try {
-      const updated = await post(`/api/groups/${groupSlug}/unarchive`, {});
-      setGroup((previous) => ({ ...previous, ...updated }));
-      setError('');
-    } catch (unarchiveError) {
-      setError(unarchiveError.message);
-    } finally {
-      setGroupActionSaving(false);
-    }
-  };
-
-  const handleDeleteGroup = async () => {
-    if (!isGroupOwner || groupActionSaving) {
-      return;
-    }
-    if (!window.confirm('Är du säker på att du vill radera gruppen permanent? Detta kan inte ångras.')) {
-      return;
-    }
-
-    setGroupActionSaving(true);
-    try {
-      await del(`/api/groups/${groupSlug}`);
-      navigate('/');
-    } catch (deleteError) {
-      setError(deleteError.message);
-      setGroupActionSaving(false);
-    }
-  };
+  const handleDeleteGroup = () => deleteGroupPermanently({
+    isGroupOwner,
+    groupActionSaving,
+    groupSlug,
+    navigate,
+    setGroupActionSaving,
+    setError,
+  });
 
   if (loading) {
     return <GroupSkeleton />;
