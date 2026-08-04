@@ -11,35 +11,37 @@ import { t } from '../lib/i18n.js';
 
 const registerInitialState = { full_name: '', phone: '' };
 
-export default function Login() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const isRegisterRoute = useMemo(() => location.pathname === '/register', [location.pathname]);
-  const registrationToken = useMemo(() => {
-    const raw = location.search.startsWith('?') ? location.search.slice(1) : '';
-    if (!raw) return '';
-    if (!raw.includes('=')) {
+function parseRegistrationToken(search) {
+  const raw = search.startsWith('?') ? search.slice(1) : '';
+  if (!raw) return '';
+
+  if (!raw.includes('=')) {
+    try {
       return decodeURIComponent(raw);
+    } catch {
+      return '';
     }
-    const params = new URLSearchParams(location.search);
-    return params.get('token') || params.get('invite') || params.get('key') || '';
-  }, [location.search]);
-  const [registerForm, setRegisterForm] = useState(registerInitialState);
-  const [devboxUsers, setDevboxUsers] = useState([]);
-  const [devboxAvailable, setDevboxAvailable] = useState(false);
-  const [devboxLoading, setDevboxLoading] = useState(false);
-  const [devboxLoginLoading, setDevboxLoginLoading] = useState(false);
+  }
+
+  const params = new URLSearchParams(search);
+  return params.get('token') || params.get('invite') || params.get('key') || '';
+}
+
+function navigateAfterLogin(navigate) {
+  const pendingInvite = sessionStorage.getItem(PENDING_INVITE_TOKEN_KEY);
+  if (pendingInvite) {
+    sessionStorage.removeItem(PENDING_INVITE_TOKEN_KEY);
+    navigate(`/invite/${pendingInvite}`);
+    return;
+  }
+  navigate('/');
+}
+
+function useRegistrationAccess({ isRegisterMode, registrationToken, navigate }) {
   const [checkingRegistrationToken, setCheckingRegistrationToken] = useState(false);
   const [registrationTokenChecked, setRegistrationTokenChecked] = useState(false);
   const [registrationTokenValid, setRegistrationTokenValid] = useState(false);
-  const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [error, setError] = useState('');
-  const isRegisterMode = isRegisterRoute;
   const hasRegistrationToken = registrationToken.trim().length > 0;
-  const hasValidRegistrationToken = hasRegistrationToken && registrationTokenValid;
-  const hasValidRegisterName = registerForm.full_name.trim().length >= 3;
-  const { passkeyLoading, handlePasskeySignup, handlePasskeyLogin } = usePasskeyAuth({ navigate, setError });
-  const isBusy = passkeyLoading || devboxLoading || devboxLoginLoading || checkingRegistrationToken;
 
   useEffect(() => {
     if (!isRegisterMode) {
@@ -82,10 +84,23 @@ export default function Login() {
     if (!isRegisterMode || checkingRegistrationToken || !registrationTokenChecked) {
       return;
     }
-    if (!hasRegistrationToken || !hasValidRegistrationToken) {
+    if (!hasRegistrationToken || !registrationTokenValid) {
       navigate('/login');
     }
-  }, [checkingRegistrationToken, hasRegistrationToken, hasValidRegistrationToken, isRegisterMode, navigate, registrationTokenChecked]);
+  }, [checkingRegistrationToken, hasRegistrationToken, isRegisterMode, navigate, registrationTokenChecked, registrationTokenValid]);
+
+  return {
+    hasRegistrationToken,
+    checkingRegistrationToken,
+    registrationTokenChecked,
+    registrationTokenValid,
+  };
+}
+
+function useDevboxUsers({ isRegisterMode, setError }) {
+  const [devboxUsers, setDevboxUsers] = useState([]);
+  const [devboxAvailable, setDevboxAvailable] = useState(false);
+  const [devboxLoading, setDevboxLoading] = useState(false);
 
   useEffect(() => {
     if (isRegisterMode) {
@@ -134,7 +149,31 @@ export default function Login() {
     return () => {
       active = false;
     };
-  }, [isRegisterMode]);
+  }, [isRegisterMode, setError]);
+
+  return { devboxUsers, devboxAvailable, devboxLoading };
+}
+
+export default function Login() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isRegisterRoute = useMemo(() => location.pathname === '/register', [location.pathname]);
+  const registrationToken = useMemo(() => parseRegistrationToken(location.search), [location.search]);
+  const [registerForm, setRegisterForm] = useState(registerInitialState);
+  const [devboxLoginLoading, setDevboxLoginLoading] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [error, setError] = useState('');
+  const isRegisterMode = isRegisterRoute;
+  const {
+    hasRegistrationToken,
+    checkingRegistrationToken,
+    registrationTokenValid,
+  } = useRegistrationAccess({ isRegisterMode, registrationToken, navigate });
+  const { devboxUsers, devboxAvailable, devboxLoading } = useDevboxUsers({ isRegisterMode, setError });
+  const hasValidRegistrationToken = hasRegistrationToken && registrationTokenValid;
+  const hasValidRegisterName = registerForm.full_name.trim().length >= 3;
+  const { passkeyLoading, handlePasskeySignup, handlePasskeyLogin } = usePasskeyAuth({ navigate, setError });
+  const isBusy = passkeyLoading || devboxLoading || devboxLoginLoading || checkingRegistrationToken;
 
   const onPasskeySignup = async () => {
     const displayName = registerForm.full_name.trim();
@@ -157,13 +196,7 @@ export default function Login() {
     try {
       const response = await post('/api/auth/devbox/login', { user_id: userId });
       localStorage.setItem('token', response.token);
-      const pendingInvite = sessionStorage.getItem(PENDING_INVITE_TOKEN_KEY);
-      if (pendingInvite) {
-        sessionStorage.removeItem(PENDING_INVITE_TOKEN_KEY);
-        navigate(`/invite/${pendingInvite}`);
-      } else {
-        navigate('/');
-      }
+      navigateAfterLogin(navigate);
     } catch (loginError) {
       setError(loginError.message || t('auth.loginDevUserFailed'));
     } finally {

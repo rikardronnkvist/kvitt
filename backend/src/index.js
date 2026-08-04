@@ -18,6 +18,52 @@ initializeDatabase();
 const app = express();
 const port = Number(process.env.PORT) || 3000;
 
+const REGISTRATION_QUERY_MAX_LENGTH = 512;
+
+function isAllowedRegistrationToken(value) {
+  return /^[A-Za-z0-9._~-]{8,256}$/u.test(value);
+}
+
+function getSafeRegisterQuery(originalUrl) {
+  const queryIndex = originalUrl.indexOf('?');
+  if (queryIndex === -1) {
+    return '';
+  }
+
+  const rawQuery = originalUrl.slice(queryIndex + 1).trim();
+  if (!rawQuery || rawQuery.length > REGISTRATION_QUERY_MAX_LENGTH) {
+    return '';
+  }
+
+  if (!rawQuery.includes('=')) {
+    let decodedRaw = '';
+    try {
+      decodedRaw = decodeURIComponent(rawQuery);
+    } catch {
+      return '';
+    }
+    if (!isAllowedRegistrationToken(decodedRaw)) {
+      return '';
+    }
+    return `?${encodeURIComponent(decodedRaw)}`;
+  }
+
+  const params = new URLSearchParams(rawQuery);
+  const allowedKeys = ['token', 'invite', 'key'];
+  for (const key of allowedKeys) {
+    const value = params.get(key);
+    if (!value) {
+      continue;
+    }
+    if (!isAllowedRegistrationToken(value)) {
+      return '';
+    }
+    return `?${key}=${encodeURIComponent(value)}`;
+  }
+
+  return '';
+}
+
 function getRegistrationUrl() {
   const token = getRegistrationAccessToken();
   if (!token) {
@@ -64,7 +110,8 @@ app.get('/healthz', (_req, res) => {
 });
 
 app.get(['/register', '/register/*'], (req, res) => {
-  return res.redirect(302, `${getFrontendPublicOrigin()}${req.originalUrl}`);
+  const safeQuery = getSafeRegisterQuery(req.originalUrl);
+  return res.redirect(302, `${getFrontendPublicOrigin()}/register${safeQuery}`);
 });
 
 app.use('/api/auth', authRateLimit, authRoutes);
