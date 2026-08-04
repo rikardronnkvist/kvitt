@@ -218,6 +218,48 @@ function toPieData(entries, { sortByValue = true } = {}) {
     }));
 }
 
+function getTimelineAxisLabels(dataMode) {
+  const amountAxisLabel = dataMode === 'expenses'
+    ? 'Totala utgifter'
+    : dataMode === 'transfers'
+      ? 'Totala kvittningar'
+      : 'Utgifter + kvittningar';
+
+  const countAxisLabel = dataMode === 'expenses'
+    ? 'Antal utgifter'
+    : dataMode === 'transfers'
+      ? 'Antal kvittningar'
+      : 'Antal händelser';
+
+  return { amountAxisLabel, countAxisLabel };
+}
+
+function getShownLabelIndexes(periodsLength, stepX, minLabelSpacing) {
+  const maxVisibleLabels = Math.max(2, Math.floor((stepX * Math.max(periodsLength, 1)) / minLabelSpacing));
+  const labelInterval = Math.max(1, Math.ceil(periodsLength / maxVisibleLabels));
+  const shownLabelIndexes = new Set();
+
+  for (let index = 0; index < periodsLength; index += labelInterval) {
+    shownLabelIndexes.add(index);
+  }
+
+  const lastIndex = periodsLength - 1;
+  const previousShownIndex = Array.from(shownLabelIndexes).sort((a, b) => a - b).at(-1);
+  if (lastIndex >= 0 && (previousShownIndex == null || (lastIndex - previousShownIndex) * stepX >= (minLabelSpacing * 0.8))) {
+    shownLabelIndexes.add(lastIndex);
+  }
+
+  return shownLabelIndexes;
+}
+
+function buildCountPoints(periods, margin, stepX, chartHeight, maxCount) {
+  return periods.map((item, index) => {
+    const x = margin.left + stepX * index + (stepX / 2);
+    const y = margin.top + chartHeight - ((Number(item.count || 0) / maxCount) * chartHeight);
+    return { x, y, value: Number(item.count || 0), key: item.key };
+  });
+}
+
 function StatisticsSkeleton() {
   return (
     <div className="space-y-6">
@@ -249,36 +291,13 @@ function TimelineChart({ periods, granularity, onGranularityChange, dataMode, on
   const barWidth = Math.min(40, chartWidth / Math.max(periods.length * 1.8, 1));
   const stepX = chartWidth / Math.max(periods.length, 1);
   const minLabelSpacing = granularity === 'day' ? 66 : granularity === 'week' ? 90 : granularity === 'month' ? 70 : 48;
-  const maxVisibleLabels = Math.max(2, Math.floor(chartWidth / minLabelSpacing));
-  const labelInterval = Math.max(1, Math.ceil(periods.length / maxVisibleLabels));
-  const shownLabelIndexes = new Set();
-  for (let i = 0; i < periods.length; i += labelInterval) {
-    shownLabelIndexes.add(i);
-  }
-  const lastIndex = periods.length - 1;
-  const previousShownIndex = Array.from(shownLabelIndexes).sort((a, b) => a - b).at(-1);
-  if (lastIndex >= 0 && (previousShownIndex == null || (lastIndex - previousShownIndex) * stepX >= (minLabelSpacing * 0.8))) {
-    shownLabelIndexes.add(lastIndex);
-  }
+  const shownLabelIndexes = getShownLabelIndexes(periods.length, stepX, minLabelSpacing);
 
   const yTicks = [0, 0.25, 0.5, 0.75, 1];
-  const countPoints = periods.map((item, index) => {
-    const x = margin.left + stepX * index + (stepX / 2);
-    const y = margin.top + chartHeight - ((Number(item.count || 0) / maxCount) * chartHeight);
-    return { x, y, value: Number(item.count || 0), key: item.key };
-  });
+  const countPoints = buildCountPoints(periods, margin, stepX, chartHeight, maxCount);
   const countPath = countPoints.map((point) => `${point.x},${point.y}`).join(' ');
   const isCombinedMode = dataMode === 'both';
-  const amountAxisLabel = dataMode === 'expenses'
-    ? 'Totala utgifter'
-    : dataMode === 'transfers'
-      ? 'Totala kvittningar'
-      : 'Utgifter + kvittningar';
-  const countAxisLabel = dataMode === 'expenses'
-    ? 'Antal utgifter'
-    : dataMode === 'transfers'
-      ? 'Antal kvittningar'
-      : 'Antal händelser';
+  const { amountAxisLabel, countAxisLabel } = getTimelineAxisLabels(dataMode);
 
   return (
     <div className="space-y-3">
@@ -580,6 +599,247 @@ function PieCard({ title, entries }) {
   );
 }
 
+function createEmptyTimelineTotals() {
+  return {
+    amount: 0,
+    count: 0,
+    expenseAmount: 0,
+    transferAmount: 0,
+    expenseCount: 0,
+    transferCount: 0,
+  };
+}
+
+function getTimelineModeFlags(timelineDataMode) {
+  return {
+    includeExpenses: timelineDataMode === 'both' || timelineDataMode === 'expenses',
+    includeTransfers: timelineDataMode === 'both' || timelineDataMode === 'transfers',
+  };
+}
+
+function getTimelineDates(expenses, settlements, includeExpenses, includeTransfers) {
+  return [
+    ...(includeExpenses ? expenses.map((expense) => new Date(expense.occurred_at || expense.created_at)) : []),
+    ...(includeTransfers ? settlements.map((settlement) => new Date(settlement.settled_at)) : []),
+  ].filter((date) => !Number.isNaN(date.getTime()));
+}
+
+function mergeTimelineTotals(timelineTotals, key, updates) {
+  const current = timelineTotals.get(key) || createEmptyTimelineTotals();
+  timelineTotals.set(key, {
+    ...current,
+    ...updates,
+    amount: current.amount + (updates.amount || 0),
+    count: current.count + (updates.count || 0),
+    expenseAmount: current.expenseAmount + (updates.expenseAmount || 0),
+    transferAmount: current.transferAmount + (updates.transferAmount || 0),
+    expenseCount: current.expenseCount + (updates.expenseCount || 0),
+    transferCount: current.transferCount + (updates.transferCount || 0),
+  });
+}
+
+function buildTimelineTotals(expenses, settlements, timelineGranularity, includeExpenses, includeTransfers) {
+  const timelineTotals = new Map();
+
+  if (includeExpenses) {
+    for (const expense of expenses) {
+      const expenseDate = new Date(expense.occurred_at || expense.created_at);
+      if (Number.isNaN(expenseDate.getTime())) {
+        continue;
+      }
+      const key = periodKey(startOfPeriod(expenseDate, timelineGranularity));
+      const amount = Number(expense.amount || 0);
+      mergeTimelineTotals(timelineTotals, key, {
+        amount,
+        count: 1,
+        expenseAmount: amount,
+        expenseCount: 1,
+      });
+    }
+  }
+
+  if (includeTransfers) {
+    for (const settlement of settlements) {
+      const transferDate = new Date(settlement.settled_at);
+      if (Number.isNaN(transferDate.getTime())) {
+        continue;
+      }
+      const key = periodKey(startOfPeriod(transferDate, timelineGranularity));
+      const amount = Number(settlement.amount || 0);
+      mergeTimelineTotals(timelineTotals, key, {
+        amount,
+        count: 1,
+        transferAmount: amount,
+        transferCount: 1,
+      });
+    }
+  }
+
+  return timelineTotals;
+}
+
+function buildTimelinePeriods(timelineTotals, timelineDates, timelineGranularity) {
+  if (!timelineDates.length) {
+    const now = startOfPeriod(new Date(), timelineGranularity);
+    return [{
+      key: periodKey(now),
+      label: formatPeriodLabel(now, timelineGranularity),
+      ...createEmptyTimelineTotals(),
+    }];
+  }
+
+  const minDate = startOfPeriod(new Date(Math.min(...timelineDates.map((date) => date.getTime()))), timelineGranularity);
+  const maxDate = startOfPeriod(new Date(Math.max(...timelineDates.map((date) => date.getTime()))), timelineGranularity);
+  const periods = [];
+
+  for (let cursor = new Date(minDate); cursor <= maxDate; cursor = addPeriod(cursor, timelineGranularity)) {
+    const key = periodKey(cursor);
+    periods.push({
+      key,
+      label: formatPeriodLabel(cursor, timelineGranularity),
+      ...(timelineTotals.get(key) || createEmptyTimelineTotals()),
+    });
+  }
+
+  return periods;
+}
+
+function getCategorySortOrderMap(expenseCategories) {
+  return new Map(
+    expenseCategories.map((category) => [String(category.name || '').trim().toLowerCase(), Number(category.sort_order)]),
+  );
+}
+
+function buildCategoryEntries(expenses, categorySortOrderByName) {
+  const categoryMap = buildTotals(
+    expenses,
+    (expense) => expense.category_name || 'Ingen kategori',
+    (expense) => Number(expense.amount || 0),
+  );
+
+  return Array.from(categoryMap.entries())
+    .map(([label, value]) => ({ label, value }))
+    .sort((a, b) => {
+      const orderA = categorySortOrderByName.get(String(a.label || '').trim().toLowerCase()) ?? Number.MAX_SAFE_INTEGER;
+      const orderB = categorySortOrderByName.get(String(b.label || '').trim().toLowerCase()) ?? Number.MAX_SAFE_INTEGER;
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+      return b.value - a.value;
+    });
+}
+
+function getPeriodDates(expenses, settlements) {
+  return [
+    ...expenses.map((expense) => expense.occurred_at || expense.created_at),
+    ...settlements.map((settlement) => settlement.settled_at),
+  ]
+    .map((value) => new Date(value))
+    .filter((date) => !Number.isNaN(date.getTime()))
+    .sort((a, b) => a.getTime() - b.getTime());
+}
+
+function buildMemberRows(members, expenses, settlements) {
+  const balanceMap = new Map(members.map((member) => [member.id, 0]));
+  const memberStatsMap = new Map(members.map((member) => [member.id, {
+    expenseCount: 0,
+    paid: 0,
+    transferCount: 0,
+    transfers: 0,
+    totalOwed: 0,
+  }]));
+
+  for (const expense of expenses) {
+    const payerId = Number(expense.paid_by_user_id);
+    const amount = Number(expense.amount || 0);
+    const payerStats = memberStatsMap.get(payerId);
+    if (payerStats) {
+      payerStats.expenseCount += 1;
+      payerStats.paid += amount;
+    }
+
+    balanceMap.set(payerId, (balanceMap.get(payerId) || 0) + amount);
+
+    for (const split of expense.splits || []) {
+      const splitUserId = Number(split.user_id);
+      const owed = Number(split.amount_owed || 0);
+      const splitStats = memberStatsMap.get(splitUserId);
+      if (splitStats) {
+        splitStats.totalOwed += owed;
+      }
+      balanceMap.set(splitUserId, (balanceMap.get(splitUserId) || 0) - owed);
+    }
+  }
+
+  for (const settlement of settlements) {
+    const payerId = Number(settlement.payer_id);
+    const receiverId = Number(settlement.receiver_id);
+    const amount = Number(settlement.amount || 0);
+    const payerStats = memberStatsMap.get(payerId);
+    if (payerStats) {
+      payerStats.transferCount += 1;
+      payerStats.transfers += amount;
+    }
+
+    balanceMap.set(payerId, (balanceMap.get(payerId) || 0) + amount);
+    balanceMap.set(receiverId, (balanceMap.get(receiverId) || 0) - amount);
+  }
+
+  return members.map((member) => {
+    const stats = memberStatsMap.get(member.id) || {
+      expenseCount: 0,
+      paid: 0,
+      transferCount: 0,
+      transfers: 0,
+      totalOwed: 0,
+    };
+
+    return {
+      ...member,
+      ...stats,
+      balance: Math.round(balanceMap.get(member.id) || 0),
+    };
+  });
+}
+
+function buildStatistics({ expenses, expenseCategories, members, settlements, timelineDataMode, timelineGranularity }) {
+  const { includeExpenses, includeTransfers } = getTimelineModeFlags(timelineDataMode);
+  const timelineDates = getTimelineDates(expenses, settlements, includeExpenses, includeTransfers);
+  const timelineTotals = buildTimelineTotals(expenses, settlements, timelineGranularity, includeExpenses, includeTransfers);
+  const timelinePeriods = buildTimelinePeriods(timelineTotals, timelineDates, timelineGranularity);
+
+  const categorySortOrderByName = getCategorySortOrderMap(expenseCategories);
+  const categoryEntries = buildCategoryEntries(expenses, categorySortOrderByName);
+
+  const paidByMap = buildTotals(
+    expenses,
+    (expense) => getUserDisplayName({ id: expense.paid_by_user_id, full_name: expense.paid_by_full_name }),
+    (expense) => Number(expense.amount || 0),
+  );
+
+  const periodDates = getPeriodDates(expenses, settlements);
+  const memberRows = buildMemberRows(members, expenses, settlements);
+
+  return {
+    totalSpent: expenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0),
+    totalTransfers: settlements.reduce((sum, settlement) => sum + Number(settlement.amount || 0), 0),
+    membersCount: members.length,
+    expensesCount: expenses.length,
+    transfersCount: settlements.length,
+    periodRange: formatRangeLabel(periodDates[0], periodDates[periodDates.length - 1]),
+    timelinePeriods,
+    categoryData: toPieData(categoryEntries, { sortByValue: false }),
+    paidByData: toPieData(Array.from(paidByMap.entries()).map(([label, value]) => ({ label, value }))),
+    transfersByMemberData: toPieData(
+      memberRows.map((member) => ({
+        label: getUserDisplayName(member),
+        value: Number(member.transfers || 0),
+      })),
+    ),
+    memberRows,
+  };
+}
+
 export default function GroupStatistics() {
   const navigate = useNavigate();
   const { slug } = useParams();
@@ -634,222 +894,14 @@ export default function GroupStatistics() {
   const members = group?.members ?? [];
   const theme = getThemeForGroup(group);
 
-  const statistics = useMemo(() => {
-    const categorySortOrderByName = new Map(
-      expenseCategories.map((category) => [String(category.name || '').trim().toLowerCase(), Number(category.sort_order)]),
-    );
-
-    const includeExpenses = timelineDataMode === 'both' || timelineDataMode === 'expenses';
-    const includeTransfers = timelineDataMode === 'both' || timelineDataMode === 'transfers';
-
-    const timelineDates = [
-      ...(includeExpenses ? expenses.map((expense) => new Date(expense.occurred_at || expense.created_at)) : []),
-      ...(includeTransfers ? settlements.map((settlement) => new Date(settlement.settled_at)) : []),
-    ]
-      .filter((date) => !Number.isNaN(date.getTime()));
-
-    const timelineTotals = new Map();
-    if (includeExpenses) {
-      for (const expense of expenses) {
-        const expenseDate = new Date(expense.occurred_at || expense.created_at);
-        if (Number.isNaN(expenseDate.getTime())) {
-          continue;
-        }
-        const periodStart = startOfPeriod(expenseDate, timelineGranularity);
-        const key = periodKey(periodStart);
-        const current = timelineTotals.get(key) || {
-          amount: 0,
-          count: 0,
-          expenseAmount: 0,
-          transferAmount: 0,
-          expenseCount: 0,
-          transferCount: 0,
-        };
-        const amount = Number(expense.amount || 0);
-        timelineTotals.set(key, {
-          ...current,
-          amount: current.amount + amount,
-          count: current.count + 1,
-          expenseAmount: current.expenseAmount + amount,
-          expenseCount: current.expenseCount + 1,
-        });
-      }
-    }
-
-    if (includeTransfers) {
-      for (const settlement of settlements) {
-        const transferDate = new Date(settlement.settled_at);
-        if (Number.isNaN(transferDate.getTime())) {
-          continue;
-        }
-        const periodStart = startOfPeriod(transferDate, timelineGranularity);
-        const key = periodKey(periodStart);
-        const current = timelineTotals.get(key) || {
-          amount: 0,
-          count: 0,
-          expenseAmount: 0,
-          transferAmount: 0,
-          expenseCount: 0,
-          transferCount: 0,
-        };
-        const amount = Number(settlement.amount || 0);
-        timelineTotals.set(key, {
-          ...current,
-          amount: current.amount + amount,
-          count: current.count + 1,
-          transferAmount: current.transferAmount + amount,
-          transferCount: current.transferCount + 1,
-        });
-      }
-    }
-
-    let timelinePeriods = [];
-    if (timelineDates.length) {
-      const minDate = startOfPeriod(new Date(Math.min(...timelineDates.map((date) => date.getTime()))), timelineGranularity);
-      const maxDate = startOfPeriod(new Date(Math.max(...timelineDates.map((date) => date.getTime()))), timelineGranularity);
-      for (let cursor = new Date(minDate); cursor <= maxDate; cursor = addPeriod(cursor, timelineGranularity)) {
-        const key = periodKey(cursor);
-        const totals = timelineTotals.get(key);
-        timelinePeriods.push({
-          key,
-          label: formatPeriodLabel(cursor, timelineGranularity),
-          amount: totals?.amount || 0,
-          count: totals?.count || 0,
-          expenseAmount: totals?.expenseAmount || 0,
-          transferAmount: totals?.transferAmount || 0,
-          expenseCount: totals?.expenseCount || 0,
-          transferCount: totals?.transferCount || 0,
-        });
-      }
-    }
-
-    if (!timelinePeriods.length) {
-      const now = startOfPeriod(new Date(), timelineGranularity);
-      timelinePeriods = [{
-        key: periodKey(now),
-        label: formatPeriodLabel(now, timelineGranularity),
-        amount: 0,
-        count: 0,
-        expenseAmount: 0,
-        transferAmount: 0,
-        expenseCount: 0,
-        transferCount: 0,
-      }];
-    }
-
-    const categoryMap = buildTotals(
-      expenses,
-      (expense) => expense.category_name || 'Ingen kategori',
-      (expense) => Number(expense.amount || 0),
-    );
-
-    const categoryEntries = Array.from(categoryMap.entries())
-      .map(([label, value]) => ({ label, value }))
-      .sort((a, b) => {
-        const orderA = categorySortOrderByName.get(String(a.label || '').trim().toLowerCase()) ?? Number.MAX_SAFE_INTEGER;
-        const orderB = categorySortOrderByName.get(String(b.label || '').trim().toLowerCase()) ?? Number.MAX_SAFE_INTEGER;
-
-        if (orderA !== orderB) {
-          return orderA - orderB;
-        }
-
-        return b.value - a.value;
-      });
-
-    const paidByMap = buildTotals(
-      expenses,
-      (expense) => getUserDisplayName({ id: expense.paid_by_user_id, full_name: expense.paid_by_full_name }),
-      (expense) => Number(expense.amount || 0),
-    );
-
-    const periodDates = [
-      ...expenses.map((expense) => expense.occurred_at || expense.created_at),
-      ...settlements.map((settlement) => settlement.settled_at),
-    ]
-      .map((value) => new Date(value))
-      .filter((date) => !Number.isNaN(date.getTime()))
-      .sort((a, b) => a.getTime() - b.getTime());
-
-    const balanceMap = new Map(members.map((member) => [member.id, 0]));
-    expenses.forEach((expense) => {
-      balanceMap.set(
-        expense.paid_by_user_id,
-        (balanceMap.get(expense.paid_by_user_id) || 0) + Number(expense.amount || 0),
-      );
-
-      (expense.splits || []).forEach((split) => {
-        balanceMap.set(
-          split.user_id,
-          (balanceMap.get(split.user_id) || 0) - Number(split.amount_owed || 0),
-        );
-      });
-    });
-
-    settlements.forEach((settlement) => {
-      balanceMap.set(
-        settlement.payer_id,
-        (balanceMap.get(settlement.payer_id) || 0) + Number(settlement.amount || 0),
-      );
-      balanceMap.set(
-        settlement.receiver_id,
-        (balanceMap.get(settlement.receiver_id) || 0) - Number(settlement.amount || 0),
-      );
-    });
-
-    const memberRows = members.map((member) => {
-      const expenseCount = expenses
-        .filter((expense) => Number(expense.paid_by_user_id) === Number(member.id))
-        .length;
-
-      const paid = expenses
-        .filter((expense) => Number(expense.paid_by_user_id) === Number(member.id))
-        .reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
-
-      const transferCount = settlements
-        .filter((settlement) => Number(settlement.payer_id) === Number(member.id))
-        .length;
-
-      const transfers = settlements
-        .filter((settlement) => Number(settlement.payer_id) === Number(member.id))
-        .reduce((sum, settlement) => sum + Number(settlement.amount || 0), 0);
-
-      const totalOwed = expenses
-        .flatMap((expense) => expense.splits || [])
-        .filter((split) => Number(split.user_id) === Number(member.id))
-        .reduce((sum, split) => sum + Number(split.amount_owed || 0), 0);
-
-      return {
-        ...member,
-        expenseCount,
-        paid,
-        transferCount,
-        transfers,
-        totalOwed,
-        balance: Math.round(balanceMap.get(member.id) || 0),
-      };
-    });
-
-    const transfersByMemberData = toPieData(
-      memberRows.map((member) => ({
-        label: getUserDisplayName(member),
-        value: Number(member.transfers || 0),
-      })),
-    );
-
-    return {
-      totalSpent: expenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0),
-      totalTransfers: settlements.reduce((sum, settlement) => sum + Number(settlement.amount || 0), 0),
-      membersCount: members.length,
-      expensesCount: expenses.length,
-      transfersCount: settlements.length,
-      periodRange: formatRangeLabel(periodDates[0], periodDates[periodDates.length - 1]),
-      timelinePeriods,
-      categoryData: toPieData(categoryEntries, { sortByValue: false }),
-      paidByData: toPieData(Array.from(paidByMap.entries()).map(([label, value]) => ({ label, value }))),
-      transfersByMemberData,
-      memberRows,
-    };
-  }, [expenses, expenseCategories, members, settlements, timelineDataMode, timelineGranularity]);
+  const statistics = useMemo(() => buildStatistics({
+    expenses,
+    expenseCategories,
+    members,
+    settlements,
+    timelineDataMode,
+    timelineGranularity,
+  }), [expenses, expenseCategories, members, settlements, timelineDataMode, timelineGranularity]);
 
   if (loading) {
     return <StatisticsSkeleton />;
