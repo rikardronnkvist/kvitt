@@ -287,19 +287,29 @@ function DevboxSection({ devboxUsers, isBusy, onLogin }) {
 }
 
 function AuthFooter({ isRegisterMode, hasRegistrationToken, registrationToken }) {
+  const renderFooterContent = () => {
+    if (!isRegisterMode) {
+      if (!hasRegistrationToken) {
+        return t('auth.registerRequiresInvite');
+      }
+
+      return (
+        <>
+          {t('auth.noAccount')} <Link to={`/register?${encodeURIComponent(registrationToken)}`}>{t('auth.register')}</Link>
+        </>
+      );
+    }
+
+    return (
+      <>
+        {t('auth.alreadyHaveAccount')} <Link to="/login">{t('auth.login')}</Link>
+      </>
+    );
+  };
+
   return (
     <p className="m-0 text-center text-sm text-[var(--text-secondary)]">
-      {!isRegisterMode ? (
-        hasRegistrationToken ? (
-          <>
-            {t('auth.noAccount')} <Link to={`/register?${encodeURIComponent(registrationToken)}`}>{t('auth.register')}</Link>
-          </>
-        ) : t('auth.registerRequiresInvite')
-      ) : (
-        <>
-          {t('auth.alreadyHaveAccount')} <Link to="/login">{t('auth.login')}</Link>
-        </>
-      )}
+      {renderFooterContent()}
     </p>
   );
 }

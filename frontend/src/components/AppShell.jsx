@@ -87,6 +87,36 @@ function AppMenuDropdown({
     return null;
   }
 
+  const renderNotificationsMenuItem = () => {
+    if (notifState === 'subscribed') {
+      return (
+        <button
+          type="button"
+          className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
+          onClick={async () => { await unsubscribeFromPush(); setNotifState('default'); setDropdownOpen(false); }}
+        >
+          <BellOff className="h-4 w-4 text-[var(--text-secondary)]" />
+          {t('shell.disableNotifications')}
+        </button>
+      );
+    }
+
+    if (notifState === 'default' || notifState === 'dismissed') {
+      return (
+        <button
+          type="button"
+          className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
+          onClick={() => { localStorage.removeItem('notifications_dismissed'); setNotifState('default'); setDropdownOpen(false); }}
+        >
+          <Bell className="h-4 w-4 text-[var(--text-secondary)]" />
+          {t('shell.enableNotifications')}
+        </button>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <div className="absolute right-0 top-full z-50 mt-1.5 w-52 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] py-1 shadow-[var(--shadow-strong)]">
       <button
@@ -137,25 +167,7 @@ function AppMenuDropdown({
       {!user?.is_admin || hasNotificationsMenuItem ? (
         <div className="my-1 border-t border-[var(--border-subtle)]" />
       ) : null}
-      {notifState === 'subscribed' ? (
-        <button
-          type="button"
-          className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
-          onClick={async () => { await unsubscribeFromPush(); setNotifState('default'); setDropdownOpen(false); }}
-        >
-          <BellOff className="h-4 w-4 text-[var(--text-secondary)]" />
-          {t('shell.disableNotifications')}
-        </button>
-      ) : notifState === 'default' || notifState === 'dismissed' ? (
-        <button
-          type="button"
-          className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
-          onClick={() => { localStorage.removeItem('notifications_dismissed'); setNotifState('default'); setDropdownOpen(false); }}
-        >
-          <Bell className="h-4 w-4 text-[var(--text-secondary)]" />
-          {t('shell.enableNotifications')}
-        </button>
-      ) : null}
+      {renderNotificationsMenuItem()}
       {user?.is_admin ? <div className="my-1 border-t border-[var(--border-subtle)]" /> : null}
       {user?.is_admin ? (
         <button
@@ -356,6 +368,59 @@ function PasskeysModal({
     return null;
   }
 
+  const renderPasskeysContent = () => {
+    if (passkeysLoading) {
+      return <p className="m-0 text-sm text-[var(--text-secondary)]">{t('shell.loadingPasskeys')}</p>;
+    }
+
+    if (!passkeys.length) {
+      return <p className="m-0 text-sm text-[var(--text-secondary)]">{t('shell.noPasskeys')}</p>;
+    }
+
+    return (
+      <div className="space-y-2">
+        {passkeys.map((passkey) => (
+          <div key={passkey.id} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-3 py-2.5">
+            <input
+              type="text"
+              className="w-full rounded-md border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-2 py-1 text-sm font-semibold"
+              value={passkey.name || ''}
+              onChange={(event) => setPasskeys((previous) => previous.map((row) => (row.id === passkey.id ? { ...row, name: event.target.value } : row)))}
+            />
+            <p className="m-0 text-xs text-[var(--text-secondary)]">
+              {t('shell.createdAt')}: {formatDateTime(passkey.created_at)}
+            </p>
+            <p className="m-0 text-xs text-[var(--text-secondary)]">
+              {t('shell.lastUsed')}: {passkey.last_used_at ? formatDateTime(passkey.last_used_at) : t('shell.never')}
+            </p>
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                className="btn-secondary flex-1"
+                onClick={() => onRenamePasskey(passkey.id, passkey.name || '')}
+                disabled={passkeysLoading || passkeysSaving || passkeysActionId === passkey.id || !(passkey.name || '').trim()}
+              >
+                {passkeysActionId === passkey.id ? t('shell.saving') : t('shell.saveName')}
+              </button>
+              <button
+                type="button"
+                className="btn-danger flex-1"
+                onClick={() => onDeletePasskey(passkey.id)}
+                disabled={passkeysLoading || passkeysSaving || passkeysActionId === passkey.id || Number(user?.current_passkey_id) === Number(passkey.id)}
+                title={Number(user?.current_passkey_id) === Number(passkey.id) ? t('shell.cannotDeleteCurrentPasskey') : undefined}
+              >
+                {t('shell.delete')}
+              </button>
+            </div>
+            {Number(user?.current_passkey_id) === Number(passkey.id) ? (
+              <p className="mt-1 m-0 text-xs text-[var(--text-secondary)]">{t('shell.activeSessionPasskey')}</p>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="modal-backdrop app-shell-modal-backdrop" onClick={() => setManagingPasskeys(false)}>
       <div className="modal-sheet app-shell-modal-sheet md:w-[480px]" onClick={(event) => event.stopPropagation()}>
@@ -365,52 +430,7 @@ function PasskeysModal({
             <h2 className="m-0 text-xl font-semibold">{t('shell.passkeysTitle')}</h2>
           </div>
 
-          {passkeysLoading ? (
-            <p className="m-0 text-sm text-[var(--text-secondary)]">{t('shell.loadingPasskeys')}</p>
-          ) : passkeys.length ? (
-            <div className="space-y-2">
-              {passkeys.map((passkey) => (
-                <div key={passkey.id} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-3 py-2.5">
-                  <input
-                    type="text"
-                    className="w-full rounded-md border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-2 py-1 text-sm font-semibold"
-                    value={passkey.name || ''}
-                    onChange={(event) => setPasskeys((previous) => previous.map((row) => (row.id === passkey.id ? { ...row, name: event.target.value } : row)))}
-                  />
-                  <p className="m-0 text-xs text-[var(--text-secondary)]">
-                    {t('shell.createdAt')}: {formatDateTime(passkey.created_at)}
-                  </p>
-                  <p className="m-0 text-xs text-[var(--text-secondary)]">
-                    {t('shell.lastUsed')}: {passkey.last_used_at ? formatDateTime(passkey.last_used_at) : t('shell.never')}
-                  </p>
-                  <div className="mt-2 flex gap-2">
-                    <button
-                      type="button"
-                      className="btn-secondary flex-1"
-                      onClick={() => onRenamePasskey(passkey.id, passkey.name || '')}
-                      disabled={passkeysLoading || passkeysSaving || passkeysActionId === passkey.id || !(passkey.name || '').trim()}
-                    >
-                      {passkeysActionId === passkey.id ? t('shell.saving') : t('shell.saveName')}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-danger flex-1"
-                      onClick={() => onDeletePasskey(passkey.id)}
-                      disabled={passkeysLoading || passkeysSaving || passkeysActionId === passkey.id || Number(user?.current_passkey_id) === Number(passkey.id)}
-                      title={Number(user?.current_passkey_id) === Number(passkey.id) ? t('shell.cannotDeleteCurrentPasskey') : undefined}
-                    >
-                      {t('shell.delete')}
-                    </button>
-                  </div>
-                  {Number(user?.current_passkey_id) === Number(passkey.id) ? (
-                    <p className="mt-1 m-0 text-xs text-[var(--text-secondary)]">{t('shell.activeSessionPasskey')}</p>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="m-0 text-sm text-[var(--text-secondary)]">{t('shell.noPasskeys')}</p>
-          )}
+          {renderPasskeysContent()}
 
           {passkeysError ? (
             <p className="m-0 rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{passkeysError}</p>
