@@ -8,8 +8,7 @@ export function slugifyGroupName(name) {
   const slug = normalized
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+/, '')
-    .replace(/-+$/, '')
-    .replace(/-{2,}/g, '-');
+    .replace(/-+$/, '');
 
   return slug || 'grupp';
 }

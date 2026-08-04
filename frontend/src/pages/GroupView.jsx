@@ -603,6 +603,31 @@ function GroupSettingsModal({
     return null;
   }
 
+  const renderMemberAction = (member) => {
+    const isOwner = Number(member.id) === Number(group?.created_by);
+    if (isOwner) {
+      return (
+        <span className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border-subtle)] px-4 text-sm font-medium text-[var(--text-secondary)]">
+          Ägare
+        </span>
+      );
+    }
+
+    if (member.has_activity) {
+      return (
+        <span className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border-subtle)] px-4 text-sm font-medium text-[var(--text-secondary)]" title="Har utgifter eller kvittningar i gruppen">
+          Har transaktioner
+        </span>
+      );
+    }
+
+    return (
+      <button type="button" className="btn-danger" onClick={() => handleRemoveMember(member.id)} disabled={isArchived}>
+        Ta bort
+      </button>
+    );
+  };
+
   return (
     <ModalShell
       title="Gruppinställningar"
@@ -754,19 +779,7 @@ function GroupSettingsModal({
                     <p className="m-0 text-xs text-[var(--text-muted)]">Ej ansluten</p>
                   ) : null}
                 </div>
-                {Number(member.id) === Number(group?.created_by) ? (
-                  <span className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border-subtle)] px-4 text-sm font-medium text-[var(--text-secondary)]">
-                    Ägare
-                  </span>
-                ) : member.has_activity ? (
-                  <span className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border-subtle)] px-4 text-sm font-medium text-[var(--text-secondary)]" title="Har utgifter eller kvittningar i gruppen">
-                    Har transaktioner
-                  </span>
-                ) : (
-                  <button type="button" className="btn-danger" onClick={() => handleRemoveMember(member.id)} disabled={isArchived}>
-                    Ta bort
-                  </button>
-                )}
+                {renderMemberAction(member)}
               </div>
             ))}
           </div>

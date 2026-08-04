@@ -3,7 +3,17 @@ const INVITE_TOKEN_PATTERN = /^[a-zA-Z0-9_-]{8,200}$/;
 function sanitizeToken(value) {
   if (!value) return '';
   const trimmed = decodeURIComponent(String(value).trim());
-  return trimmed.replace(/^\/+/, '').replace(/\/+$/, '');
+  let start = 0;
+  let end = trimmed.length;
+
+  while (start < end && trimmed[start] === '/') {
+    start += 1;
+  }
+  while (end > start && trimmed[end - 1] === '/') {
+    end -= 1;
+  }
+
+  return trimmed.slice(start, end);
 }
 
 function toAbsoluteInviteCandidate(raw, origin) {

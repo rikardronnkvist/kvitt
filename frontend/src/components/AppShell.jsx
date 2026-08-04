@@ -69,6 +69,36 @@ function NotificationsBanner({ notifState, onEnableNotifications, onDismissNotif
   return null;
 }
 
+function NotificationsMenuItem({ notifState, onDisableNotifications, onPrepareEnableNotifications }) {
+  if (notifState === 'subscribed') {
+    return (
+      <button
+        type="button"
+        className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
+        onClick={onDisableNotifications}
+      >
+        <BellOff className="h-4 w-4 text-[var(--text-secondary)]" />
+        {t('shell.disableNotifications')}
+      </button>
+    );
+  }
+
+  if (notifState === 'default' || notifState === 'dismissed') {
+    return (
+      <button
+        type="button"
+        className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
+        onClick={onPrepareEnableNotifications}
+      >
+        <Bell className="h-4 w-4 text-[var(--text-secondary)]" />
+        {t('shell.enableNotifications')}
+      </button>
+    );
+  }
+
+  return null;
+}
+
 function AppMenuDropdown({
   dropdownOpen,
   user,
@@ -87,34 +117,16 @@ function AppMenuDropdown({
     return null;
   }
 
-  const renderNotificationsMenuItem = () => {
-    if (notifState === 'subscribed') {
-      return (
-        <button
-          type="button"
-          className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
-          onClick={async () => { await unsubscribeFromPush(); setNotifState('default'); setDropdownOpen(false); }}
-        >
-          <BellOff className="h-4 w-4 text-[var(--text-secondary)]" />
-          {t('shell.disableNotifications')}
-        </button>
-      );
-    }
+  const handleDisableNotifications = async () => {
+    await unsubscribeFromPush();
+    setNotifState('default');
+    setDropdownOpen(false);
+  };
 
-    if (notifState === 'default' || notifState === 'dismissed') {
-      return (
-        <button
-          type="button"
-          className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
-          onClick={() => { localStorage.removeItem('notifications_dismissed'); setNotifState('default'); setDropdownOpen(false); }}
-        >
-          <Bell className="h-4 w-4 text-[var(--text-secondary)]" />
-          {t('shell.enableNotifications')}
-        </button>
-      );
-    }
-
-    return null;
+  const handlePrepareEnableNotifications = () => {
+    localStorage.removeItem('notifications_dismissed');
+    setNotifState('default');
+    setDropdownOpen(false);
   };
 
   return (
@@ -167,7 +179,11 @@ function AppMenuDropdown({
       {!user?.is_admin || hasNotificationsMenuItem ? (
         <div className="my-1 border-t border-[var(--border-subtle)]" />
       ) : null}
-      {renderNotificationsMenuItem()}
+      <NotificationsMenuItem
+        notifState={notifState}
+        onDisableNotifications={handleDisableNotifications}
+        onPrepareEnableNotifications={handlePrepareEnableNotifications}
+      />
       {user?.is_admin ? <div className="my-1 border-t border-[var(--border-subtle)]" /> : null}
       {user?.is_admin ? (
         <button

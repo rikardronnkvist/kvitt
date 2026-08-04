@@ -152,90 +152,133 @@ function AdminUsersTab({
         <span className="w-9 shrink-0" />
         <span className="w-9 shrink-0" />
       </div>
-      {users.map((user) => {
-        const draft = userDrafts[user.id] || { is_admin: false, full_name: '' };
-        const isDirty = draft.full_name !== user.full_name || Boolean(draft.is_admin) !== Boolean(user.is_admin);
-        const recoveryUrl = recoveryUrls[user.id];
-        const isGenerating = generatingRecoveryUserId === user.id;
-        const isBusy = savingUserId === user.id || deletingUserId === user.id;
-        return (
-          <div key={user.id} className="flex flex-col">
-            <div className="flex items-center gap-x-3 px-4 py-2">
-              <input
-                className="min-w-0 flex-1"
-                value={draft.full_name || ''}
-                onChange={(event) => handleUserDraftChange(user.id, 'full_name', event.target.value)}
-                aria-label="Fullständigt namn"
-              />
-              <div className="hidden w-14 shrink-0 justify-center sm:flex">
-                <input
-                  type="checkbox"
-                  checked={Boolean(draft.is_admin)}
-                  onChange={(event) => handleUserDraftChange(user.id, 'is_admin', event.target.checked)}
-                />
-              </div>
-              <span className="hidden w-16 shrink-0 text-center text-sm text-[var(--text-muted)] sm:block">{user.group_count}</span>
-              <span className="hidden w-16 shrink-0 text-center text-sm text-[var(--text-muted)] sm:block">{user.passkey_count}</span>
-              <button
-                type="button"
-                className={`size-9 min-h-0 shrink-0 rounded-lg border p-0 text-sm font-semibold transition-colors ${isDirty ? 'border-[var(--accent)] bg-[var(--accent)] text-white hover:opacity-90' : 'cursor-not-allowed border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[var(--text-muted)]'}`}
-                onClick={() => handleSaveUser(user.id)}
-                disabled={!isDirty || isBusy}
-                title="Spara ändringar"
-              >
-                {savingUserId === user.id ? '…' : <Check className="mx-auto h-4 w-4" />}
-              </button>
-              <button
-                type="button"
-                className="size-9 min-h-0 shrink-0 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] p-0 text-sm font-semibold transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
-                onClick={() => handleGenerateRecoveryLink(user.id)}
-                disabled={isGenerating || user.passkey_count === 0 || isBusy}
-                title={user.passkey_count === 0 ? 'Användaren saknar passkeys – använd registreringslänken' : 'Generera återhämtningslänk'}
-              >
-                {isGenerating ? '…' : <Link2 className="mx-auto h-4 w-4" />}
-              </button>
-              <button
-                type="button"
-                className={`size-9 min-h-0 shrink-0 rounded-lg border p-0 text-sm font-semibold transition-colors ${user.group_count > 0 ? 'cursor-not-allowed border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[var(--text-muted)]' : 'border-[var(--danger)] bg-[var(--danger)] text-white hover:opacity-90'}`}
-                onClick={() => handleDeleteUser(user.id)}
-                disabled={user.group_count > 0 || isBusy}
-                title={user.group_count > 0 ? 'Kan inte radera användare med grupper' : 'Radera användare'}
-              >
-                {deletingUserId === user.id ? '...' : '×'}
-              </button>
-            </div>
-            <div className="flex items-center gap-4 px-4 pb-2 sm:hidden">
-              <label className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-                <input
-                  type="checkbox"
-                  checked={Boolean(draft.is_admin)}
-                  onChange={(event) => handleUserDraftChange(user.id, 'is_admin', event.target.checked)}
-                />
-                <span>Admin</span>
-              </label>
-              <span className="text-xs text-[var(--text-muted)]">{user.group_count} grupper</span>
-              <span className="text-xs text-[var(--text-muted)]">{user.passkey_count} passkeys</span>
-            </div>
-            {recoveryUrl ? (
-              <div className="mx-4 mb-2 flex items-center gap-2 rounded-lg border border-[color:color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[color:color-mix(in_srgb,var(--accent)_6%,transparent)] px-3 py-2">
-                <input
-                  readOnly
-                  value={recoveryUrl}
-                  className="min-w-0 flex-1 bg-transparent text-xs text-[var(--text-secondary)]"
-                  onFocus={(event) => event.target.select()}
-                />
-                <button
-                  type="button"
-                  className="btn-secondary shrink-0 px-2 py-1 text-xs"
-                  onClick={() => handleCopyRecoveryUrl(user.id)}
-                >
-                  Kopiera
-                </button>
-              </div>
-            ) : null}
-          </div>
-        );
-      })}
+      {users.map((user) => (
+        <AdminUserRow
+          key={user.id}
+          user={user}
+          draft={userDrafts[user.id] || { is_admin: false, full_name: '' }}
+          recoveryUrl={recoveryUrls[user.id]}
+          isGenerating={generatingRecoveryUserId === user.id}
+          savingUserId={savingUserId}
+          deletingUserId={deletingUserId}
+          onDraftChange={handleUserDraftChange}
+          onSaveUser={handleSaveUser}
+          onGenerateRecoveryLink={handleGenerateRecoveryLink}
+          onDeleteUser={handleDeleteUser}
+          onCopyRecoveryUrl={handleCopyRecoveryUrl}
+        />
+      ))}
+    </div>
+  );
+}
+
+function getSaveButtonClass(isDirty) {
+  return `size-9 min-h-0 shrink-0 rounded-lg border p-0 text-sm font-semibold transition-colors ${isDirty ? 'border-[var(--accent)] bg-[var(--accent)] text-white hover:opacity-90' : 'cursor-not-allowed border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[var(--text-muted)]'}`;
+}
+
+function getDeleteButtonClass(hasGroups) {
+  return `size-9 min-h-0 shrink-0 rounded-lg border p-0 text-sm font-semibold transition-colors ${hasGroups ? 'cursor-not-allowed border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[var(--text-muted)]' : 'border-[var(--danger)] bg-[var(--danger)] text-white hover:opacity-90'}`;
+}
+
+function getRecoveryButtonTitle(passkeyCount) {
+  if (passkeyCount === 0) {
+    return 'Användaren saknar passkeys – använd registreringslänken';
+  }
+  return 'Generera återhämtningslänk';
+}
+
+function AdminUserRow({
+  user,
+  draft,
+  recoveryUrl,
+  isGenerating,
+  savingUserId,
+  deletingUserId,
+  onDraftChange,
+  onSaveUser,
+  onGenerateRecoveryLink,
+  onDeleteUser,
+  onCopyRecoveryUrl,
+}) {
+  const isDirty = draft.full_name !== user.full_name || Boolean(draft.is_admin) !== Boolean(user.is_admin);
+  const isBusy = savingUserId === user.id || deletingUserId === user.id;
+  const hasGroups = user.group_count > 0;
+
+  return (
+    <div className="flex flex-col">
+      <div className="flex items-center gap-x-3 px-4 py-2">
+        <input
+          className="min-w-0 flex-1"
+          value={draft.full_name || ''}
+          onChange={(event) => onDraftChange(user.id, 'full_name', event.target.value)}
+          aria-label="Fullständigt namn"
+        />
+        <div className="hidden w-14 shrink-0 justify-center sm:flex">
+          <input
+            type="checkbox"
+            checked={Boolean(draft.is_admin)}
+            onChange={(event) => onDraftChange(user.id, 'is_admin', event.target.checked)}
+          />
+        </div>
+        <span className="hidden w-16 shrink-0 text-center text-sm text-[var(--text-muted)] sm:block">{user.group_count}</span>
+        <span className="hidden w-16 shrink-0 text-center text-sm text-[var(--text-muted)] sm:block">{user.passkey_count}</span>
+        <button
+          type="button"
+          className={getSaveButtonClass(isDirty)}
+          onClick={() => onSaveUser(user.id)}
+          disabled={!isDirty || isBusy}
+          title="Spara ändringar"
+        >
+          {savingUserId === user.id ? '…' : <Check className="mx-auto h-4 w-4" />}
+        </button>
+        <button
+          type="button"
+          className="size-9 min-h-0 shrink-0 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] p-0 text-sm font-semibold transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
+          onClick={() => onGenerateRecoveryLink(user.id)}
+          disabled={isGenerating || user.passkey_count === 0 || isBusy}
+          title={getRecoveryButtonTitle(user.passkey_count)}
+        >
+          {isGenerating ? '…' : <Link2 className="mx-auto h-4 w-4" />}
+        </button>
+        <button
+          type="button"
+          className={getDeleteButtonClass(hasGroups)}
+          onClick={() => onDeleteUser(user.id)}
+          disabled={hasGroups || isBusy}
+          title={hasGroups ? 'Kan inte radera användare med grupper' : 'Radera användare'}
+        >
+          {deletingUserId === user.id ? '...' : '×'}
+        </button>
+      </div>
+      <div className="flex items-center gap-4 px-4 pb-2 sm:hidden">
+        <label className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+          <input
+            type="checkbox"
+            checked={Boolean(draft.is_admin)}
+            onChange={(event) => onDraftChange(user.id, 'is_admin', event.target.checked)}
+          />
+          <span>Admin</span>
+        </label>
+        <span className="text-xs text-[var(--text-muted)]">{user.group_count} grupper</span>
+        <span className="text-xs text-[var(--text-muted)]">{user.passkey_count} passkeys</span>
+      </div>
+      {recoveryUrl ? (
+        <div className="mx-4 mb-2 flex items-center gap-2 rounded-lg border border-[color:color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[color:color-mix(in_srgb,var(--accent)_6%,transparent)] px-3 py-2">
+          <input
+            readOnly
+            value={recoveryUrl}
+            className="min-w-0 flex-1 bg-transparent text-xs text-[var(--text-secondary)]"
+            onFocus={(event) => event.target.select()}
+          />
+          <button
+            type="button"
+            className="btn-secondary shrink-0 px-2 py-1 text-xs"
+            onClick={() => onCopyRecoveryUrl(user.id)}
+          >
+            Kopiera
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
