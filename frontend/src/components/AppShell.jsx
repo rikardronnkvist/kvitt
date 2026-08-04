@@ -377,14 +377,30 @@ function PasskeyRow({
   onDeletePasskey,
 }) {
   const isCurrentPasskey = Number(currentPasskeyId) === Number(passkey.id);
+  const passkeyName = passkey.name || '';
+  const isSavingAction = passkeysActionId === passkey.id;
+  const isRenameDisabled = passkeysLoading || passkeysSaving || isSavingAction || !passkeyName.trim();
+  const isDeleteDisabled = passkeysLoading || passkeysSaving || isSavingAction || isCurrentPasskey;
+
+  const handleNameChange = (event) => {
+    onNameChange(passkey.id, event.target.value);
+  };
+
+  const handleRename = () => {
+    onRenamePasskey(passkey.id, passkeyName);
+  };
+
+  const handleDelete = () => {
+    onDeletePasskey(passkey.id);
+  };
 
   return (
     <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-3 py-2.5">
       <input
         type="text"
         className="w-full rounded-md border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-2 py-1 text-sm font-semibold"
-        value={passkey.name || ''}
-        onChange={(event) => onNameChange(passkey.id, event.target.value)}
+        value={passkeyName}
+        onChange={handleNameChange}
       />
       <p className="m-0 text-xs text-[var(--text-secondary)]">
         {t('shell.createdAt')}: {formatDateTime(passkey.created_at)}
@@ -396,16 +412,16 @@ function PasskeyRow({
         <button
           type="button"
           className="btn-secondary flex-1"
-          onClick={() => onRenamePasskey(passkey.id, passkey.name || '')}
-          disabled={passkeysLoading || passkeysSaving || passkeysActionId === passkey.id || !(passkey.name || '').trim()}
+          onClick={handleRename}
+          disabled={isRenameDisabled}
         >
-          {passkeysActionId === passkey.id ? t('shell.saving') : t('shell.saveName')}
+          {isSavingAction ? t('shell.saving') : t('shell.saveName')}
         </button>
         <button
           type="button"
           className="btn-danger flex-1"
-          onClick={() => onDeletePasskey(passkey.id)}
-          disabled={passkeysLoading || passkeysSaving || passkeysActionId === passkey.id || isCurrentPasskey}
+          onClick={handleDelete}
+          disabled={isDeleteDisabled}
           title={isCurrentPasskey ? t('shell.cannotDeleteCurrentPasskey') : undefined}
         >
           {t('shell.delete')}
