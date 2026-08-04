@@ -15,7 +15,7 @@ import { getCategoryIcon } from '../lib/expenseCategories.js';
 import { formatCurrency, formatDateTime, formatMonthYear } from '../lib/format.js';
 import { buildInviteUrl } from '../lib/inviteToken.js';
 import { getCurrentUserId } from '../lib/session.js';
-import { getUserDisplayName, getUserSearchLabel } from '../lib/users.js';
+import { getUserDisplayName, getUserInitials, getUserSearchLabel } from '../lib/users.js';
 import { GROUP_THEMES, getThemeForGroup } from '../lib/groupTheme.js';
 
 const INITIAL_TIMELINE_VISIBLE_COUNT = 25;
@@ -98,6 +98,9 @@ function GroupSkeleton() {
 }
 
 function SettlementItem({ settlement, onEdit, readOnly = false }) {
+  const payerUser = { full_name: settlement.payer_full_name || settlement.payer_display_name };
+  const receiverUser = { full_name: settlement.receiver_full_name || settlement.receiver_display_name };
+
   const handleKeyDown = (event) => {
     if (readOnly) return;
     if (event.key === 'Enter' || event.key === ' ') {
@@ -126,6 +129,28 @@ function SettlementItem({ settlement, onEdit, readOnly = false }) {
             <HandCoins className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
             Kvittat: från {settlement.payer_display_name} till {settlement.receiver_display_name}
           </h3>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5">
+              <span
+                title={settlement.payer_display_name}
+                className="inline-flex items-center justify-center px-0.5 py-0.5 text-xs font-medium text-[var(--text-secondary)]"
+              >
+                <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[9px] font-semibold text-[var(--text-primary)]">
+                  {getUserInitials(payerUser)}
+                </span>
+              </span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span
+                title={settlement.receiver_display_name}
+                className="inline-flex items-center justify-center px-0.5 py-0.5 text-xs font-medium text-[var(--text-secondary)]"
+              >
+                <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[9px] font-semibold text-[var(--text-primary)]">
+                  {getUserInitials(receiverUser)}
+                </span>
+              </span>
+            </span>
+          </div>
         </div>
       </div>
       <div className="grid shrink-0 grid-cols-[9.5rem_6.5rem] items-center gap-4 self-center text-right">
@@ -1234,7 +1259,12 @@ export default function GroupView() {
                 <div className="mt-2 space-y-1.5">
                   {memberBalancesAscending.map((member) => (
                     <div key={member.id} className="flex items-center justify-between gap-3 text-sm">
-                      <span className="font-medium">{getUserDisplayName(member)}</span>
+                      <span className="inline-flex items-center gap-1.5 font-medium">
+                        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[9px] font-semibold text-[var(--text-secondary)]">
+                          {getUserInitials(member)}
+                        </span>
+                        {getUserDisplayName(member)}
+                      </span>
                       <span className={`font-semibold ${getBalanceAmountClass(member.balance)}`}>
                         {member.balance < 0 ? '-' : ''}
                         {formatCurrency(Math.abs(member.balance), { precise: true })}
