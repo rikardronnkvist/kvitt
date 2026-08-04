@@ -401,6 +401,387 @@ async function deleteGroupPermanently({ isGroupOwner, groupActionSaving, groupSl
   }
 }
 
+function GroupActionButtons({
+  isArchived,
+  isGroupOwner,
+  groupSlug,
+  theme,
+  members,
+  groupActionSaving,
+  onAddExpense,
+  onAddSettlement,
+  onOpenSettings,
+  onUnarchive,
+  onDeleteGroup,
+  navigate,
+}) {
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row">
+      {!isArchived ? (
+        <button type="button" className="btn-primary" style={{ background: theme.base, borderColor: theme.base }} onClick={onAddExpense} disabled={members.length < 2}>
+          <Plus className="h-4 w-4" />
+          Lägg till utgift
+        </button>
+      ) : null}
+      {!isArchived ? (
+        <button type="button" className="btn-secondary" onClick={onAddSettlement}>
+          <HandCoins className="h-4 w-4" />
+          Kvitta skuld
+        </button>
+      ) : null}
+      <button type="button" className="btn-secondary" onClick={() => navigate(`/groups/${groupSlug}/statistics`)}>
+        <BarChart3 className="h-4 w-4" />
+        Statistik
+      </button>
+      {isGroupOwner && !isArchived ? (
+        <button type="button" className="btn-secondary" onClick={onOpenSettings}>
+          <Settings className="h-4 w-4" />
+          Inställningar
+        </button>
+      ) : null}
+      {isGroupOwner && isArchived ? (
+        <button type="button" className="btn-secondary" onClick={onUnarchive} disabled={groupActionSaving}>
+          <RotateCcw className="h-4 w-4" />
+          Återaktivera
+        </button>
+      ) : null}
+      {isGroupOwner && isArchived ? (
+        <button type="button" className="btn-danger" onClick={onDeleteGroup} disabled={groupActionSaving}>
+          <Trash2 className="h-4 w-4" />
+          Radera grupp
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function buildTimelineElements({ visibleTimeline, monthlyTotals, theme, isArchived, setEditingExpenseId, setEditingSettlementId }) {
+  let currentMonthKey = null;
+  return visibleTimeline.flatMap((item) => {
+    const monthKey = Number.isFinite(item.activityTimestamp) ? getMonthKey(item.activityTimestamp) : null;
+    const result = [];
+    if (monthKey && monthKey !== currentMonthKey) {
+      currentMonthKey = monthKey;
+      const totals = monthlyTotals.get(monthKey) || { totalSpent: 0, expenseCount: 0, settlementTotal: 0, settlementCount: 0 };
+      const parts = [];
+      if (totals.expenseCount > 0) parts.push(`${totals.expenseCount} ${totals.expenseCount === 1 ? 'utgift' : 'utgifter'}, totalt ${formatCurrency(totals.totalSpent, { precise: true })}`);
+      if (totals.settlementCount > 0) parts.push(`${totals.settlementCount} ${totals.settlementCount === 1 ? 'kvittning' : 'kvittningar'}, totalt ${formatCurrency(totals.settlementTotal, { precise: true })}`);
+      result.push(
+        <div key={`month-${monthKey}`} className="flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-5 py-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">{formatMonthYear(new Date(item.activityTimestamp))}</span>
+          <span className="flex flex-col text-right text-xs font-medium sm:block" style={{ color: theme.base }}>
+            {parts.map((part, index) => (
+              <span key={index} className={index > 0 ? 'sm:before:content-["_·_"]' : ''}>{part}</span>
+            ))}
+          </span>
+        </div>,
+      );
+    }
+    result.push(
+      item.kind === 'expense' ? (
+        <ExpenseItem key={`expense-${item.id}`} expense={item} onEdit={setEditingExpenseId} readOnly={isArchived} />
+      ) : (
+        <SettlementItem key={`settlement-${item.id}`} settlement={item} onEdit={setEditingSettlementId} readOnly={isArchived} />
+      ),
+    );
+    return result;
+  });
+}
+
+function TimelineSection({ timeline, visibleTimeline, monthlyTotals, theme, isArchived, setEditingExpenseId, setEditingSettlementId, hasMoreTimeline, setVisibleTimelineCount }) {
+  if (!timeline.length) {
+    return (
+      <section className="surface-card overflow-hidden">
+        <div className="p-5">
+          <EmptyState
+            icon={Coins}
+            title="Ingen aktivitet ännu"
+            description="Lägg till medlemmar i gruppen och börja sedan att registrera utgifter..."
+          />
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="surface-card overflow-hidden">
+      <div>
+        {buildTimelineElements({
+          visibleTimeline,
+          monthlyTotals,
+          theme,
+          isArchived,
+          setEditingExpenseId,
+          setEditingSettlementId,
+        })}
+        {hasMoreTimeline ? (
+          <div className="flex justify-center border-t border-[var(--border-subtle)] px-5 py-4">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setVisibleTimelineCount((previous) => previous + TIMELINE_LOAD_STEP)}
+            >
+              Ladda fler händelser
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function GroupSettingsModal({
+  isSettingsOpen,
+  isGroupOwner,
+  isArchived,
+  onClose,
+  groupNameDraft,
+  setGroupNameDraft,
+  handleRenameGroup,
+  renamingGroup,
+  group,
+  handleUpdateTheme,
+  mileageRateDraft,
+  setMileageRateDraft,
+  handleUpdateMileageRate,
+  inviteToken,
+  inviteUrl,
+  handleShareInvite,
+  inviteSharing,
+  handleCopyInviteLink,
+  inviteCopied,
+  inviteExpiresAt,
+  handleOpenInviteQr,
+  handleGenerateInvite,
+  inviteLoading,
+  handleRevokeInvite,
+  members,
+  handleRemoveMember,
+  placeholderName,
+  setPlaceholderName,
+  handleAddPlaceholder,
+  addingPlaceholder,
+  canArchiveGroup,
+  handleArchiveGroup,
+}) {
+  if (!isSettingsOpen || !isGroupOwner) {
+    return null;
+  }
+
+  return (
+    <ModalShell
+      title="Gruppinställningar"
+      description={isArchived ? 'Gruppen är arkiverad och skrivskyddad.' : null}
+      onClose={onClose}
+    >
+      <div className="divide-y divide-[var(--border-subtle)]">
+        <div className="space-y-4 pb-6">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">Inställningar</h3>
+          <div className="space-y-3">
+            <label className="field-label">
+              Gruppnamn
+              <input
+                type="text"
+                value={groupNameDraft}
+                onChange={(event) => setGroupNameDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    handleRenameGroup();
+                  }
+                }}
+                disabled={isArchived || renamingGroup}
+              />
+            </label>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={handleRenameGroup}
+              disabled={isArchived || renamingGroup || !groupNameDraft.trim() || groupNameDraft.trim() === (group?.name || '').trim()}
+            >
+              Byt gruppnamn
+            </button>
+          </div>
+          <div className="space-y-3">
+            <p className="field-label">Färgtema</p>
+            <div className="flex flex-wrap gap-2">
+              {GROUP_THEMES.map((themeOption) => {
+                const isActive = (group?.theme_color ?? null) === themeOption.id
+                  || (!group?.theme_color && getThemeForGroup(group).id === themeOption.id);
+                return (
+                  <button
+                    key={themeOption.id}
+                    type="button"
+                    title={themeOption.name}
+                    onClick={() => handleUpdateTheme(themeOption.id)}
+                    disabled={isArchived}
+                    className="h-7 w-7 rounded-full transition hover:scale-110 focus:outline-none focus-visible:ring-2"
+                    style={{
+                      background: themeOption.base,
+                      outline: isActive ? `2px solid ${themeOption.base}` : undefined,
+                      outlineOffset: isActive ? '2px' : undefined,
+                      boxShadow: isActive ? `0 0 0 3px rgba(255,255,255,0.9), 0 0 0 5px ${themeOption.base}` : undefined,
+                    }}
+                    aria-pressed={isActive}
+                    aria-label={themeOption.name}
+                  />
+                );
+              })}
+            </div>
+          </div>
+          <div className="space-y-3">
+            <label className="field-label">
+              Milkostnad för Bil (kr/mil)
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={mileageRateDraft}
+                onChange={(event) => setMileageRateDraft(sanitizeIntegerInput(event.target.value))}
+                disabled={isArchived}
+              />
+            </label>
+            <button type="button" className="btn-secondary" onClick={handleUpdateMileageRate} disabled={isArchived}>
+              Spara milkostnad
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-4 py-6">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">Inbjudningslänk</h3>
+          {inviteToken ? (
+            <>
+              <div className="flex flex-wrap gap-2">
+                <input
+                  readOnly
+                  value={inviteUrl}
+                  className="min-w-[220px] flex-1 truncate text-sm"
+                />
+                <button type="button" className="btn-secondary shrink-0" onClick={handleShareInvite} disabled={inviteSharing}>
+                  <SendHorizontal className="h-4 w-4" />
+                  {inviteSharing ? 'Delar...' : 'Dela'}
+                </button>
+                <button type="button" className="btn-secondary shrink-0" onClick={handleCopyInviteLink}>
+                  <Copy className="h-4 w-4" />
+                  {inviteCopied ? 'Kopierad!' : 'Kopiera'}
+                </button>
+              </div>
+              {inviteExpiresAt && (
+                <p className="m-0 text-xs text-[var(--text-muted)]">
+                  Gäller till {new Date(inviteExpiresAt).toLocaleDateString('sv-SE')}
+                </p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className="btn-secondary" onClick={handleOpenInviteQr}>
+                  <Link2 className="h-4 w-4" />
+                  Visa QR
+                </button>
+                <button type="button" className="btn-secondary" onClick={handleGenerateInvite} disabled={inviteLoading}>
+                  <RefreshCw className="h-4 w-4" />
+                  Ny länk
+                </button>
+                <button type="button" className="btn-danger" onClick={handleRevokeInvite}>
+                  Ta bort länk
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="m-0 text-sm text-[var(--text-secondary)]">
+                Skapa en länk att dela. Alla med länken kan gå med i gruppen. Länken gäller i 30 dagar.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button type="button" className="btn-primary" onClick={handleGenerateInvite} disabled={inviteLoading || isArchived}>
+                  <Link2 className="h-4 w-4" />
+                  Skapa inbjudningslänk
+                </button>
+                <button type="button" className="btn-secondary" onClick={handleShareInvite} disabled={inviteSharing || inviteLoading || isArchived}>
+                  <SendHorizontal className="h-4 w-4" />
+                  {inviteSharing ? 'Delar...' : 'Skapa och dela'}
+                </button>
+                <button type="button" className="btn-secondary" onClick={handleOpenInviteQr} disabled={inviteLoading || isArchived}>
+                  <Link2 className="h-4 w-4" />
+                  Skapa och visa QR
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="space-y-4 pt-6">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">Medlemmar</h3>
+          <div className="space-y-2">
+            {members.map((member) => (
+              <div key={member.id} className="flex flex-col gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="m-0 text-sm font-medium">{getUserDisplayName(member)}</p>
+                  {member.is_placeholder ? (
+                    <p className="m-0 text-xs text-[var(--text-muted)]">Ej ansluten</p>
+                  ) : null}
+                </div>
+                {Number(member.id) === Number(group?.created_by) ? (
+                  <span className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border-subtle)] px-4 text-sm font-medium text-[var(--text-secondary)]">
+                    Ägare
+                  </span>
+                ) : member.has_activity ? (
+                  <span className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border-subtle)] px-4 text-sm font-medium text-[var(--text-secondary)]" title="Har utgifter eller kvittningar i gruppen">
+                    Har transaktioner
+                  </span>
+                ) : (
+                  <button type="button" className="btn-danger" onClick={() => handleRemoveMember(member.id)} disabled={isArchived}>
+                    Ta bort
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {!isArchived && (
+            <div className="space-y-3">
+              <p className="field-label">Lägg till person i förväg</p>
+              <p className="m-0 text-sm text-[var(--text-secondary)]">
+                Lägg till namn på personer som ännu inte har skapat konto - du kan dela kostnader med dem direkt.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  value={placeholderName}
+                  onChange={(event) => setPlaceholderName(event.target.value)}
+                  onKeyDown={(event) => event.key === 'Enter' && handleAddPlaceholder()}
+                  placeholder="Fullständigt namn"
+                  disabled={addingPlaceholder}
+                  className="flex-1"
+                />
+                <button
+                  type="button"
+                  className="btn-primary shrink-0"
+                  onClick={handleAddPlaceholder}
+                  disabled={!placeholderName.trim() || addingPlaceholder}
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Lägg till
+                </button>
+              </div>
+            </div>
+          )}
+
+          {isGroupOwner && !isArchived ? (
+            <div className="space-y-3 border-t border-[var(--border-subtle)] pt-4">
+              <p className="m-0 text-sm text-[var(--text-secondary)]">
+                Arkivera gruppen för att göra den skrivskyddad.
+                {!canArchiveGroup ? ' Alla medlemmar måste ha balans 0 innan du kan arkivera.' : ''}
+              </p>
+              <button type="button" className="btn-danger" onClick={handleArchiveGroup} disabled={!canArchiveGroup}>
+                <Archive className="h-4 w-4" />
+                Arkivera grupp
+              </button>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
 export default function GroupView() {
   const navigate = useNavigate();
   const { slug } = useParams();
@@ -821,42 +1202,20 @@ export default function GroupView() {
               <div className="space-y-2">
                 <h1 className="page-title">{group?.name}</h1>
               </div>
-              <div className="flex flex-col gap-3 sm:flex-row">
-                {!isArchived ? (
-                  <button type="button" className="btn-primary" style={{ background: theme.base, borderColor: theme.base }} onClick={() => setIsAddingExpense(true)} disabled={members.length < 2}>
-                    <Plus className="h-4 w-4" />
-                    Lägg till utgift
-                  </button>
-                ) : null}
-                {!isArchived ? (
-                  <button type="button" className="btn-secondary" onClick={() => setIsAddingSettlement(true)}>
-                    <HandCoins className="h-4 w-4" />
-                    Kvitta skuld
-                  </button>
-                ) : null}
-                <button type="button" className="btn-secondary" onClick={() => navigate(`/groups/${groupSlug}/statistics`)}>
-                  <BarChart3 className="h-4 w-4" />
-                  Statistik
-                </button>
-                {isGroupOwner && !isArchived ? (
-                  <button type="button" className="btn-secondary" onClick={() => setIsSettingsOpen(true)}>
-                    <Settings className="h-4 w-4" />
-                    Inställningar
-                  </button>
-                ) : null}
-                {isGroupOwner && isArchived ? (
-                  <button type="button" className="btn-secondary" onClick={handleUnarchiveGroup} disabled={groupActionSaving}>
-                    <RotateCcw className="h-4 w-4" />
-                    Återaktivera
-                  </button>
-                ) : null}
-                {isGroupOwner && isArchived ? (
-                  <button type="button" className="btn-danger" onClick={handleDeleteGroup} disabled={groupActionSaving}>
-                    <Trash2 className="h-4 w-4" />
-                    Radera grupp
-                  </button>
-                ) : null}
-              </div>
+              <GroupActionButtons
+                isArchived={isArchived}
+                isGroupOwner={isGroupOwner}
+                groupSlug={groupSlug}
+                theme={theme}
+                members={members}
+                groupActionSaving={groupActionSaving}
+                onAddExpense={() => setIsAddingExpense(true)}
+                onAddSettlement={() => setIsAddingSettlement(true)}
+                onOpenSettings={() => setIsSettingsOpen(true)}
+                onUnarchive={handleUnarchiveGroup}
+                onDeleteGroup={handleDeleteGroup}
+                navigate={navigate}
+              />
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -907,283 +1266,53 @@ export default function GroupView() {
       {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
 
       <div className="grid gap-6">
-        <section className="surface-card overflow-hidden">
-
-          {timeline.length ? (
-            <div>
-              {(() => {
-                let currentMonthKey = null;
-                return visibleTimeline.flatMap((item) => {
-                  const monthKey = Number.isFinite(item.activityTimestamp) ? getMonthKey(item.activityTimestamp) : null;
-                  const result = [];
-                  if (monthKey && monthKey !== currentMonthKey) {
-                    currentMonthKey = monthKey;
-                    const totals = monthlyTotals.get(monthKey) || { totalSpent: 0, expenseCount: 0, settlementTotal: 0, settlementCount: 0 };
-                    const parts = [];
-                    if (totals.expenseCount > 0) parts.push(`${totals.expenseCount} ${totals.expenseCount === 1 ? 'utgift' : 'utgifter'}, totalt ${formatCurrency(totals.totalSpent, { precise: true })}`);
-                    if (totals.settlementCount > 0) parts.push(`${totals.settlementCount} ${totals.settlementCount === 1 ? 'kvittning' : 'kvittningar'}, totalt ${formatCurrency(totals.settlementTotal, { precise: true })}`);
-                    result.push(
-                      <div key={`month-${monthKey}`} className="flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-5 py-2">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">{formatMonthYear(new Date(item.activityTimestamp))}</span>
-                        <span className="flex flex-col text-right text-xs font-medium sm:block" style={{ color: theme.base }}>
-                          {parts.map((part, i) => (
-                            <span key={i} className={i > 0 ? 'sm:before:content-["_·_"]' : ''}>{part}</span>
-                          ))}
-                        </span>
-                      </div>,
-                    );
-                  }
-                  result.push(
-                    item.kind === 'expense' ? (
-                      <ExpenseItem key={`expense-${item.id}`} expense={item} onEdit={setEditingExpenseId} readOnly={isArchived} />
-                    ) : (
-                      <SettlementItem key={`settlement-${item.id}`} settlement={item} onEdit={setEditingSettlementId} readOnly={isArchived} />
-                    ),
-                  );
-                  return result;
-                });
-              })()}
-              {hasMoreTimeline ? (
-                <div className="flex justify-center border-t border-[var(--border-subtle)] px-5 py-4">
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    onClick={() => setVisibleTimelineCount((previous) => previous + TIMELINE_LOAD_STEP)}
-                  >
-                    Ladda fler händelser
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <div className="p-5">
-              <EmptyState
-                icon={Coins}
-                title="Ingen aktivitet ännu"
-                description="Lägg till medlemmar i gruppen och börja sedan att registrera utgifter..."
-              />
-            </div>
-          )}
-        </section>
+        <TimelineSection
+          timeline={timeline}
+          visibleTimeline={visibleTimeline}
+          monthlyTotals={monthlyTotals}
+          theme={theme}
+          isArchived={isArchived}
+          setEditingExpenseId={setEditingExpenseId}
+          setEditingSettlementId={setEditingSettlementId}
+          hasMoreTimeline={hasMoreTimeline}
+          setVisibleTimelineCount={setVisibleTimelineCount}
+        />
       </div>
 
-      {isSettingsOpen && isGroupOwner ? (
-        <ModalShell
-          title="Gruppinställningar"
-          description={isArchived ? 'Gruppen är arkiverad och skrivskyddad.' : null}
-          onClose={() => setIsSettingsOpen(false)}
-        >
-          <div className="divide-y divide-[var(--border-subtle)]">
-
-            {/* Inställningar */}
-            <div className="space-y-4 pb-6">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">Inställningar</h3>
-              <div className="space-y-3">
-                <label className="field-label">
-                  Gruppnamn
-                  <input
-                    type="text"
-                    value={groupNameDraft}
-                    onChange={(event) => setGroupNameDraft(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        event.preventDefault();
-                        handleRenameGroup();
-                      }
-                    }}
-                    disabled={isArchived || renamingGroup}
-                  />
-                </label>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={handleRenameGroup}
-                  disabled={isArchived || renamingGroup || !groupNameDraft.trim() || groupNameDraft.trim() === (group?.name || '').trim()}
-                >
-                  Byt gruppnamn
-                </button>
-              </div>
-              <div className="space-y-3">
-                <p className="field-label">Färgtema</p>
-                <div className="flex flex-wrap gap-2">
-                  {GROUP_THEMES.map((t) => {
-                    const isActive = (group?.theme_color ?? null) === t.id
-                      || (!group?.theme_color && getThemeForGroup(group).id === t.id);
-                    return (
-                      <button
-                        key={t.id}
-                        type="button"
-                        title={t.name}
-                        onClick={() => handleUpdateTheme(t.id)}
-                        disabled={isArchived}
-                        className="h-7 w-7 rounded-full transition hover:scale-110 focus:outline-none focus-visible:ring-2"
-                        style={{
-                          background: t.base,
-                          outline: isActive ? `2px solid ${t.base}` : undefined,
-                          outlineOffset: isActive ? '2px' : undefined,
-                          boxShadow: isActive ? `0 0 0 3px rgba(255,255,255,0.9), 0 0 0 5px ${t.base}` : undefined,
-                        }}
-                        aria-pressed={isActive}
-                        aria-label={t.name}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="space-y-3">
-                <label className="field-label">
-                  Milkostnad för Bil (kr/mil)
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    value={mileageRateDraft}
-                    onChange={(event) => setMileageRateDraft(sanitizeIntegerInput(event.target.value))}
-                    disabled={isArchived}
-                  />
-                </label>
-                <button type="button" className="btn-secondary" onClick={handleUpdateMileageRate} disabled={isArchived}>
-                  Spara milkostnad
-                </button>
-              </div>
-            </div>
-
-            {/* Inbjudningslänk */}
-            <div className="space-y-4 py-6">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">Inbjudningslänk</h3>
-              {inviteToken ? (
-                <>
-                  <div className="flex flex-wrap gap-2">
-                    <input
-                      readOnly
-                      value={inviteUrl}
-                      className="min-w-[220px] flex-1 truncate text-sm"
-                    />
-                    <button type="button" className="btn-secondary shrink-0" onClick={handleShareInvite} disabled={inviteSharing}>
-                      <SendHorizontal className="h-4 w-4" />
-                      {inviteSharing ? 'Delar...' : 'Dela'}
-                    </button>
-                    <button type="button" className="btn-secondary shrink-0" onClick={handleCopyInviteLink}>
-                      <Copy className="h-4 w-4" />
-                      {inviteCopied ? 'Kopierad!' : 'Kopiera'}
-                    </button>
-                  </div>
-                  {inviteExpiresAt && (
-                    <p className="m-0 text-xs text-[var(--text-muted)]">
-                      Gäller till {new Date(inviteExpiresAt).toLocaleDateString('sv-SE')}
-                    </p>
-                  )}
-                  <div className="flex flex-wrap gap-2">
-                    <button type="button" className="btn-secondary" onClick={handleOpenInviteQr}>
-                      <Link2 className="h-4 w-4" />
-                      Visa QR
-                    </button>
-                    <button type="button" className="btn-secondary" onClick={handleGenerateInvite} disabled={inviteLoading}>
-                      <RefreshCw className="h-4 w-4" />
-                      Ny länk
-                    </button>
-                    <button type="button" className="btn-danger" onClick={handleRevokeInvite}>
-                      Ta bort länk
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <p className="m-0 text-sm text-[var(--text-secondary)]">
-                    Skapa en länk att dela. Alla med länken kan gå med i gruppen. Länken gäller i 30 dagar.
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <button type="button" className="btn-primary" onClick={handleGenerateInvite} disabled={inviteLoading || isArchived}>
-                      <Link2 className="h-4 w-4" />
-                      Skapa inbjudningslänk
-                    </button>
-                    <button type="button" className="btn-secondary" onClick={handleShareInvite} disabled={inviteSharing || inviteLoading || isArchived}>
-                      <SendHorizontal className="h-4 w-4" />
-                      {inviteSharing ? 'Delar...' : 'Skapa och dela'}
-                    </button>
-                    <button type="button" className="btn-secondary" onClick={handleOpenInviteQr} disabled={inviteLoading || isArchived}>
-                      <Link2 className="h-4 w-4" />
-                      Skapa och visa QR
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Medlemmar */}
-            <div className="space-y-4 pt-6">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">Medlemmar</h3>
-              <div className="space-y-2">
-                {members.map((member) => (
-                  <div key={member.id} className="flex flex-col gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="m-0 text-sm font-medium">{getUserDisplayName(member)}</p>
-                      {member.is_placeholder ? (
-                        <p className="m-0 text-xs text-[var(--text-muted)]">Ej ansluten</p>
-                      ) : null}
-                    </div>
-                    {Number(member.id) === Number(group?.created_by) ? (
-                      <span className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border-subtle)] px-4 text-sm font-medium text-[var(--text-secondary)]">
-                        Ägare
-                      </span>
-                    ) : member.has_activity ? (
-                      <span className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border-subtle)] px-4 text-sm font-medium text-[var(--text-secondary)]" title="Har utgifter eller kvittningar i gruppen">
-                        Har transaktioner
-                      </span>
-                    ) : (
-                      <button type="button" className="btn-danger" onClick={() => handleRemoveMember(member.id)} disabled={isArchived}>
-                        Ta bort
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {!isArchived && (
-                <div className="space-y-3">
-                  <p className="field-label">Lägg till person i förväg</p>
-                  <p className="m-0 text-sm text-[var(--text-secondary)]">
-                    Lägg till namn på personer som ännu inte har skapat konto — du kan dela kostnader med dem direkt.
-                  </p>
-                  <div className="flex gap-2">
-                    <input
-                      value={placeholderName}
-                      onChange={(e) => setPlaceholderName(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleAddPlaceholder()}
-                      placeholder="Fullständigt namn"
-                      disabled={addingPlaceholder}
-                      className="flex-1"
-                    />
-                    <button
-                      type="button"
-                      className="btn-primary shrink-0"
-                      onClick={handleAddPlaceholder}
-                      disabled={!placeholderName.trim() || addingPlaceholder}
-                    >
-                      <UserPlus className="h-4 w-4" />
-                      Lägg till
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {isGroupOwner && !isArchived ? (
-                <div className="space-y-3 border-t border-[var(--border-subtle)] pt-4">
-                  <p className="m-0 text-sm text-[var(--text-secondary)]">
-                    Arkivera gruppen för att göra den skrivskyddad.
-                    {!canArchiveGroup ? ' Alla medlemmar måste ha balans 0 innan du kan arkivera.' : ''}
-                  </p>
-                  <button type="button" className="btn-danger" onClick={handleArchiveGroup} disabled={!canArchiveGroup}>
-                    <Archive className="h-4 w-4" />
-                    Arkivera grupp
-                  </button>
-                </div>
-              ) : null}
-            </div>
-
-          </div>
-        </ModalShell>
-      ) : null}
+      <GroupSettingsModal
+        isSettingsOpen={isSettingsOpen}
+        isGroupOwner={isGroupOwner}
+        isArchived={isArchived}
+        onClose={() => setIsSettingsOpen(false)}
+        groupNameDraft={groupNameDraft}
+        setGroupNameDraft={setGroupNameDraft}
+        handleRenameGroup={handleRenameGroup}
+        renamingGroup={renamingGroup}
+        group={group}
+        handleUpdateTheme={handleUpdateTheme}
+        mileageRateDraft={mileageRateDraft}
+        setMileageRateDraft={setMileageRateDraft}
+        handleUpdateMileageRate={handleUpdateMileageRate}
+        inviteToken={inviteToken}
+        inviteUrl={inviteUrl}
+        handleShareInvite={handleShareInvite}
+        inviteSharing={inviteSharing}
+        handleCopyInviteLink={handleCopyInviteLink}
+        inviteCopied={inviteCopied}
+        inviteExpiresAt={inviteExpiresAt}
+        handleOpenInviteQr={handleOpenInviteQr}
+        handleGenerateInvite={handleGenerateInvite}
+        inviteLoading={inviteLoading}
+        handleRevokeInvite={handleRevokeInvite}
+        members={members}
+        handleRemoveMember={handleRemoveMember}
+        placeholderName={placeholderName}
+        setPlaceholderName={setPlaceholderName}
+        handleAddPlaceholder={handleAddPlaceholder}
+        addingPlaceholder={addingPlaceholder}
+        canArchiveGroup={canArchiveGroup}
+        handleArchiveGroup={handleArchiveGroup}
+      />
 
       {editingExpense && !isArchived ? (
         <EditExpenseModal
