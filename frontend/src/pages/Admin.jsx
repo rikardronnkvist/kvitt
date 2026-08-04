@@ -83,6 +83,573 @@ function buildActivityLogQuery(activityPage, activityFilters) {
   return params.toString();
 }
 
+function AdminRegistrationTab({
+  registrationToken,
+  registrationUrl,
+  setRegistrationToken,
+  handleSaveRegistrationToken,
+  handleResetRegistrationToken,
+  handleCopyRegistrationUrl,
+  savingRegistration,
+  resettingRegistration,
+}) {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-1">
+        <h2 className="m-0 text-base font-semibold">Registreringslänk</h2>
+        <p className="m-0 text-sm text-[var(--text-secondary)]">Endast besökare med denna länk kan skapa konto.</p>
+      </div>
+      <label className="field-label">
+        Registreringsnyckel
+        <input
+          value={registrationToken}
+          onChange={(event) => setRegistrationToken(event.target.value)}
+          placeholder="Lång unik nyckel"
+        />
+      </label>
+      <label className="field-label">
+        Registrerings-URL
+        <input value={registrationUrl} readOnly />
+      </label>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className="btn-primary" onClick={handleSaveRegistrationToken} disabled={savingRegistration || resettingRegistration || registrationToken.trim().length < 16}>
+          {savingRegistration ? 'Sparar...' : 'Spara nyckel'}
+        </button>
+        <button type="button" className="btn-secondary" onClick={handleResetRegistrationToken} disabled={savingRegistration || resettingRegistration}>
+          <RefreshCw className="h-4 w-4" />
+          {resettingRegistration ? 'Återställer...' : 'Återställ nyckel'}
+        </button>
+        <button type="button" className="btn-secondary" onClick={handleCopyRegistrationUrl} disabled={!registrationUrl}>
+          <Link2 className="h-4 w-4" />
+          Kopiera länk
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AdminUsersTab({
+  users,
+  userDrafts,
+  recoveryUrls,
+  generatingRecoveryUserId,
+  savingUserId,
+  deletingUserId,
+  handleUserDraftChange,
+  handleSaveUser,
+  handleGenerateRecoveryLink,
+  handleDeleteUser,
+  handleCopyRecoveryUrl,
+}) {
+  return (
+    <div className="divide-y divide-[var(--border-subtle)] rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)]">
+      <div className="hidden items-center gap-x-3 px-4 py-2 sm:flex">
+        <span className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Namn</span>
+        <span className="w-14 shrink-0 text-center text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Admin</span>
+        <span className="w-16 shrink-0 text-center text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Grupper</span>
+        <span className="w-16 shrink-0 text-center text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Passkeys</span>
+        <span className="w-9 shrink-0" />
+        <span className="w-9 shrink-0" />
+        <span className="w-9 shrink-0" />
+      </div>
+      {users.map((user) => {
+        const draft = userDrafts[user.id] || { is_admin: false, full_name: '' };
+        const isDirty = draft.full_name !== user.full_name || Boolean(draft.is_admin) !== Boolean(user.is_admin);
+        const recoveryUrl = recoveryUrls[user.id];
+        const isGenerating = generatingRecoveryUserId === user.id;
+        const isBusy = savingUserId === user.id || deletingUserId === user.id;
+        return (
+          <div key={user.id} className="flex flex-col">
+            <div className="flex items-center gap-x-3 px-4 py-2">
+              <input
+                className="min-w-0 flex-1"
+                value={draft.full_name || ''}
+                onChange={(event) => handleUserDraftChange(user.id, 'full_name', event.target.value)}
+                aria-label="Fullständigt namn"
+              />
+              <div className="hidden w-14 shrink-0 justify-center sm:flex">
+                <input
+                  type="checkbox"
+                  checked={Boolean(draft.is_admin)}
+                  onChange={(event) => handleUserDraftChange(user.id, 'is_admin', event.target.checked)}
+                />
+              </div>
+              <span className="hidden w-16 shrink-0 text-center text-sm text-[var(--text-muted)] sm:block">{user.group_count}</span>
+              <span className="hidden w-16 shrink-0 text-center text-sm text-[var(--text-muted)] sm:block">{user.passkey_count}</span>
+              <button
+                type="button"
+                className={`size-9 min-h-0 shrink-0 rounded-lg border p-0 text-sm font-semibold transition-colors ${isDirty ? 'border-[var(--accent)] bg-[var(--accent)] text-white hover:opacity-90' : 'cursor-not-allowed border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[var(--text-muted)]'}`}
+                onClick={() => handleSaveUser(user.id)}
+                disabled={!isDirty || isBusy}
+                title="Spara ändringar"
+              >
+                {savingUserId === user.id ? '…' : <Check className="mx-auto h-4 w-4" />}
+              </button>
+              <button
+                type="button"
+                className="size-9 min-h-0 shrink-0 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] p-0 text-sm font-semibold transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
+                onClick={() => handleGenerateRecoveryLink(user.id)}
+                disabled={isGenerating || user.passkey_count === 0 || isBusy}
+                title={user.passkey_count === 0 ? 'Användaren saknar passkeys – använd registreringslänken' : 'Generera återhämtningslänk'}
+              >
+                {isGenerating ? '…' : <Link2 className="mx-auto h-4 w-4" />}
+              </button>
+              <button
+                type="button"
+                className={`size-9 min-h-0 shrink-0 rounded-lg border p-0 text-sm font-semibold transition-colors ${user.group_count > 0 ? 'cursor-not-allowed border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[var(--text-muted)]' : 'border-[var(--danger)] bg-[var(--danger)] text-white hover:opacity-90'}`}
+                onClick={() => handleDeleteUser(user.id)}
+                disabled={user.group_count > 0 || isBusy}
+                title={user.group_count > 0 ? 'Kan inte radera användare med grupper' : 'Radera användare'}
+              >
+                {deletingUserId === user.id ? '...' : '×'}
+              </button>
+            </div>
+            <div className="flex items-center gap-4 px-4 pb-2 sm:hidden">
+              <label className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+                <input
+                  type="checkbox"
+                  checked={Boolean(draft.is_admin)}
+                  onChange={(event) => handleUserDraftChange(user.id, 'is_admin', event.target.checked)}
+                />
+                Admin
+              </label>
+              <span className="text-xs text-[var(--text-muted)]">{user.group_count} grupper</span>
+              <span className="text-xs text-[var(--text-muted)]">{user.passkey_count} passkeys</span>
+            </div>
+            {recoveryUrl ? (
+              <div className="mx-4 mb-2 flex items-center gap-2 rounded-lg border border-[color:color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[color:color-mix(in_srgb,var(--accent)_6%,transparent)] px-3 py-2">
+                <input
+                  readOnly
+                  value={recoveryUrl}
+                  className="min-w-0 flex-1 bg-transparent text-xs text-[var(--text-secondary)]"
+                  onFocus={(event) => event.target.select()}
+                />
+                <button
+                  type="button"
+                  className="btn-secondary shrink-0 px-2 py-1 text-xs"
+                  onClick={() => handleCopyRecoveryUrl(user.id)}
+                >
+                  Kopiera
+                </button>
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function AdminGroupsTab({
+  groups,
+  selectedGroupId,
+  setSelectedGroupId,
+  selectedGroup,
+  selectedGroupDraft,
+  handleGroupDraftChange,
+  handleUnarchiveGroup,
+  handleArchiveGroup,
+  handleDeleteGroup,
+  handleSaveGroup,
+  savingGroupId,
+  groupAction,
+}) {
+  return (
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+      <aside className="space-y-2">
+        {groups.map((group) => {
+          const theme = getThemeForGroup(group);
+          const isActive = selectedGroupId === group.id;
+          return (
+            <button
+              key={group.id}
+              type="button"
+              onClick={() => setSelectedGroupId(group.id)}
+              className={[
+                'w-full rounded-lg border px-4 py-3 text-left transition',
+                isActive
+                  ? 'border-[var(--border-strong)] bg-[var(--app-surface-muted)]'
+                  : 'border-[var(--border-subtle)] bg-[var(--app-surface-strong)] hover:bg-[var(--app-surface-muted)]',
+              ].join(' ')}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="m-0 truncate text-sm font-semibold">{group.name}</p>
+                  <p className="mt-1 m-0 text-xs text-[var(--text-secondary)]">{group.member_count} medlemmar</p>
+                </div>
+                <span className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: theme.base }} />
+              </div>
+            </button>
+          );
+        })}
+      </aside>
+
+      {selectedGroup && selectedGroupDraft ? (
+        <section className="space-y-6 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-5 sm:p-6">
+          <div className="space-y-1">
+            <p className="section-eyebrow">Grupp</p>
+            <h3 className="m-0 text-lg font-semibold">Gruppinställningar</h3>
+            <p className="m-0 text-sm text-[var(--text-secondary)]">Redigera namn och färgtema för vald grupp.</p>
+          </div>
+
+          <div className="space-y-3">
+            <label className="field-label">
+              Gruppnamn
+              <input
+                value={selectedGroupDraft.name}
+                onChange={(event) => handleGroupDraftChange(selectedGroup.id, 'name', event.target.value)}
+                disabled={Boolean(selectedGroup.archived_at)}
+              />
+            </label>
+            <label className="field-label">
+              Milkostnad för Bil (kr/mil)
+              <input
+                type="number"
+                min="0.1"
+                step="0.1"
+                value={selectedGroupDraft.mileage_rate}
+                onChange={(event) => handleGroupDraftChange(selectedGroup.id, 'mileage_rate', event.target.value)}
+                disabled={Boolean(selectedGroup.archived_at)}
+              />
+            </label>
+          </div>
+
+          <div className="space-y-3">
+            <p className="field-label">Färgtema</p>
+            <div className="flex flex-wrap gap-2">
+              {GROUP_THEMES.map((theme) => {
+                const activeThemeId = selectedGroupDraft.theme_color ?? getThemeForGroup(selectedGroup).id;
+                const isActive = activeThemeId === theme.id;
+                return (
+                  <button
+                    key={theme.id}
+                    type="button"
+                    title={theme.name}
+                    onClick={() => handleGroupDraftChange(selectedGroup.id, 'theme_color', theme.id)}
+                    disabled={Boolean(selectedGroup.archived_at)}
+                    className="h-7 w-7 rounded-full transition hover:scale-110 focus:outline-none focus-visible:ring-2"
+                    style={{
+                      background: theme.base,
+                      outline: isActive ? `2px solid ${theme.base}` : undefined,
+                      outlineOffset: isActive ? '2px' : undefined,
+                      boxShadow: isActive ? `0 0 0 3px rgba(255,255,255,0.9), 0 0 0 5px ${theme.base}` : undefined,
+                    }}
+                    aria-pressed={isActive}
+                    aria-label={theme.name}
+                  />
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-1 text-sm text-[var(--text-secondary)]">
+            <p className="m-0">Skapad av: {getUserDisplayName({ full_name: selectedGroup.created_by_full_name })}</p>
+            <p className="m-0">Antal medlemmar: {selectedGroup.member_count}</p>
+            <p className="m-0">Status: {selectedGroup.archived_at ? 'Arkiverad' : 'Aktiv'}</p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {selectedGroup.archived_at ? (
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => handleUnarchiveGroup(selectedGroup.id)}
+                disabled={groupAction.id === selectedGroup.id}
+              >
+                <RotateCcw className="h-4 w-4" />
+                {groupAction.id === selectedGroup.id && groupAction.type === 'unarchive' ? 'Återaktiverar...' : 'Återaktivera'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => handleArchiveGroup(selectedGroup.id)}
+                disabled={groupAction.id === selectedGroup.id || Boolean(selectedGroup.has_open_balances)}
+                title={selectedGroup.has_open_balances ? 'Kan inte arkivera förrän alla balanser är 0.' : undefined}
+              >
+                <Archive className="h-4 w-4" />
+                {groupAction.id === selectedGroup.id && groupAction.type === 'archive' ? 'Arkiverar...' : 'Arkivera'}
+              </button>
+            )}
+            <button
+              type="button"
+              className="btn-danger"
+              onClick={() => handleDeleteGroup(selectedGroup.id)}
+              disabled={groupAction.id === selectedGroup.id}
+            >
+              <Trash2 className="h-4 w-4" />
+              {groupAction.id === selectedGroup.id && groupAction.type === 'delete' ? 'Raderar...' : 'Radera grupp'}
+            </button>
+          </div>
+
+          {selectedGroup.archived_at ? (
+            <p className="m-0 text-sm text-[var(--text-secondary)]">
+              Gruppen är arkiverad och kan inte redigeras förrän den återaktiveras.
+            </p>
+          ) : selectedGroup.has_open_balances ? (
+            <p className="m-0 text-sm text-[var(--text-secondary)]">
+              Gruppen kan inte arkiveras förrän allas balans är 0.
+            </p>
+          ) : null}
+
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => handleSaveGroup(selectedGroup.id)}
+            disabled={savingGroupId === selectedGroup.id || Boolean(selectedGroup.archived_at) || groupAction.id === selectedGroup.id}
+          >
+            {savingGroupId === selectedGroup.id ? 'Sparar...' : 'Spara grupp'}
+          </button>
+        </section>
+      ) : (
+        <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-6">
+          <p className="m-0 text-sm text-[var(--text-secondary)]">Välj en grupp i listan för att redigera inställningar.</p>
+        </section>
+      )}
+    </div>
+  );
+}
+
+function buildCategoryIconOptions(normalizedIconId) {
+  const hasKnownIcon = CATEGORY_ICON_OPTIONS.some((option) => option.id === normalizedIconId);
+  if (hasKnownIcon) {
+    return CATEGORY_ICON_OPTIONS;
+  }
+  return [{ id: normalizedIconId, label: `${normalizedIconId} (befintlig)` }, ...CATEGORY_ICON_OPTIONS];
+}
+
+function AdminCategoriesTab({ categories, categoryDrafts, handleCategoryDraftChange, handleSaveCategory, savingCategoryId }) {
+  return (
+    <div className="space-y-3">
+      <div className="overflow-x-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)]">
+        <table className="min-w-[780px] w-full border-collapse">
+          <thead>
+            <tr className="border-b border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-left">
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Kategorinamn</th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Ikon</th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Sortering</th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Förhandsvisning</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Åtgärd</th>
+            </tr>
+          </thead>
+          <tbody>
+            {categories.map((category) => {
+              const draft = categoryDrafts[category.id] ?? {
+                name: category.name,
+                icon: category.icon,
+                sort_order: category.sort_order,
+              };
+              const normalizedIconId = String(draft.icon || '')
+                .trim()
+                .toLowerCase()
+                .replace(/[_\s]+/g, '-');
+              const iconOptions = buildCategoryIconOptions(normalizedIconId);
+              const CategoryIcon = getCategoryIcon(draft.icon);
+              return (
+                <tr key={category.id} className="border-b border-[var(--border-subtle)] last:border-b-0">
+                  <td className="px-4 py-3 align-top">
+                    <input
+                      className="max-w-md"
+                      value={draft.name}
+                      onChange={(event) => handleCategoryDraftChange(category.id, 'name', event.target.value)}
+                      maxLength={16}
+                      aria-label="Kategorinamn"
+                    />
+                  </td>
+                  <td className="px-4 py-3 align-top">
+                    <select
+                      className="max-w-xs"
+                      value={normalizedIconId}
+                      onChange={(event) => handleCategoryDraftChange(category.id, 'icon', event.target.value)}
+                      aria-label="Ikon"
+                    >
+                      {iconOptions.map((iconOption) => (
+                        <option key={iconOption.id} value={iconOption.id}>{iconOption.label}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-4 py-3 align-top">
+                    <input
+                      type="number"
+                      className="w-24"
+                      min="0"
+                      max="99"
+                      step="1"
+                      value={draft.sort_order}
+                      onChange={(event) => handleCategoryDraftChange(category.id, 'sort_order', event.target.value)}
+                      aria-label="Sortering"
+                    />
+                  </td>
+                  <td className="px-4 py-3 align-top">
+                    <div className="inline-flex min-h-11 min-w-40 cursor-not-allowed items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--app-surface-muted)_88%,white)] px-3 py-2 text-sm text-[var(--text-muted)] opacity-85" aria-readonly="true">
+                      <CategoryIcon className="h-4 w-4" />
+                      <span>{(draft.name || '').trim() || 'Namnlös kategori'}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 align-top text-right">
+                    <button type="button" className="btn-primary" onClick={() => handleSaveCategory(category.id)} disabled={savingCategoryId === category.id}>
+                      {savingCategoryId === category.id ? 'Sparar...' : 'Spara'}
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function AdminActivityTab({
+  activityFilters,
+  handleActivityFilterChange,
+  users,
+  groups,
+  activityTotal,
+  activityLoading,
+  activityPage,
+  setActivityPage,
+  activityLogs,
+  expandedActivityId,
+  setExpandedActivityId,
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <label className="field-label">
+          Händelse
+          <select
+            value={activityFilters.event_type}
+            onChange={(event) => handleActivityFilterChange('event_type', event.target.value)}
+          >
+            {ACTIVITY_EVENT_OPTIONS.map((option) => (
+              <option key={option.value || 'all'} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </label>
+        <label className="field-label">
+          Användare
+          <select
+            value={activityFilters.actor_user_id}
+            onChange={(event) => handleActivityFilterChange('actor_user_id', event.target.value)}
+          >
+            <option value="">Alla användare</option>
+            {users.map((user) => (
+              <option key={user.id} value={user.id}>{getUserDisplayName(user)}</option>
+            ))}
+          </select>
+        </label>
+        <label className="field-label">
+          Grupp
+          <select
+            value={activityFilters.group_id}
+            onChange={(event) => handleActivityFilterChange('group_id', event.target.value)}
+          >
+            <option value="">Alla grupper</option>
+            {groups.map((group) => (
+              <option key={group.id} value={group.id}>{group.name}</option>
+            ))}
+          </select>
+        </label>
+        <label className="field-label">
+          Från
+          <input
+            type="datetime-local"
+            value={activityFilters.from}
+            onChange={(event) => handleActivityFilterChange('from', event.target.value)}
+          />
+        </label>
+        <label className="field-label">
+          Till
+          <input
+            type="datetime-local"
+            value={activityFilters.to}
+            onChange={(event) => handleActivityFilterChange('to', event.target.value)}
+          />
+        </label>
+        <label className="field-label">
+          Söktext
+          <input
+            value={activityFilters.query}
+            onChange={(event) => handleActivityFilterChange('query', event.target.value)}
+            placeholder="Sök i händelser och metadata"
+          />
+        </label>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-[var(--text-secondary)]">
+        <span>{activityTotal} händelser</span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={activityLoading || activityPage <= 1}
+            onClick={() => setActivityPage((previous) => Math.max(1, previous - 1))}
+          >
+            Föregående
+          </button>
+          <span>Sida {activityPage}</span>
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={activityLoading || activityPage * ACTIVITY_PAGE_SIZE >= activityTotal}
+            onClick={() => setActivityPage((previous) => previous + 1)}
+          >
+            Nästa
+          </button>
+        </div>
+      </div>
+
+      {activityLoading ? (
+        <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4 text-sm text-[var(--text-secondary)]">
+          Laddar aktivitetslogg...
+        </div>
+      ) : null}
+
+      {!activityLoading ? (
+        <div className="divide-y divide-[var(--border-subtle)] rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)]">
+          {activityLogs.map((item) => {
+            const actorName = item.actor_full_name || (item.actor_user_id ? `Användare ${item.actor_user_id}` : 'Okänd');
+            const targetName = item.target_full_name || (item.target_user_id ? `Användare ${item.target_user_id}` : null);
+            const isExpanded = expandedActivityId === item.id;
+            return (
+              <article key={item.id} className="px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => setExpandedActivityId((previous) => (previous === item.id ? null : item.id))}
+                  className="w-full text-left"
+                >
+                  <div className="grid gap-2 md:grid-cols-[180px_minmax(0,1fr)_180px] md:items-center">
+                    <p className="m-0 text-xs text-[var(--text-muted)]">{formatDateTime(item.created_at)}</p>
+                    <div className="min-w-0">
+                      <p className="m-0 truncate text-sm font-semibold">{item.event_type}</p>
+                      <p className="m-0 truncate text-xs text-[var(--text-secondary)]">
+                        {actorName}
+                        {targetName ? ` → ${targetName}` : ''}
+                        {item.group_name ? ` • ${item.group_name}` : ''}
+                      </p>
+                    </div>
+                    <p className="m-0 text-xs text-[var(--text-muted)] md:text-right">{item.entity_type}{item.entity_id ? ` #${item.entity_id}` : ''}</p>
+                  </div>
+                </button>
+                {isExpanded ? (
+                  <pre className="mt-3 overflow-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] p-3 text-xs text-[var(--text-secondary)]">
+{JSON.stringify(item.metadata || {}, null, 2)}
+                  </pre>
+                ) : null}
+              </article>
+            );
+          })}
+          {!activityLogs.length ? (
+            <p className="m-0 px-4 py-6 text-sm text-[var(--text-secondary)]">Inga händelser matchar filtret.</p>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function Admin() {
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -492,509 +1059,75 @@ export default function Admin() {
           {loading ? <AdminSkeleton /> : null}
 
           {!loading && activeTab === 'admin' ? (
-            <div className="space-y-6">
-              <div className="space-y-1">
-                <h2 className="m-0 text-base font-semibold">Registreringslänk</h2>
-                <p className="m-0 text-sm text-[var(--text-secondary)]">Endast besökare med denna länk kan skapa konto.</p>
-              </div>
-              <label className="field-label">
-                Registreringsnyckel
-                <input
-                  value={registrationToken}
-                  onChange={(event) => setRegistrationToken(event.target.value)}
-                  placeholder="Lång unik nyckel"
-                />
-              </label>
-              <label className="field-label">
-                Registrerings-URL
-                <input value={registrationUrl} readOnly />
-              </label>
-              <div className="flex flex-wrap gap-2">
-                <button type="button" className="btn-primary" onClick={handleSaveRegistrationToken} disabled={savingRegistration || resettingRegistration || registrationToken.trim().length < 16}>
-                  {savingRegistration ? 'Sparar...' : 'Spara nyckel'}
-                </button>
-                <button type="button" className="btn-secondary" onClick={handleResetRegistrationToken} disabled={savingRegistration || resettingRegistration}>
-                  <RefreshCw className="h-4 w-4" />
-                  {resettingRegistration ? 'Återställer...' : 'Återställ nyckel'}
-                </button>
-                <button type="button" className="btn-secondary" onClick={handleCopyRegistrationUrl} disabled={!registrationUrl}>
-                  <Link2 className="h-4 w-4" />
-                  Kopiera länk
-                </button>
-              </div>
-            </div>
+            <AdminRegistrationTab
+              registrationToken={registrationToken}
+              registrationUrl={registrationUrl}
+              setRegistrationToken={setRegistrationToken}
+              handleSaveRegistrationToken={handleSaveRegistrationToken}
+              handleResetRegistrationToken={handleResetRegistrationToken}
+              handleCopyRegistrationUrl={handleCopyRegistrationUrl}
+              savingRegistration={savingRegistration}
+              resettingRegistration={resettingRegistration}
+            />
           ) : null}
 
           {!loading && activeTab === 'users' ? (
-            <div className="divide-y divide-[var(--border-subtle)] rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)]">
-              <div className="hidden items-center gap-x-3 px-4 py-2 sm:flex">
-                <span className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Namn</span>
-                <span className="w-14 shrink-0 text-center text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Admin</span>
-                <span className="w-16 shrink-0 text-center text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Grupper</span>
-                <span className="w-16 shrink-0 text-center text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Passkeys</span>
-                <span className="w-9 shrink-0" />
-                <span className="w-9 shrink-0" />
-                <span className="w-9 shrink-0" />
-              </div>
-              {users.map((user) => {
-                const draft = userDrafts[user.id] || { is_admin: false, full_name: '' };
-                const isDirty = draft.full_name !== user.full_name || Boolean(draft.is_admin) !== Boolean(user.is_admin);
-                const recoveryUrl = recoveryUrls[user.id];
-                const isGenerating = generatingRecoveryUserId === user.id;
-                return (
-                  <div key={user.id} className="flex flex-col">
-                    <div className="flex items-center gap-x-3 px-4 py-2">
-                      <input
-                        className="min-w-0 flex-1"
-                        value={draft.full_name || ''}
-                        onChange={(event) => handleUserDraftChange(user.id, 'full_name', event.target.value)}
-                        aria-label="Fullständigt namn"
-                      />
-                      <div className="hidden w-14 shrink-0 justify-center sm:flex">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(draft.is_admin)}
-                          onChange={(event) => handleUserDraftChange(user.id, 'is_admin', event.target.checked)}
-                        />
-                      </div>
-                      <span className="hidden w-16 shrink-0 text-center text-sm text-[var(--text-muted)] sm:block">{user.group_count}</span>
-                      <span className="hidden w-16 shrink-0 text-center text-sm text-[var(--text-muted)] sm:block">{user.passkey_count}</span>
-                      <button
-                        type="button"
-                        className={`size-9 min-h-0 shrink-0 rounded-lg border p-0 text-sm font-semibold transition-colors ${isDirty ? 'border-[var(--accent)] bg-[var(--accent)] text-white hover:opacity-90' : 'cursor-not-allowed border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[var(--text-muted)]'}`}
-                        onClick={() => handleSaveUser(user.id)}
-                        disabled={!isDirty || savingUserId === user.id || deletingUserId === user.id}
-                        title="Spara ändringar"
-                      >
-                        {savingUserId === user.id ? '…' : <Check className="mx-auto h-4 w-4" />}
-                      </button>
-                      <button
-                        type="button"
-                        className="size-9 min-h-0 shrink-0 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] p-0 text-sm font-semibold transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
-                        onClick={() => handleGenerateRecoveryLink(user.id)}
-                        disabled={isGenerating || user.passkey_count === 0 || savingUserId === user.id || deletingUserId === user.id}
-                        title={user.passkey_count === 0 ? 'Användaren saknar passkeys – använd registreringslänken' : 'Generera återhämtningslänk'}
-                      >
-                        {isGenerating ? '…' : <Link2 className="mx-auto h-4 w-4" />}
-                      </button>
-                      <button
-                        type="button"
-                        className={`size-9 min-h-0 shrink-0 rounded-lg border p-0 text-sm font-semibold transition-colors ${user.group_count > 0 ? 'cursor-not-allowed border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[var(--text-muted)]' : 'border-[var(--danger)] bg-[var(--danger)] text-white hover:opacity-90'}`}
-                        onClick={() => handleDeleteUser(user.id)}
-                        disabled={user.group_count > 0 || savingUserId === user.id || deletingUserId === user.id}
-                        title={user.group_count > 0 ? 'Kan inte radera användare med grupper' : 'Radera användare'}
-                      >
-                        {deletingUserId === user.id ? '...' : '×'}
-                      </button>
-                    </div>
-                    {/* Mobile-only stats row */}
-                    <div className="flex items-center gap-4 px-4 pb-2 sm:hidden">
-                      <label className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-                        <input
-                          type="checkbox"
-                          checked={Boolean(draft.is_admin)}
-                          onChange={(event) => handleUserDraftChange(user.id, 'is_admin', event.target.checked)}
-                        />
-                        Admin
-                      </label>
-                      <span className="text-xs text-[var(--text-muted)]">{user.group_count} grupper</span>
-                      <span className="text-xs text-[var(--text-muted)]">{user.passkey_count} passkeys</span>
-                    </div>
-                    {recoveryUrl ? (
-                      <div className="mx-4 mb-2 flex items-center gap-2 rounded-lg border border-[color:color-mix(in_srgb,var(--accent)_25%,transparent)] bg-[color:color-mix(in_srgb,var(--accent)_6%,transparent)] px-3 py-2">
-                        <input
-                          readOnly
-                          value={recoveryUrl}
-                          className="min-w-0 flex-1 bg-transparent text-xs text-[var(--text-secondary)]"
-                          onFocus={(e) => e.target.select()}
-                        />
-                        <button
-                          type="button"
-                          className="btn-secondary shrink-0 px-2 py-1 text-xs"
-                          onClick={() => handleCopyRecoveryUrl(user.id)}
-                        >
-                          Kopiera
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
+            <AdminUsersTab
+              users={users}
+              userDrafts={userDrafts}
+              recoveryUrls={recoveryUrls}
+              generatingRecoveryUserId={generatingRecoveryUserId}
+              savingUserId={savingUserId}
+              deletingUserId={deletingUserId}
+              handleUserDraftChange={handleUserDraftChange}
+              handleSaveUser={handleSaveUser}
+              handleGenerateRecoveryLink={handleGenerateRecoveryLink}
+              handleDeleteUser={handleDeleteUser}
+              handleCopyRecoveryUrl={handleCopyRecoveryUrl}
+            />
           ) : null}
 
           {!loading && activeTab === 'groups' ? (
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
-              <aside className="space-y-2">
-                {groups.map((group) => {
-                  const theme = getThemeForGroup(group);
-                  const isActive = selectedGroupId === group.id;
-                  return (
-                    <button
-                      key={group.id}
-                      type="button"
-                      onClick={() => setSelectedGroupId(group.id)}
-                      className={[
-                        'w-full rounded-lg border px-4 py-3 text-left transition',
-                        isActive
-                          ? 'border-[var(--border-strong)] bg-[var(--app-surface-muted)]'
-                          : 'border-[var(--border-subtle)] bg-[var(--app-surface-strong)] hover:bg-[var(--app-surface-muted)]',
-                      ].join(' ')}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="m-0 truncate text-sm font-semibold">{group.name}</p>
-                          <p className="mt-1 m-0 text-xs text-[var(--text-secondary)]">{group.member_count} medlemmar</p>
-                        </div>
-                        <span className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: theme.base }} />
-                      </div>
-                    </button>
-                  );
-                })}
-              </aside>
-
-              {selectedGroup && selectedGroupDraft ? (
-                <section className="space-y-6 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-5 sm:p-6">
-                  <div className="space-y-1">
-                    <p className="section-eyebrow">Grupp</p>
-                    <h3 className="m-0 text-lg font-semibold">Gruppinställningar</h3>
-                    <p className="m-0 text-sm text-[var(--text-secondary)]">Redigera namn och färgtema för vald grupp.</p>
-                  </div>
-
-                  <div className="space-y-3">
-                    <label className="field-label">
-                      Gruppnamn
-                      <input
-                        value={selectedGroupDraft.name}
-                        onChange={(event) => handleGroupDraftChange(selectedGroup.id, 'name', event.target.value)}
-                          disabled={Boolean(selectedGroup.archived_at)}
-                      />
-                    </label>
-                    <label className="field-label">
-                      Milkostnad för Bil (kr/mil)
-                      <input
-                        type="number"
-                        min="0.1"
-                        step="0.1"
-                        value={selectedGroupDraft.mileage_rate}
-                        onChange={(event) => handleGroupDraftChange(selectedGroup.id, 'mileage_rate', event.target.value)}
-                          disabled={Boolean(selectedGroup.archived_at)}
-                      />
-                    </label>
-                  </div>
-
-                  <div className="space-y-3">
-                    <p className="field-label">Färgtema</p>
-                    <div className="flex flex-wrap gap-2">
-                      {GROUP_THEMES.map((theme) => {
-                        const activeThemeId = selectedGroupDraft.theme_color ?? getThemeForGroup(selectedGroup).id;
-                        const isActive = activeThemeId === theme.id;
-                        return (
-                          <button
-                            key={theme.id}
-                            type="button"
-                            title={theme.name}
-                            onClick={() => handleGroupDraftChange(selectedGroup.id, 'theme_color', theme.id)}
-                            disabled={Boolean(selectedGroup.archived_at)}
-                            className="h-7 w-7 rounded-full transition hover:scale-110 focus:outline-none focus-visible:ring-2"
-                            style={{
-                              background: theme.base,
-                              outline: isActive ? `2px solid ${theme.base}` : undefined,
-                              outlineOffset: isActive ? '2px' : undefined,
-                              boxShadow: isActive ? `0 0 0 3px rgba(255,255,255,0.9), 0 0 0 5px ${theme.base}` : undefined,
-                            }}
-                            aria-pressed={isActive}
-                            aria-label={theme.name}
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1 text-sm text-[var(--text-secondary)]">
-                    <p className="m-0">Skapad av: {getUserDisplayName({ full_name: selectedGroup.created_by_full_name })}</p>
-                    <p className="m-0">Antal medlemmar: {selectedGroup.member_count}</p>
-                    <p className="m-0">Status: {selectedGroup.archived_at ? 'Arkiverad' : 'Aktiv'}</p>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {selectedGroup.archived_at ? (
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        onClick={() => handleUnarchiveGroup(selectedGroup.id)}
-                        disabled={groupAction.id === selectedGroup.id}
-                      >
-                        <RotateCcw className="h-4 w-4" />
-                        {groupAction.id === selectedGroup.id && groupAction.type === 'unarchive' ? 'Återaktiverar...' : 'Återaktivera'}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        onClick={() => handleArchiveGroup(selectedGroup.id)}
-                        disabled={groupAction.id === selectedGroup.id || Boolean(selectedGroup.has_open_balances)}
-                        title={selectedGroup.has_open_balances ? 'Kan inte arkivera förrän alla balanser är 0.' : undefined}
-                      >
-                        <Archive className="h-4 w-4" />
-                        {groupAction.id === selectedGroup.id && groupAction.type === 'archive' ? 'Arkiverar...' : 'Arkivera'}
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="btn-danger"
-                      onClick={() => handleDeleteGroup(selectedGroup.id)}
-                      disabled={groupAction.id === selectedGroup.id}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      {groupAction.id === selectedGroup.id && groupAction.type === 'delete' ? 'Raderar...' : 'Radera grupp'}
-                    </button>
-                  </div>
-
-                  {selectedGroup.archived_at ? (
-                    <p className="m-0 text-sm text-[var(--text-secondary)]">
-                      Gruppen är arkiverad och kan inte redigeras förrän den återaktiveras.
-                    </p>
-                  ) : selectedGroup.has_open_balances ? (
-                    <p className="m-0 text-sm text-[var(--text-secondary)]">
-                      Gruppen kan inte arkiveras förrän allas balans är 0.
-                    </p>
-                  ) : null}
-
-                  <button
-                    type="button"
-                    className="btn-primary"
-                    onClick={() => handleSaveGroup(selectedGroup.id)}
-                    disabled={savingGroupId === selectedGroup.id || Boolean(selectedGroup.archived_at) || groupAction.id === selectedGroup.id}
-                  >
-                    {savingGroupId === selectedGroup.id ? 'Sparar...' : 'Spara grupp'}
-                  </button>
-                </section>
-              ) : (
-                <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-6">
-                  <p className="m-0 text-sm text-[var(--text-secondary)]">Välj en grupp i listan för att redigera inställningar.</p>
-                </section>
-              )}
-            </div>
+            <AdminGroupsTab
+              groups={groups}
+              selectedGroupId={selectedGroupId}
+              setSelectedGroupId={setSelectedGroupId}
+              selectedGroup={selectedGroup}
+              selectedGroupDraft={selectedGroupDraft}
+              handleGroupDraftChange={handleGroupDraftChange}
+              handleUnarchiveGroup={handleUnarchiveGroup}
+              handleArchiveGroup={handleArchiveGroup}
+              handleDeleteGroup={handleDeleteGroup}
+              handleSaveGroup={handleSaveGroup}
+              savingGroupId={savingGroupId}
+              groupAction={groupAction}
+            />
           ) : null}
 
           {!loading && activeTab === 'categories' ? (
-            <div className="space-y-3">
-              <div className="overflow-x-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)]">
-                <table className="min-w-[780px] w-full border-collapse">
-                  <thead>
-                    <tr className="border-b border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-left">
-                      <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Kategorinamn</th>
-                      <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Ikon</th>
-                      <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Sortering</th>
-                      <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Förhandsvisning</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Åtgärd</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {categories.map((category) => {
-                      const draft = categoryDrafts[category.id] ?? {
-                        name: category.name,
-                        icon: category.icon,
-                        sort_order: category.sort_order,
-                      };
-                      const normalizedIconId = String(draft.icon || '')
-                        .trim()
-                        .toLowerCase()
-                        .replace(/[_\s]+/g, '-');
-                      const hasKnownIcon = CATEGORY_ICON_OPTIONS.some((option) => option.id === normalizedIconId);
-                      const iconOptions = hasKnownIcon
-                        ? CATEGORY_ICON_OPTIONS
-                        : [{ id: normalizedIconId, label: `${normalizedIconId} (befintlig)` }, ...CATEGORY_ICON_OPTIONS];
-                      const CategoryIcon = getCategoryIcon(draft.icon);
-                      return (
-                        <tr key={category.id} className="border-b border-[var(--border-subtle)] last:border-b-0">
-                          <td className="px-4 py-3 align-top">
-                            <input
-                              className="max-w-md"
-                              value={draft.name}
-                              onChange={(event) => handleCategoryDraftChange(category.id, 'name', event.target.value)}
-                              maxLength={16}
-                              aria-label="Kategorinamn"
-                            />
-                          </td>
-                          <td className="px-4 py-3 align-top">
-                            <select
-                              className="max-w-xs"
-                              value={normalizedIconId}
-                              onChange={(event) => handleCategoryDraftChange(category.id, 'icon', event.target.value)}
-                              aria-label="Ikon"
-                            >
-                              {iconOptions.map((iconOption) => (
-                                <option key={iconOption.id} value={iconOption.id}>{iconOption.label}</option>
-                              ))}
-                            </select>
-                          </td>
-                          <td className="px-4 py-3 align-top">
-                            <input
-                              type="number"
-                              className="w-24"
-                              min="0"
-                              max="99"
-                              step="1"
-                              value={draft.sort_order}
-                              onChange={(event) => handleCategoryDraftChange(category.id, 'sort_order', event.target.value)}
-                              aria-label="Sortering"
-                            />
-                          </td>
-                          <td className="px-4 py-3 align-top">
-                            <div className="inline-flex min-h-11 min-w-40 cursor-not-allowed items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--app-surface-muted)_88%,white)] px-3 py-2 text-sm text-[var(--text-muted)] opacity-85" aria-readonly="true">
-                              <CategoryIcon className="h-4 w-4" />
-                              <span>{(draft.name || '').trim() || 'Namnlös kategori'}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 align-top text-right">
-                            <button type="button" className="btn-primary" onClick={() => handleSaveCategory(category.id)} disabled={savingCategoryId === category.id}>
-                              {savingCategoryId === category.id ? 'Sparar...' : 'Spara'}
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <AdminCategoriesTab
+              categories={categories}
+              categoryDrafts={categoryDrafts}
+              handleCategoryDraftChange={handleCategoryDraftChange}
+              handleSaveCategory={handleSaveCategory}
+              savingCategoryId={savingCategoryId}
+            />
           ) : null}
 
           {!loading && activeTab === 'activity' ? (
-            <div className="space-y-4">
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                <label className="field-label">
-                  Händelse
-                  <select
-                    value={activityFilters.event_type}
-                    onChange={(event) => handleActivityFilterChange('event_type', event.target.value)}
-                  >
-                    {ACTIVITY_EVENT_OPTIONS.map((option) => (
-                      <option key={option.value || 'all'} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="field-label">
-                  Användare
-                  <select
-                    value={activityFilters.actor_user_id}
-                    onChange={(event) => handleActivityFilterChange('actor_user_id', event.target.value)}
-                  >
-                    <option value="">Alla användare</option>
-                    {users.map((user) => (
-                      <option key={user.id} value={user.id}>{getUserDisplayName(user)}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="field-label">
-                  Grupp
-                  <select
-                    value={activityFilters.group_id}
-                    onChange={(event) => handleActivityFilterChange('group_id', event.target.value)}
-                  >
-                    <option value="">Alla grupper</option>
-                    {groups.map((group) => (
-                      <option key={group.id} value={group.id}>{group.name}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="field-label">
-                  Från
-                  <input
-                    type="datetime-local"
-                    value={activityFilters.from}
-                    onChange={(event) => handleActivityFilterChange('from', event.target.value)}
-                  />
-                </label>
-                <label className="field-label">
-                  Till
-                  <input
-                    type="datetime-local"
-                    value={activityFilters.to}
-                    onChange={(event) => handleActivityFilterChange('to', event.target.value)}
-                  />
-                </label>
-                <label className="field-label">
-                  Söktext
-                  <input
-                    value={activityFilters.query}
-                    onChange={(event) => handleActivityFilterChange('query', event.target.value)}
-                    placeholder="Sök i händelser och metadata"
-                  />
-                </label>
-              </div>
-
-              <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-[var(--text-secondary)]">
-                <span>{activityTotal} händelser</span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    disabled={activityLoading || activityPage <= 1}
-                    onClick={() => setActivityPage((previous) => Math.max(1, previous - 1))}
-                  >
-                    Föregående
-                  </button>
-                  <span>Sida {activityPage}</span>
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    disabled={activityLoading || activityPage * ACTIVITY_PAGE_SIZE >= activityTotal}
-                    onClick={() => setActivityPage((previous) => previous + 1)}
-                  >
-                    Nästa
-                  </button>
-                </div>
-              </div>
-
-              {activityLoading ? (
-                <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4 text-sm text-[var(--text-secondary)]">
-                  Laddar aktivitetslogg...
-                </div>
-              ) : null}
-
-              {!activityLoading ? (
-                <div className="divide-y divide-[var(--border-subtle)] rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)]">
-                  {activityLogs.map((item) => {
-                    const actorName = item.actor_full_name || (item.actor_user_id ? `Användare ${item.actor_user_id}` : 'Okänd');
-                    const targetName = item.target_full_name || (item.target_user_id ? `Användare ${item.target_user_id}` : null);
-                    const isExpanded = expandedActivityId === item.id;
-                    return (
-                      <article key={item.id} className="px-4 py-3">
-                        <button
-                          type="button"
-                          onClick={() => setExpandedActivityId((previous) => (previous === item.id ? null : item.id))}
-                          className="w-full text-left"
-                        >
-                          <div className="grid gap-2 md:grid-cols-[180px_minmax(0,1fr)_180px] md:items-center">
-                            <p className="m-0 text-xs text-[var(--text-muted)]">{formatDateTime(item.created_at)}</p>
-                            <div className="min-w-0">
-                              <p className="m-0 truncate text-sm font-semibold">{item.event_type}</p>
-                              <p className="m-0 truncate text-xs text-[var(--text-secondary)]">
-                                {actorName}
-                                {targetName ? ` → ${targetName}` : ''}
-                                {item.group_name ? ` • ${item.group_name}` : ''}
-                              </p>
-                            </div>
-                            <p className="m-0 text-xs text-[var(--text-muted)] md:text-right">{item.entity_type}{item.entity_id ? ` #${item.entity_id}` : ''}</p>
-                          </div>
-                        </button>
-                        {isExpanded ? (
-                          <pre className="mt-3 overflow-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] p-3 text-xs text-[var(--text-secondary)]">
-{JSON.stringify(item.metadata || {}, null, 2)}
-                          </pre>
-                        ) : null}
-                      </article>
-                    );
-                  })}
-                  {!activityLogs.length ? (
-                    <p className="m-0 px-4 py-6 text-sm text-[var(--text-secondary)]">Inga händelser matchar filtret.</p>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
+            <AdminActivityTab
+              activityFilters={activityFilters}
+              handleActivityFilterChange={handleActivityFilterChange}
+              users={users}
+              groups={groups}
+              activityTotal={activityTotal}
+              activityLoading={activityLoading}
+              activityPage={activityPage}
+              setActivityPage={setActivityPage}
+              activityLogs={activityLogs}
+              expandedActivityId={expandedActivityId}
+              setExpandedActivityId={setExpandedActivityId}
+            />
           ) : null}
         </div>
       </div>
