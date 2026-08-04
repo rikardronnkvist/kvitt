@@ -7,6 +7,16 @@ import { getGroupTheme } from '../lib/groupTheme.js';
 
 export const PENDING_INVITE_TOKEN_KEY = 'pending_invite_token';
 
+function getJoinButtonLabel(joining, hasPlaceholders) {
+  if (joining) {
+    return 'Går med…';
+  }
+  if (hasPlaceholders) {
+    return 'Gå med som ny person';
+  }
+  return 'Gå med i gruppen';
+}
+
 export default function InvitePage() {
   const { token } = useParams();
   const navigate = useNavigate();
@@ -187,7 +197,7 @@ export default function InvitePage() {
               className={hasPlaceholders ? 'btn-secondary w-full' : 'btn-primary w-full'}
               onClick={() => accept(null)}
             >
-              {joining ? 'Går med…' : hasPlaceholders ? 'Gå med som ny person' : 'Gå med i gruppen'}
+                {getJoinButtonLabel(joining, hasPlaceholders)}
             </button>
 
             {error && <p className="text-sm text-red-500">{error}</p>}

@@ -59,16 +59,19 @@ function getCategorySelectionUpdate(previous, category, categories, mileageRate)
     || isCarTripTitle(trimmedTitle);
   const selectingCarTrip = category.icon === 'car';
   const derivedDistance = deriveDistanceMil(previous, mileageRate);
+  let nextTitle = previous.title;
+
+  if (selectingCarTrip) {
+    nextTitle = getCarTripTitle(derivedDistance);
+  } else if (shouldSyncTitle) {
+    nextTitle = category.name;
+  }
 
   return {
     ...previous,
     category_id: String(category.id),
     distance_mil: selectingCarTrip ? String(derivedDistance) : previous.distance_mil,
-    title: selectingCarTrip
-      ? getCarTripTitle(derivedDistance)
-      : shouldSyncTitle
-        ? category.name
-        : previous.title,
+    title: nextTitle,
   };
 }
 

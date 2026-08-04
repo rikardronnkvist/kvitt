@@ -30,6 +30,16 @@ function sanitizeIntegerInput(value) {
   return String(value ?? '').replace(/\D/g, '');
 }
 
+function getBalanceAmountClass(balance) {
+  if (balance > 0) {
+    return 'amount-positive';
+  }
+  if (balance < 0) {
+    return 'amount-negative';
+  }
+  return 'amount-neutral';
+}
+
 function toTimestamp(value, { assumeUtcNaive = false } = {}) {
   if (!value) return Number.NaN;
   const input = String(value).trim();
@@ -471,7 +481,7 @@ function buildTimelineElements({ visibleTimeline, monthlyTotals, theme, isArchiv
           <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">{formatMonthYear(new Date(item.activityTimestamp))}</span>
           <span className="flex flex-col text-right text-xs font-medium sm:block" style={{ color: theme.base }}>
             {parts.map((part, index) => (
-              <span key={index} className={index > 0 ? 'sm:before:content-["_·_"]' : ''}>{part}</span>
+              <span key={`${monthKey}-${part}`} className={index > 0 ? 'sm:before:content-["_·_"]' : ''}>{part}</span>
             ))}
           </span>
         </div>,
@@ -1225,7 +1235,7 @@ export default function GroupView() {
                   {memberBalancesAscending.map((member) => (
                     <div key={member.id} className="flex items-center justify-between gap-3 text-sm">
                       <span className="font-medium">{getUserDisplayName(member)}</span>
-                      <span className={`font-semibold ${member.balance > 0 ? 'amount-positive' : member.balance < 0 ? 'amount-negative' : 'amount-neutral'}`}>
+                      <span className={`font-semibold ${getBalanceAmountClass(member.balance)}`}>
                         {member.balance < 0 ? '-' : ''}
                         {formatCurrency(Math.abs(member.balance), { precise: true })}
                       </span>
