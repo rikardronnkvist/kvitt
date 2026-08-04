@@ -15,6 +15,7 @@ import {
 import { formatDateTime } from '../lib/format.js';
 import { formatSwedishPhone, sanitizePhoneInput } from '../lib/phone.js';
 import { isPushSupported, isIosNonStandalone, subscribeToPush, unsubscribeFromPush, getSubscriptionState } from '../lib/pushNotifications.js';
+import { t } from '../lib/i18n.js';
 
 export default function AppShell() {
   const navigate = useNavigate();
@@ -127,7 +128,7 @@ export default function AppShell() {
     try {
       await refreshPasskeys();
     } catch (err) {
-      setPasskeysError(err.message || 'Kunde inte ladda passkeys.');
+      setPasskeysError(err.message || t('shell.passkeysLoadFailed'));
       setPasskeys([]);
     } finally {
       setPasskeysLoading(false);
@@ -157,14 +158,14 @@ export default function AppShell() {
       await renameMyPasskey(passkeyId, name.trim());
       await refreshPasskeys();
     } catch (err) {
-      setPasskeysError(err.message || 'Kunde inte byta namn på passkey.');
+      setPasskeysError(err.message || t('shell.passkeyRenameFailed'));
     } finally {
       setPasskeysActionId(null);
     }
   };
 
   const handleDeletePasskey = async (passkeyId) => {
-    if (!window.confirm('Är du säker på att du vill ta bort den här passkeyn?')) {
+    if (!window.confirm(t('shell.passkeyDeleteConfirm'))) {
       return;
     }
     setPasskeysError('');
@@ -173,7 +174,7 @@ export default function AppShell() {
       await deleteMyPasskey(passkeyId);
       await refreshPasskeys();
     } catch (err) {
-      setPasskeysError(err.message || 'Kunde inte ta bort passkey.');
+      setPasskeysError(err.message || t('shell.passkeyDeleteFailed'));
     } finally {
       setPasskeysActionId(null);
     }
@@ -195,7 +196,7 @@ export default function AppShell() {
       setUser((prev) => ({ ...prev, ...data.user }));
       setEditingProfile(false);
     } catch (err) {
-      setProfileError(err.message || 'Något gick fel.');
+      setProfileError(err.message || t('common.somethingWentWrong'));
     } finally {
       setProfileSaving(false);
     }
@@ -210,7 +211,7 @@ export default function AppShell() {
       setCreatingGroup(false);
       navigate(`/groups/${group.slug || group.id}`);
     } catch (err) {
-      setGroupError(err.message || 'Något gick fel.');
+      setGroupError(err.message || t('common.somethingWentWrong'));
     } finally {
       setGroupSaving(false);
     }
@@ -230,11 +231,11 @@ export default function AppShell() {
                 className="flex items-center gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-3 py-2 text-left shadow-[var(--shadow-soft)]"
               >
                 <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-[var(--app-surface-muted)]">
-                  <img src="/app-icon.png" alt="Kvitt ikon" className="h-full w-full object-cover" />
+                  <img src="/app-icon.png" alt={t('shell.appIconAlt')} className="h-full w-full object-cover" />
                 </div>
                 <div>
-                  <p className="m-0 text-sm font-semibold">Kvitt</p>
-                  <p className="m-0 text-xs text-[var(--text-muted)]">{window.__kvittConfig?.tagline || import.meta.env.VITE_TAGLINE || 'Dela kostnader, bli kvitt'}</p>
+                  <p className="m-0 text-sm font-semibold">{t('common.appName')}</p>
+                  <p className="m-0 text-xs text-[var(--text-muted)]">{window.__kvittConfig?.tagline || import.meta.env.VITE_TAGLINE || t('common.defaultTagline')}</p>
                 </div>
               </button>
             </div>
@@ -247,7 +248,7 @@ export default function AppShell() {
                   onClick={() => setDropdownOpen((prev) => !prev)}
                   aria-haspopup="menu"
                   aria-expanded={dropdownOpen}
-                  aria-label="Öppna meny"
+                  aria-label={t('shell.openMenu')}
                 >
                   <Menu className="h-5 w-5" />
                 </button>
@@ -260,7 +261,7 @@ export default function AppShell() {
                     onClick={() => { setDropdownOpen(false); window.location.assign('/'); }}
                   >
                     <Home className="h-4 w-4 text-[var(--text-secondary)]" />
-                    Mina grupper
+                    {t('shell.myGroups')}
                   </button>
                   {user ? (
                     <>
@@ -270,7 +271,7 @@ export default function AppShell() {
                         onClick={() => { setDropdownOpen(false); openCreateGroup(); }}
                       >
                         <FolderPlus className="h-4 w-4 text-[var(--text-secondary)]" />
-                        Skapa grupp
+                        {t('shell.createGroup')}
                       </button>
                       <button
                         type="button"
@@ -278,7 +279,7 @@ export default function AppShell() {
                         onClick={() => { setDropdownOpen(false); setScannerOpen(true); }}
                       >
                         <ScanLine className="h-4 w-4 text-[var(--text-secondary)]" />
-                        Skanna QR-kod
+                        {t('shell.scanQr')}
                       </button>
                       <div className="my-1 border-t border-[var(--border-subtle)]" />
                     </>
@@ -289,7 +290,7 @@ export default function AppShell() {
                     onClick={openEditProfile}
                   >
                     <UserCircle2 className="h-4 w-4 text-[var(--text-secondary)]" />
-                    Redigera profil
+                    {t('shell.editProfile')}
                   </button>
                   <button
                     type="button"
@@ -297,7 +298,7 @@ export default function AppShell() {
                     onClick={openPasskeys}
                   >
                     <KeyRound className="h-4 w-4 text-[var(--text-secondary)]" />
-                    Mina Passkeys
+                    {t('shell.myPasskeys')}
                   </button>
                   {!user?.is_admin || hasNotificationsMenuItem ? (
                     <div className="my-1 border-t border-[var(--border-subtle)]" />
@@ -309,7 +310,7 @@ export default function AppShell() {
                       onClick={async () => { await unsubscribeFromPush(); setNotifState('default'); setDropdownOpen(false); }}
                     >
                       <BellOff className="h-4 w-4 text-[var(--text-secondary)]" />
-                      Stäng av notiser
+                      {t('shell.disableNotifications')}
                     </button>
                   ) : notifState === 'default' || notifState === 'dismissed' ? (
                     <button
@@ -318,7 +319,7 @@ export default function AppShell() {
                       onClick={() => { localStorage.removeItem('notifications_dismissed'); setNotifState('default'); setDropdownOpen(false); }}
                     >
                       <Bell className="h-4 w-4 text-[var(--text-secondary)]" />
-                      Aktivera notiser
+                      {t('shell.enableNotifications')}
                     </button>
                   ) : null}
                   {user?.is_admin ? <div className="my-1 border-t border-[var(--border-subtle)]" /> : null}
@@ -329,7 +330,7 @@ export default function AppShell() {
                       onClick={() => { setDropdownOpen(false); navigate('/admin'); }}
                     >
                       <Settings className="h-4 w-4 text-[var(--text-secondary)]" />
-                      Adminpanel
+                      {t('shell.adminPanel')}
                     </button>
                   ) : null}
                   {user?.is_admin ? <div className="my-1 border-t border-[var(--border-subtle)]" /> : null}
@@ -339,7 +340,7 @@ export default function AppShell() {
                       onClick={() => { setDropdownOpen(false); navigate('/about'); }}
                     >
                       <Info className="h-4 w-4 text-[var(--text-secondary)]" />
-                      Om Kvitt
+                      {t('shell.aboutKvitt')}
                     </button>
                   <button
                     type="button"
@@ -347,7 +348,7 @@ export default function AppShell() {
                     onClick={handleLogout}
                   >
                     <LogOut className="h-4 w-4" />
-                    Logga ut
+                    {t('shell.logout')}
                   </button>
                   </div>
                 ) : null}
@@ -364,13 +365,13 @@ export default function AppShell() {
               <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-4 py-3 shadow-[var(--shadow-soft)]">
                 <div className="flex items-center gap-3">
                   <Bell className="h-4 w-4 shrink-0 text-[var(--text-secondary)]" />
-                  <p className="m-0 text-sm text-[var(--text-secondary)]">Aktivera notiser för att få ett meddelande när någon lägger till en utgift.</p>
+                  <p className="m-0 text-sm text-[var(--text-secondary)]">{t('shell.notifPrompt')}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <button type="button" className="btn-primary py-1.5 text-xs" onClick={handleEnableNotifications}>
-                    Aktivera
+                    {t('shell.enableNotifications')}
                   </button>
-                  <button type="button" className="icon-button" aria-label="Stäng" onClick={handleDismissNotifications}>
+                  <button type="button" className="icon-button" aria-label={t('common.close')} onClick={handleDismissNotifications}>
                     <X className="h-4 w-4" />
                   </button>
                 </div>
@@ -379,9 +380,9 @@ export default function AppShell() {
               <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-4 py-3 shadow-[var(--shadow-soft)]">
                 <div className="flex items-center gap-3">
                   <Bell className="h-4 w-4 shrink-0 text-[var(--text-secondary)]" />
-                  <p className="m-0 text-sm text-[var(--text-secondary)]">Lägg till Kvitt på hemskärmen för att aktivera notiser i Safari.</p>
+                  <p className="m-0 text-sm text-[var(--text-secondary)]">{t('shell.iosInstallPrompt')}</p>
                 </div>
-                <button type="button" className="icon-button shrink-0" aria-label="Stäng" onClick={handleDismissNotifications}>
+                <button type="button" className="icon-button shrink-0" aria-label={t('common.close')} onClick={handleDismissNotifications}>
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -396,23 +397,23 @@ export default function AppShell() {
           <div className="modal-sheet app-shell-modal-sheet md:w-[420px]" onClick={(event) => event.stopPropagation()}>
             <form className="space-y-5 p-5 sm:p-6" onSubmit={handleCreateGroup}>
               <div className="space-y-1">
-                <p className="section-eyebrow">Grupper</p>
-                <h2 className="m-0 text-xl font-semibold">Skapa ny grupp</h2>
+                <p className="section-eyebrow">{t('shell.groupsEyebrow')}</p>
+                <h2 className="m-0 text-xl font-semibold">{t('shell.createGroupTitle')}</h2>
               </div>
               <div className="space-y-3">
                 <label className="field-label">
-                  Gruppnamn
+                  {t('shell.groupName')}
                   <input
                     type="text"
                     value={newGroupName}
                     onChange={(e) => setNewGroupName(e.target.value)}
-                    placeholder="T.ex. Nissedal 2026, Rjukan Feb 26 ..."
+                    placeholder={t('shell.groupNamePlaceholder')}
                     required
                     autoFocus
                   />
                 </label>
                 <div className="grid gap-3">
-                  <p className="text-sm font-medium text-[var(--text-secondary)]">Färgtema</p>
+                  <p className="text-sm font-medium text-[var(--text-secondary)]">{t('shell.theme')}</p>
                   <div className="flex gap-2 overflow-x-auto px-2 py-2">
                     {GROUP_THEMES.map((t) => (
                       <button
@@ -441,10 +442,10 @@ export default function AppShell() {
               </div>
               <div className="flex gap-3">
                 <button type="button" className="btn-secondary flex-1" onClick={() => setCreatingGroup(false)}>
-                  Avbryt
+                  {t('shell.cancelCreateGroup')}
                 </button>
                 <button type="submit" className="btn-primary flex-1" disabled={groupSaving}>
-                  {groupSaving ? 'Skapar…' : 'Skapa grupp'}
+                  {groupSaving ? t('shell.creating') : t('shell.saveGroup')}
                 </button>
               </div>
             </form>
@@ -457,12 +458,12 @@ export default function AppShell() {
           <div className="modal-sheet app-shell-modal-sheet md:w-[420px]" onClick={(event) => event.stopPropagation()}>
             <form className="space-y-5 p-5 sm:p-6" onSubmit={handleSaveProfile}>
               <div className="space-y-1">
-                <p className="section-eyebrow">Profil</p>
-                <h2 className="m-0 text-xl font-semibold">Redigera profil</h2>
+                <p className="section-eyebrow">{t('shell.profileEyebrow')}</p>
+                <h2 className="m-0 text-xl font-semibold">{t('shell.profileTitle')}</h2>
               </div>
               <div className="space-y-3">
                 <label className="field-label">
-                  Fullständigt namn
+                  {t('auth.fullName')}
                   <input
                     type="text"
                     value={profileForm.full_name}
@@ -472,24 +473,24 @@ export default function AppShell() {
                   />
                 </label>
                 <label className="field-label">
-                  Telefonnummer (för enklare Swish'ar)
+                  {t('auth.phoneLabel')}
                   <input
                     type="tel"
                     value={profileForm.phone}
                     onChange={(e) => setProfileForm((f) => ({ ...f, phone: sanitizePhoneInput(e.target.value) }))}
                     onBlur={(e) => setProfileForm((f) => ({ ...f, phone: formatSwedishPhone(e.target.value) }))}
-                    placeholder="T.ex. +46-70-123 45 67"
+                    placeholder={t('auth.phonePlaceholder')}
                     autoComplete="tel"
                     pattern="[\d+\-\s]*"
                   />
                 </label>
                 <label className="field-label">
-                  <span>Initialer <span className="text-[var(--text-muted)] font-normal">(valfritt, 2 tecken)</span></span>
+                  <span>{t('shell.initials')} <span className="text-[var(--text-muted)] font-normal">{t('shell.initialsOptionalHint')}</span></span>
                   <input
                     type="text"
                     value={profileForm.initials}
                     onChange={(e) => setProfileForm((f) => ({ ...f, initials: e.target.value.slice(0, 2) }))}
-                    placeholder="Lämna tomt för automatiska initialer"
+                    placeholder={t('shell.initialsPlaceholder')}
                     autoComplete="off"
                     maxLength={2}
                   />
@@ -500,10 +501,10 @@ export default function AppShell() {
               </div>
               <div className="flex gap-3">
                 <button type="button" className="btn-secondary flex-1" onClick={() => setEditingProfile(false)}>
-                  Avbryt
+                  {t('common.cancel')}
                 </button>
                 <button type="submit" className="btn-primary flex-1" disabled={profileSaving}>
-                  {profileSaving ? 'Sparar…' : 'Spara'}
+                  {profileSaving ? t('shell.saving') : t('common.save')}
                 </button>
               </div>
             </form>
@@ -516,12 +517,12 @@ export default function AppShell() {
           <div className="modal-sheet app-shell-modal-sheet md:w-[480px]" onClick={(event) => event.stopPropagation()}>
             <div className="space-y-5 p-5 sm:p-6">
               <div className="space-y-1">
-                <p className="section-eyebrow">Säkerhet</p>
-                <h2 className="m-0 text-xl font-semibold">Mina Passkeys</h2>
+                <p className="section-eyebrow">{t('shell.securityEyebrow')}</p>
+                <h2 className="m-0 text-xl font-semibold">{t('shell.passkeysTitle')}</h2>
               </div>
 
               {passkeysLoading ? (
-                <p className="m-0 text-sm text-[var(--text-secondary)]">Laddar passkeys...</p>
+                <p className="m-0 text-sm text-[var(--text-secondary)]">{t('shell.loadingPasskeys')}</p>
               ) : passkeys.length ? (
                 <div className="space-y-2">
                   {passkeys.map((passkey) => (
@@ -533,10 +534,10 @@ export default function AppShell() {
                         onChange={(event) => setPasskeys((previous) => previous.map((row) => (row.id === passkey.id ? { ...row, name: event.target.value } : row)))}
                       />
                       <p className="m-0 text-xs text-[var(--text-secondary)]">
-                        Skapad: {formatDateTime(passkey.created_at)}
+                        {t('shell.createdAt')}: {formatDateTime(passkey.created_at)}
                       </p>
                       <p className="m-0 text-xs text-[var(--text-secondary)]">
-                        Senast använd: {passkey.last_used_at ? formatDateTime(passkey.last_used_at) : 'Aldrig'}
+                        {t('shell.lastUsed')}: {passkey.last_used_at ? formatDateTime(passkey.last_used_at) : t('shell.never')}
                       </p>
                       <div className="mt-2 flex gap-2">
                         <button
@@ -545,26 +546,26 @@ export default function AppShell() {
                           onClick={() => handleRenamePasskey(passkey.id, passkey.name || '')}
                           disabled={passkeysLoading || passkeysSaving || passkeysActionId === passkey.id || !(passkey.name || '').trim()}
                         >
-                          {passkeysActionId === passkey.id ? 'Sparar...' : 'Spara namn'}
+                          {passkeysActionId === passkey.id ? t('shell.saving') : t('shell.saveName')}
                         </button>
                         <button
                           type="button"
                           className="btn-danger flex-1"
                           onClick={() => handleDeletePasskey(passkey.id)}
                           disabled={passkeysLoading || passkeysSaving || passkeysActionId === passkey.id || Number(user?.current_passkey_id) === Number(passkey.id)}
-                          title={Number(user?.current_passkey_id) === Number(passkey.id) ? 'Kan inte ta bort passkeyn för aktuell session.' : undefined}
+                          title={Number(user?.current_passkey_id) === Number(passkey.id) ? t('shell.cannotDeleteCurrentPasskey') : undefined}
                         >
-                          Ta bort
+                          {t('shell.delete')}
                         </button>
                       </div>
                       {Number(user?.current_passkey_id) === Number(passkey.id) ? (
-                        <p className="mt-1 m-0 text-xs text-[var(--text-secondary)]">Aktiv i denna session och kan inte tas bort.</p>
+                        <p className="mt-1 m-0 text-xs text-[var(--text-secondary)]">{t('shell.activeSessionPasskey')}</p>
                       ) : null}
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="m-0 text-sm text-[var(--text-secondary)]">Inga passkeys registrerade ännu.</p>
+                <p className="m-0 text-sm text-[var(--text-secondary)]">{t('shell.noPasskeys')}</p>
               )}
 
               {passkeysError ? (
@@ -573,10 +574,10 @@ export default function AppShell() {
 
               <div className="flex gap-3">
                 <button type="button" className="btn-secondary flex-1" onClick={() => setManagingPasskeys(false)}>
-                  Stäng
+                  {t('common.close')}
                 </button>
                 <button type="button" className="btn-primary flex-1" onClick={handleAddPasskey} disabled={passkeysLoading || passkeysSaving}>
-                  {passkeysSaving ? 'Startar...' : 'Lägg till Passkey'}
+                  {passkeysSaving ? t('shell.starting') : t('shell.addPasskey')}
                 </button>
               </div>
             </div>

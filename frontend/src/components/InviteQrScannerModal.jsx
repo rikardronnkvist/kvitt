@@ -3,19 +3,20 @@ import { Camera, Keyboard, Loader2 } from 'lucide-react';
 import { BrowserCodeReader, BrowserMultiFormatReader } from '@zxing/browser';
 import ModalShell from './ModalShell.jsx';
 import { extractInviteToken } from '../lib/inviteToken.js';
+import { t } from '../lib/i18n.js';
 
 function getUserFacingError(message) {
   const lowered = String(message || '').toLowerCase();
   if (lowered.includes('permission') || lowered.includes('denied') || lowered.includes('notallowed')) {
-    return 'Kameraåtkomst nekades. Tillåt kamera för att skanna QR-kod.';
+    return t('scanner.permissionDenied');
   }
   if (lowered.includes('secure') || lowered.includes('https')) {
-    return 'Skanning kräver en säker anslutning (https).';
+    return t('scanner.secureRequired');
   }
   if (lowered.includes('device') || lowered.includes('camera') || lowered.includes('input')) {
-    return 'Ingen kamera hittades på enheten.';
+    return t('scanner.cameraNotFound');
   }
-  return 'Kunde inte starta QR-skanning.';
+  return t('scanner.startFailed');
 }
 
 export default function InviteQrScannerModal({ onClose, onDetected }) {
@@ -91,7 +92,7 @@ export default function InviteQrScannerModal({ onClose, onDetected }) {
   // Show error if media devices not supported (devices list stays empty after mount)
   useEffect(() => {
     if (!navigator?.mediaDevices?.getUserMedia) {
-      setError('Din enhet stödjer inte kameraläsning i webbläsaren.');
+      setError(t('scanner.deviceUnsupported'));
       setLoading(false);
     }
   }, []);
@@ -99,7 +100,7 @@ export default function InviteQrScannerModal({ onClose, onDetected }) {
   const submitManual = () => {
     const token = extractInviteToken(manualInput);
     if (!token) {
-      setError('Kunde inte läsa inbjudan. Klistra in en full inbjudningslänk eller token.');
+      setError(t('scanner.invalidInvite'));
       return;
     }
     onDetected(token);
@@ -107,8 +108,8 @@ export default function InviteQrScannerModal({ onClose, onDetected }) {
 
   return (
     <ModalShell
-      title="Scanna QR-inbjudan"
-      description="Rikta kameran mot en Kvitt-inbjudan för att gå med direkt i gruppen."
+      title={t('scanner.modalTitle')}
+      description={t('scanner.modalDescription')}
       onClose={onClose}
     >
       <div className="space-y-4">
@@ -125,7 +126,7 @@ export default function InviteQrScannerModal({ onClose, onDetected }) {
             >
               {devices.map((device, index) => (
                 <option key={device.deviceId} value={device.deviceId}>
-                  {device.label || `Kamera ${index + 1}`}
+                  {device.label || t('scanner.camera', { number: index + 1 })}
                 </option>
               ))}
             </select>
@@ -138,21 +139,21 @@ export default function InviteQrScannerModal({ onClose, onDetected }) {
             <div className="absolute inset-0 flex items-center justify-center bg-black/50 text-white">
               <span className="inline-flex items-center gap-2 text-sm">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Startar kamera...
+                {t('scanner.startingCamera')}
               </span>
             </div>
           ) : null}
         </div>
 
         <p className="m-0 text-xs text-[var(--text-secondary)]">
-          Om skanning inte fungerar kan du klistra in inbjudningslänken manuellt.
+          {t('scanner.manualHelp')}
         </p>
 
         <div className="flex gap-2">
           <input
             value={manualInput}
             onChange={(event) => setManualInput(event.target.value)}
-            placeholder="Klistra in länk eller token"
+            placeholder={t('scanner.manualPlaceholder')}
           />
           <button type="button" className="btn-secondary shrink-0" onClick={submitManual}>
             <Keyboard className="h-4 w-4" />
@@ -167,7 +168,7 @@ export default function InviteQrScannerModal({ onClose, onDetected }) {
         ) : (
           <p className="m-0 text-xs text-[var(--text-muted)] inline-flex items-center gap-1">
             <Camera className="h-3.5 w-3.5" />
-            Tillåt kameraåtkomst om webbläsaren frågar.
+            {t('scanner.allowCameraHint')}
           </p>
         )}
       </div>

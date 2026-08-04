@@ -1,5 +1,6 @@
 import { getUserDisplayName } from './users.js';
 import { getDefaultCategoryId } from './expenseCategories.js';
+import { t } from './i18n.js';
 
 function toLocalDateTimeInputValue(input) {
   const date = input ? new Date(input) : new Date();
@@ -118,15 +119,15 @@ export function buildExpensePayload(form, members) {
   const categoryId = Number(form.category_id);
 
   if (!selectedMembers.length) {
-    throw new Error('Välj minst en person att dela utgiften med.');
+    throw new Error(t('expenseForm.selectOneMember'));
   }
 
   if (!Number.isInteger(amount) || amount <= 0) {
-    throw new Error('Belopp måste vara ett heltal större än 0.');
+    throw new Error(t('expenseForm.amountMustBePositiveInteger'));
   }
 
   if (!Number.isInteger(categoryId) || categoryId <= 0) {
-    throw new Error('Välj en kategori för utgiften.');
+    throw new Error(t('expenseForm.selectCategory'));
   }
 
   let splits;
@@ -134,7 +135,7 @@ export function buildExpensePayload(form, members) {
     splits = selectedMembers.map((member) => {
       const owed = Number(form.custom_amounts[member.id]);
       if (!Number.isInteger(owed) || owed <= 0) {
-        throw new Error(`Ange ett giltigt heltalsbelopp för ${getUserDisplayName(member)}.`);
+        throw new Error(t('expenseForm.invalidCustomAmount', { name: getUserDisplayName(member) }));
       }
       return {
         user_id: member.id,
@@ -143,7 +144,7 @@ export function buildExpensePayload(form, members) {
     });
 
     if (customDifference !== 0) {
-      throw new Error('Summan av egna andelar måste motsvara utgiftens totalbelopp.');
+      throw new Error(t('expenseForm.customSharesMustMatch'));
     }
   } else {
     splits = buildEqualSplits(amount, selectedMembers);
@@ -159,7 +160,7 @@ export function buildExpensePayload(form, members) {
     occurred_at: (() => {
       const occurredAt = parseLocalDateTimeInput(form.occurred_at);
       if (!occurredAt) {
-        throw new Error('Ange ett giltigt datum och tid.');
+        throw new Error(t('expenseForm.invalidDateTime'));
       }
       return occurredAt.toISOString();
     })(),

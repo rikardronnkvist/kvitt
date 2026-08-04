@@ -7,6 +7,7 @@ import InviteQrScannerModal from '../components/InviteQrScannerModal.jsx';
 import { usePasskeyAuth } from '../hooks/usePasskeyAuth.js';
 import { formatSwedishPhone, sanitizePhoneInput } from '../lib/phone.js';
 import { PENDING_INVITE_TOKEN_KEY } from './InvitePage.jsx';
+import { t } from '../lib/i18n.js';
 
 const registerInitialState = { full_name: '', phone: '' };
 
@@ -104,7 +105,7 @@ export default function Login() {
         }
 
         if (!response.ok) {
-          let message = 'Kunde inte ladda testanvändare.';
+          let message = t('auth.loadDevUsersFailed');
           try {
             const data = await response.json();
             message = data.error || message;
@@ -120,7 +121,7 @@ export default function Login() {
       })
       .catch((requestError) => {
         if (!active) return;
-        setError(requestError.message || 'Kunde inte ladda testanvändare.');
+        setError(requestError.message || t('auth.loadDevUsersFailed'));
         setDevboxAvailable(false);
         setDevboxUsers([]);
       })
@@ -138,12 +139,12 @@ export default function Login() {
   const onPasskeySignup = async () => {
     const displayName = registerForm.full_name.trim();
     if (displayName.length < 3) {
-      setError('Ange minst 3 tecken i namnet.');
+      setError(t('auth.nameMinChars'));
       return;
     }
 
     if (!hasValidRegistrationToken) {
-      setError('Registrering är stängd. Be admin om registreringslänk.');
+      setError(t('auth.registerClosedShort'));
       return;
     }
 
@@ -164,7 +165,7 @@ export default function Login() {
         navigate('/');
       }
     } catch (loginError) {
-      setError(loginError.message || 'Kunde inte logga in testanvändare.');
+      setError(loginError.message || t('auth.loginDevUserFailed'));
     } finally {
       setDevboxLoginLoading(false);
     }
@@ -184,8 +185,8 @@ export default function Login() {
               <img src="/kvitt.png" alt="Kvitt logo" className="h-16 w-16 object-contain" />
             </div>
             <div className="space-y-1">
-              <h1 className="page-title">Logga in på Kvitt</h1>
-              <p className="m-0 text-sm text-[var(--text-secondary)]">{window.__kvittConfig?.tagline || import.meta.env.VITE_TAGLINE || 'Dela kostnader, bli kvitt'}</p>
+              <h1 className="page-title">{t('auth.loginTitle')}</h1>
+              <p className="m-0 text-sm text-[var(--text-secondary)]">{window.__kvittConfig?.tagline || import.meta.env.VITE_TAGLINE || t('common.defaultTagline')}</p>
             </div>
           </div>
         </div>
@@ -195,19 +196,19 @@ export default function Login() {
             <>
               {!hasRegistrationToken ? (
                 <p className="m-0 rounded-lg border border-[var(--border-strong)] bg-[var(--app-surface-muted)] px-3 py-2 text-sm text-[var(--text-secondary)]">
-                  Registrering är stängd. Be en administratör om registreringslänk.
+                  {t('auth.registerClosed')}
                 </p>
               ) : checkingRegistrationToken ? (
                 <p className="m-0 rounded-lg border border-[var(--border-strong)] bg-[var(--app-surface-muted)] px-3 py-2 text-sm text-[var(--text-secondary)]">
-                  Verifierar registreringslänken...
+                  {t('auth.registerLinkVerifying')}
                 </p>
               ) : !hasValidRegistrationToken ? (
                 <p className="m-0 rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">
-                  Ogiltig registreringslänk. Be en administratör om en ny länk.
+                  {t('auth.registerLinkInvalid')}
                 </p>
               ) : null}
               <label className="field-label">
-                För och efternamn
+                {t('auth.fullName')}
                 <input
                   name="full_name"
                   value={registerForm.full_name}
@@ -217,7 +218,7 @@ export default function Login() {
                 />
               </label>
               <label className="field-label">
-                Telefonnummer (för enklare Swish'ar)
+                {t('auth.phoneLabel')}
                 <input
                   name="phone"
                   type="tel"
@@ -225,15 +226,15 @@ export default function Login() {
                   onChange={(event) => setRegisterForm((previous) => ({ ...previous, phone: sanitizePhoneInput(event.target.value) }))}
                   onBlur={(event) => setRegisterForm((previous) => ({ ...previous, phone: formatSwedishPhone(event.target.value) }))}
                   disabled={!hasValidRegistrationToken}
-                  placeholder="T.ex. +46-70-123 45 67"
+                  placeholder={t('auth.phonePlaceholder')}
                   autoComplete="tel"
                   pattern="[\d+\-\s]*"
                 />
               </label>
               <div className="space-y-4">
                 <PasskeyButton
-                  label="Skapa konto med Passkey"
-                  loadingLabel="Startar Passkey..."
+                  label={t('auth.signupPasskey')}
+                  loadingLabel={t('auth.startPasskey')}
                   loading={passkeyLoading}
                   disabled={isBusy || !hasValidRegistrationToken || !hasValidRegisterName}
                   onClick={onPasskeySignup}
@@ -243,22 +244,22 @@ export default function Login() {
           ) : (
             <div className="space-y-4">
               <PasskeyButton
-                label="Logga in med Passkey"
-                loadingLabel="Startar Passkey..."
+                label={t('auth.loginPasskey')}
+                loadingLabel={t('auth.startPasskey')}
                 loading={passkeyLoading}
                 disabled={isBusy}
                 onClick={handlePasskeyLogin}
               />
               <button type="button" className="btn-secondary w-full" disabled={isBusy} onClick={() => setIsScannerOpen(true)}>
                 <ScanLine className="h-4 w-4" />
-                Scanna QR-inbjudan
+                {t('auth.scanInviteQr')}
               </button>
             </div>
           )}
 
           {!isRegisterMode && devboxAvailable ? (
             <div className="space-y-3">
-              <p className="m-0 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Devbox</p>
+              <p className="m-0 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t('auth.devbox')}</p>
               <div className="space-y-2">
                 {devboxUsers.length ? devboxUsers.map((user) => (
                   <button
@@ -273,13 +274,13 @@ export default function Login() {
                       {user.subtitle ? <span className="text-xs text-[var(--text-muted)]">{user.subtitle}</span> : null}
                     </span>
                     {user.is_admin ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="ml-auto size-4 shrink-0 text-[var(--text-muted)]" aria-label="Admin">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="ml-auto size-4 shrink-0 text-[var(--text-muted)]" aria-label={t('auth.adminLabel')}>
                         <path fillRule="evenodd" d="M9.661 2.237a.531.531 0 0 1 .678 0 11.947 11.947 0 0 0 7.078 2.749.5.5 0 0 1 .479.425c.069.52.104 1.05.104 1.589 0 5.162-3.26 9.563-7.834 11.256a.48.48 0 0 1-.332 0C5.26 16.563 2 12.162 2 7c0-.538.035-1.069.104-1.589a.5.5 0 0 1 .48-.425 11.947 11.947 0 0 0 7.077-2.749Z" clipRule="evenodd" />
                       </svg>
                     ) : null}
                   </button>
                 )) : (
-                  <p className="m-0 text-sm text-[var(--text-secondary)]">Inga användare hittades.</p>
+                  <p className="m-0 text-sm text-[var(--text-secondary)]">{t('auth.noUsersFound')}</p>
                 )}
               </div>
             </div>
@@ -291,12 +292,12 @@ export default function Login() {
             {!isRegisterMode ? (
               hasRegistrationToken ? (
                 <>
-                  Har du inget konto? <Link to={`/register?${encodeURIComponent(registrationToken)}`}>Registrera dig</Link>
+                  {t('auth.noAccount')} <Link to={`/register?${encodeURIComponent(registrationToken)}`}>{t('auth.register')}</Link>
                 </>
-              ) : 'Registrering kräver en inbjudningslänk.'
+              ) : t('auth.registerRequiresInvite')
             ) : (
               <>
-                Har du redan ett konto? <Link to="/login">Logga in</Link>
+                {t('auth.alreadyHaveAccount')} <Link to="/login">{t('auth.login')}</Link>
               </>
             )}
           </p>

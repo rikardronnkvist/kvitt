@@ -6,6 +6,7 @@ import {
   registerWithPasskey,
 } from '../auth/passkey.js';
 import { PENDING_INVITE_TOKEN_KEY } from '../pages/InvitePage.jsx';
+import { t } from '../lib/i18n.js';
 
 export function usePasskeyAuth({ navigate, setError }) {
   const [passkeyLoading, setPasskeyLoading] = useState(false);
@@ -46,7 +47,7 @@ export function usePasskeyAuth({ navigate, setError }) {
       return true;
     }
 
-    setError('Din enhet stödjer inte Passkeys');
+    setError(t('auth.deviceNoPasskey'));
     return false;
   };
 

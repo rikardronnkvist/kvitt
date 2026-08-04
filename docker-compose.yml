@@ -24,6 +24,8 @@ services:
 
   frontend:
     build: ./frontend
+    environment:
+      - KVITT_LANGUAGE=${KVITT_LANGUAGE:-sv-se}
     ports:
       - "${FRONTEND_PORT:-8080}:80"
     depends_on:

@@ -33,10 +33,29 @@ The frontend is available on `http://localhost:8080` by default and proxies API 
 | `PASSKEY_RP_NAME` | `backend` | `Kvitt` | Displayed relying party name for passkey prompts. |
 | `PASSKEY_ORIGIN` | `backend` | `http://localhost:5173` | Allowed WebAuthn origin(s), comma-separated if needed. |
 | `DEVBOX` | `backend` | `false` | Enables devbox-only quick-login endpoints and user picker on login screen. |
+| `KVITT_LANGUAGE` | `frontend` (runtime env) | `sv-se` | Active UI language served via runtime config. Current supported value is `sv-se`. |
+| `VITE_LANGUAGE` | `frontend` (build env / local dev) | `sv-se` | Build-time fallback language used in local Vite development. |
 | `VITE_TAGLINE` | `frontend` (build arg or runtime env) | `Dela kostnader, bli kvitt` | Tagline shown on the login page and in the app header. |
 | `VAPID_PUBLIC_KEY` | `backend` | _(none)_ | VAPID public key for Web Push notifications. Leave empty to disable push. |
 | `VAPID_PRIVATE_KEY` | `backend` | _(none)_ | VAPID private key. Keep this secret. |
 | `VAPID_CONTACT_EMAIL` | `backend` | `admin@example.com` | Contact email sent in VAPID headers. Change to a real address in production. |
+
+### Language configuration
+Kvitt now loads UI strings from a language file:
+
+- `frontend/src/i18n/sv-se.json`
+
+Language resolution order is:
+
+1. Frontend runtime config (`KVITT_LANGUAGE`, injected as `window.__kvittConfig.language`)
+2. Build env (`VITE_LANGUAGE`)
+3. Default fallback (`sv-se`)
+
+Important:
+
+- Users cannot change language in the UI.
+- There is no client-side language selector or per-user language preference.
+- If an unsupported language value is provided, Kvitt falls back to `sv-se`.
 
 ### Push notifications
 Kvitt can send Web Push notifications to group members when a new expense is added. Push requires VAPID keys, which are generated once and stored in your environment.

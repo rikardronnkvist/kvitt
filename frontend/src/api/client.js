@@ -1,3 +1,5 @@
+import { t } from '../lib/i18n.js';
+
 const getToken = () => localStorage.getItem('token');
 
 function redirectToLogin() {
@@ -19,11 +21,11 @@ async function request(url, options = {}, responseType = 'json') {
 
   if (response.status === 401) {
     redirectToLogin();
-    throw new Error('Din session har gått ut.');
+    throw new Error(t('auth.sessionExpired'));
   }
 
   if (!response.ok) {
-    let message = 'Ett fel uppstod.';
+    let message = t('common.genericError');
     try {
       const data = await response.json();
       message = data.error || message;

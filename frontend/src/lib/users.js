@@ -1,3 +1,5 @@
+import { t } from './i18n.js';
+
 export function getUserDisplayName(user) {
   const candidates = [user?.full_name, user?.displayName, user?.name, user?.username];
   for (const value of candidates) {
@@ -7,7 +9,7 @@ export function getUserDisplayName(user) {
     }
   }
 
-  return user?.id ? `Användare ${user.id}` : 'Okänd användare';
+  return user?.id ? t('users.userWithId', { id: user.id }) : t('users.unknownUser');
 }
 
 export function getUserSearchLabel(user) {
