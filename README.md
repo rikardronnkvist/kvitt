@@ -2,7 +2,7 @@
 
 ## English
 
-Kvitt is a self-hosted bill-splitting web application for small groups, trips, households, and shared projects. It includes a Node.js/Express backend, a React/Vite frontend, and SQLite persistence for simple deployment.
+Kvitt is a self-hosted bill-splitting web application for small groups, trips, households, and shared projects.
 
 ### Features
 - User registration and login with JWT authentication
@@ -109,115 +109,55 @@ cd frontend
 npm install
 npm run dev
 ```
+### Docker Swarm deployment
+Deployment in Docker Swarm using the ghcr.io-hosted containers, Gulster as a shared filesystem and Traefik for traffic routing.
 
----
+```yaml
+services:
+  frontend:
+    image: ghcr.io/rikardronnkvist/kvitt-frontend
+    deploy:
+      replicas: 1
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.kvitt.rule=Host(`kvitt.mydomain.se`)"
+        - "traefik.http.routers.kvitt.entrypoints=websecure"
+        - "traefik.http.routers.kvitt.tls=true"
+        - "traefik.http.routers.kvitt.tls.certresolver=le"
+        - "traefik.http.routers.kvitt.middlewares=geo-block@file,tor-block@file"
+        - "traefik.http.services.kvitt.loadbalancer.server.port=80"
+    environment:
+      VITE_TAGLINE: "#teambail on tour"
+    networks:
+      - backend
+      - traefik
 
-## Svenska
+  backend:
+    image: ghcr.io/rikardronnkvist/kvitt-backend
+    volumes:
+      - /mnt/gluster01/kvitt:/app/data
+    labels:
+      - "ssb.backup-db=sqlite"
+      - "ssb.backup-db-path=/app/data/kvitt.db"
+    environment:
+      JWT_SECRET: ABCyyyyyyyyyyyyyy987
+      PASSKEY_RP_ID: kvitt.mydomain.se
+      PASSKEY_RP_NAME: Kvitt
+      PASSKEY_ORIGIN: https://kvitt.mydomain.se
+      PORT: ${PORT:-3000}
+      DEVBOX: "false"
+      DB_PATH: /app/data/kvitt.db
+      VAPID_PUBLIC_KEY: ABCxxxxxxxxxxxxxx123
+      VAPID_PRIVATE_KEY: ZXYxxxxxxxxxxxxxx987
+      VAPID_CONTACT_EMAIL: someone@mydomain.se
+    networks:
+      - backend
+    deploy:
+      replicas: 1
 
-Kvitt är en självhostad webbapplikation för att dela upp utgifter i mindre grupper, på resor, i hushåll eller i gemensamma projekt. Projektet består av en Node.js/Express-backend, ett React/Vite-gränssnitt och SQLite för enkel lagring.
-
-### Funktioner
-- Registrering och inloggning med JWT-autentisering
-- Skapande av grupper och hantering av medlemmar
-- Utgifter med lika delning eller manuella andelar
-- Saldoberäkning som tar hänsyn till registrerade betalningar
-- CSV-export av gruppens utgifter
-- Docker-baserad självhosting
-
-### Snabbstart med Docker Compose
-```bash
-cp .env.example .env
-# Ändra JWT_SECRET innan du exponerar tjänsten
-docker compose up --build
-```
-
-Frontend finns som standard på `http://localhost:8080` och proxar API-anrop till backend.
-
-### Miljövariabler
-| Variabel | Container | Standardvärde | Beskrivning |
-| --- | --- | --- | --- |
-| `JWT_SECRET` | `backend` | `changeme-use-a-strong-secret` | Hemlighet som används för att signera och verifiera JWT-token. Byt i produktion. |
-| `SESSION_SECRET` | `backend` | _(valfri)_ | Valfritt alias för `JWT_SECRET` som kan användas av auth-moduler. |
-| `PORT` | `backend` | `3000` | HTTP-port för backend i containern eller vid lokal backend-utveckling. |
-| `FRONTEND_PORT` | Compose (värd) | `8080` | Värdport som mappas till frontendcontainern. |
-| `DB_PATH` | `backend` | `/app/data/kvitt.db` | Sökväg till SQLite-databasen som backend använder. |
-| `PASSKEY_RP_ID` | `backend` | `localhost` | WebAuthn RP-ID. Använd din domän i produktion. |
-| `PASSKEY_RP_NAME` | `backend` | `Kvitt` | Visningsnamn för RP i passkey-dialogen. |
-| `PASSKEY_ORIGIN` | `backend` | `http://localhost:5173` | Tillåtna WebAuthn-origin(s), kommaseparerade vid behov. |
-| `DEVBOX` | `backend` | `false` | Aktiverar devbox-endpoints för snabbinloggning och användarlista på inloggningssidan. |
-| `VITE_TAGLINE` | `frontend` (build-arg eller runtime-env) | `Dela kostnader, bli kvitt` | Tagline som visas på inloggningssidan och i appens header. |
-| `VAPID_PUBLIC_KEY` | `backend` | _(ingen)_ | VAPID-publik nyckel för Web Push-notiser. Lämna tom för att inaktivera push. |
-| `VAPID_PRIVATE_KEY` | `backend` | _(ingen)_ | VAPID-privat nyckel. Håll denna hemlig. |
-| `VAPID_CONTACT_EMAIL` | `backend` | `admin@example.com` | Kontakt-e-post som skickas i VAPID-headers. Byt till en riktig adress i produktion. |
-
-### Push-notiser
-Kvitt kan skicka Web Push-notiser till gruppmedlemmar när en ny utgift läggs till. Push kräver VAPID-nycklar som genereras en gång och sparas i din miljö.
-
-Generera ett VAPID-nyckelpar:
-```bash
-npx web-push generate-vapid-keys
-```
-
-Kopiera utdatan till din `.env` (eller Docker Compose-miljö):
-```
-VAPID_PUBLIC_KEY=<din publika nyckel>
-VAPID_PRIVATE_KEY=<din privata nyckel>
-VAPID_CONTACT_EMAIL=du@example.com
-```
-
-- Om `VAPID_PUBLIC_KEY` eller `VAPID_PRIVATE_KEY` saknas inaktiveras push-notiser utan fel och opt-in-bannern visas inte.
-- Användare måste ge notistillstånd i webbläsaren. På iOS måste appen läggas till på hemskärmen (PWA) först.
-- Nycklarna är permanenta — genereras de om ogiltigförklaras alla befintliga prenumerationer.
-
-### Passkey-konfiguration (lokalt vs produktion)
-- **Lokal utveckling**: använd `PASSKEY_RP_ID=localhost` och `PASSKEY_ORIGIN=http://localhost:5173`.
-- **Produktion**: sätt `PASSKEY_RP_ID` till din riktiga domän och `PASSKEY_ORIGIN` till appens HTTPS-origin (t.ex. `https://kvitt.example.com`).
-- WebAuthn-verifiering misslyckas om RP-ID eller origin inte matchar webbläsarkontexten.
-
-### Registreringskontroll
-- Nya konton kräver en adminstyrd inbjudningslänk (`/register?<token>`).
-- Administratörer kan visa, återställa och kopiera aktiv registreringslänk i adminpanelen.
-
-### Säkerhetskopiera databasen
-SQLite-databasen ligger i Docker-volymen `kvitt_data`.
-
-Skapa en backup:
-```bash
-docker run --rm -v kvitt_kvitt_data:/data -v "$PWD":/backup alpine \
-  sh -c 'cp /data/kvitt.db /backup/kvitt-backup.db'
-```
-
-Återställ en backup:
-```bash
-docker run --rm -v kvitt_kvitt_data:/data -v "$PWD":/backup alpine \
-  sh -c 'cp /backup/kvitt-backup.db /data/kvitt.db'
-```
-
-Justera volymnamnet om ditt Compose-projektnamn skiljer sig.
-
-### Utvecklingsmiljö
-Kör backend och frontend tillsammans från projektroten:
-```bash
-npm install
-npm run install:all
-npm run dev
-```
-
-Backend startar på `http://localhost:3000` och Vites utvecklingsserver startar på `http://localhost:5173` och proxar `/api` till backend.
-Lokala npm-skript för dev/start kör nu som standard med `DEVBOX=true`.
-
-Alternativt, kör var och en i ett eget terminalfönster:
-
-Backend:
-```bash
-cd backend
-npm install
-npm run dev
-```
-
-Frontend:
-```bash
-cd frontend
-npm install
-npm run dev
+networks:
+  traefik:
+    external: true
+  backend:
+    driver: overlay
 ```

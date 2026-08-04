@@ -10,4 +10,4 @@ Report security issues by email to **rikard@ronnkvist.nu**. Include:
 - Steps to reproduce or a proof-of-concept
 - Affected versions (if known)
 
-I will acknowledge receipt within 48 hours and aim to release a fix within 14 days for confirmed vulnerabilities.
+I will acknowledge receipt within resonable time (this is a hobby project) and aim to fix confirmed vulnerabilities.
