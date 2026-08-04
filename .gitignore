@@ -5,3 +5,4 @@ backend/node_modules/
 backend/data/
 frontend/node_modules/
 frontend/dist/
+data/kvitt.db
