@@ -17,6 +17,21 @@ import { formatSwedishPhone, sanitizePhoneInput } from '../lib/phone.js';
 import { isPushSupported, isIosNonStandalone, subscribeToPush, unsubscribeFromPush, getSubscriptionState } from '../lib/pushNotifications.js';
 import { t } from '../lib/i18n.js';
 
+function getSecureRandomIndex(length) {
+  if (!Number.isInteger(length) || length <= 0) {
+    return 0;
+  }
+
+  const cryptoApi = globalThis.crypto;
+  if (!cryptoApi?.getRandomValues) {
+    return 0;
+  }
+
+  const values = new Uint32Array(1);
+  cryptoApi.getRandomValues(values);
+  return values[0] % length;
+}
+
 function NotificationsBanner({ notifState, onEnableNotifications, onDismissNotifications }) {
   if (notifState === 'default') {
     return (
@@ -509,7 +524,7 @@ export default function AppShell() {
     }
     const pool = GROUP_THEMES.filter((t) => !usedColors.includes(t.id));
     const source = pool.length > 0 ? pool : GROUP_THEMES;
-    setNewGroupTheme(source[Math.floor(Math.random() * source.length)].id);
+    setNewGroupTheme(source[getSecureRandomIndex(source.length)].id);
     setCreatingGroup(true);
   };
 

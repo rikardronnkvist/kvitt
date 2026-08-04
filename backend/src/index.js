@@ -18,6 +18,9 @@ initializeDatabase();
 const app = express();
 const port = Number(process.env.PORT) || 3000;
 
+// Avoid disclosing framework details via default response headers.
+app.disable('x-powered-by');
+
 const REGISTRATION_QUERY_MAX_LENGTH = 512;
 
 function isAllowedRegistrationToken(value) {
