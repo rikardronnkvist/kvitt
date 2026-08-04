@@ -440,7 +440,7 @@ function TimelineChart({ periods, granularity, onGranularityChange, dataMode, on
               const barHeight = Math.max(3, (item.amount / maxAmount) * chartHeight);
               const y = margin.top + chartHeight - barHeight;
               const shouldShowLabel = shownLabelIndexes.has(index);
-              const safeTotal = item.amount > 0 ? item.amount : 0;
+              const safeTotal = Math.max(0, item.amount);
               const expenseSegmentHeight = safeTotal > 0 ? (barHeight * (item.expenseAmount / safeTotal)) : 0;
               const transferSegmentHeight = safeTotal > 0 ? (barHeight * (item.transferAmount / safeTotal)) : 0;
               const transferY = y;
@@ -561,7 +561,7 @@ function PieCard({ title, entries }) {
     const centerY = rect.top + (rect.height / 2);
     const dx = event.clientX - centerX;
     const dy = event.clientY - centerY;
-    const distance = Math.sqrt((dx * dx) + (dy * dy));
+    const distance = Math.hypot(dx, dy);
 
     if (distance < innerRadius || distance > outerRadius) {
       setHoveredLabel('');
@@ -866,7 +866,7 @@ function buildStatistics({ expenses, expenseCategories, members, settlements, ti
     membersCount: members.length,
     expensesCount: expenses.length,
     transfersCount: settlements.length,
-    periodRange: formatRangeLabel(periodDates[0], periodDates[periodDates.length - 1]),
+    periodRange: formatRangeLabel(periodDates[0], periodDates.at(-1)),
     timelinePeriods,
     categoryData: toPieData(categoryEntries, { sortByValue: false }),
     paidByData: toPieData(Array.from(paidByMap.entries()).map(([label, value]) => ({ label, value }))),

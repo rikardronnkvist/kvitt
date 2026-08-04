@@ -23,7 +23,7 @@ function formatLocalDateTime(date) {
 function normalizeSettledAt(input) {
   if (!input) return null;
   const text = String(input).trim();
-  const match = text.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/);
+  const match = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/.exec(text);
   if (!match) return null;
 
   const [, yearText, monthText, dayText, hourText, minuteText, secondText = '0'] = match;

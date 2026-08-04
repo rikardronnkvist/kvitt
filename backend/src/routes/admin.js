@@ -18,7 +18,7 @@ router.use(authMiddleware);
 
 function requireAdmin(req, res, next) {
   const user = db.prepare('SELECT is_admin FROM users WHERE id = ?').get(req.user.id);
-  if (!user || !Boolean(user.is_admin)) {
+  if (!user?.is_admin) {
     return res.status(403).json({ error: 'Endast administratörer har åtkomst.' });
   }
   return next();

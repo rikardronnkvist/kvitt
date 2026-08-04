@@ -266,8 +266,8 @@ router.post('/:groupId', (req, res) => {
     });
   }
 
-  const invalidSplit = splits.find((split) => !memberIds.has(split.user_id));
-  if (invalidSplit) {
+  const hasInvalidSplit = splits.some((split) => !memberIds.has(split.user_id));
+  if (hasInvalidSplit) {
     return res.status(400).json({ error: 'Alla splits måste tillhöra gruppmedlemmar.' });
   }
 
@@ -412,8 +412,8 @@ router.put('/:groupId/:expenseId', (req, res) => {
     });
   }
 
-  const invalidSplit = splits.find((split) => !memberIds.has(split.user_id));
-  if (invalidSplit) {
+  const hasInvalidSplit = splits.some((split) => !memberIds.has(split.user_id));
+  if (hasInvalidSplit) {
     return res.status(400).json({ error: 'Alla splits måste tillhöra gruppmedlemmar.' });
   }
 

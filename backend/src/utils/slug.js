@@ -5,10 +5,28 @@ export function slugifyGroupName(name) {
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '');
 
-  const slug = normalized
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+/, '')
-    .replace(/-+$/, '');
+  let slug = '';
+  let lastWasSeparator = false;
+
+  for (const character of normalized) {
+    const isAsciiLetter = character >= 'a' && character <= 'z';
+    const isDigit = character >= '0' && character <= '9';
+
+    if (isAsciiLetter || isDigit) {
+      slug += character;
+      lastWasSeparator = false;
+      continue;
+    }
+
+    if (slug && !lastWasSeparator) {
+      slug += '-';
+      lastWasSeparator = true;
+    }
+  }
+
+  if (slug.endsWith('-')) {
+    slug = slug.slice(0, -1);
+  }
 
   return slug || 'grupp';
 }

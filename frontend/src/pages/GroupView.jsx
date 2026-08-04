@@ -15,7 +15,7 @@ import { getCategoryIcon } from '../lib/expenseCategories.js';
 import { formatCurrency, formatDateTime, formatMonthYear } from '../lib/format.js';
 import { buildInviteUrl } from '../lib/inviteToken.js';
 import { getCurrentUserId } from '../lib/session.js';
-import { getUserDisplayName, getUserInitials, getUserSearchLabel } from '../lib/users.js';
+import { getUserDisplayName, getUserInitials } from '../lib/users.js';
 import { GROUP_THEMES, getThemeForGroup } from '../lib/groupTheme.js';
 
 const INITIAL_TIMELINE_VISIBLE_COUNT = 25;
@@ -43,7 +43,7 @@ function getBalanceAmountClass(balance) {
 function toTimestamp(value, { assumeUtcNaive = false } = {}) {
   if (!value) return Number.NaN;
   const input = String(value).trim();
-  const naiveMatch = input.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/);
+  const naiveMatch = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/.exec(input);
   if (naiveMatch) {
     const [, yearText, monthText, dayText, hourText, minuteText, secondText = '0'] = naiveMatch;
     const year = Number(yearText);

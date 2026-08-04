@@ -10,7 +10,7 @@ function sanitizeIntegerInput(value) {
 
 function toLocalDateTimeInputValue(input) {
   const raw = String(input || '').trim();
-  const directMatch = raw.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})(?::\d{2})?$/);
+  const directMatch = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})(?::\d{2})?$/.exec(raw);
   if (directMatch) {
     return `${directMatch[1]}T${directMatch[2]}`;
   }

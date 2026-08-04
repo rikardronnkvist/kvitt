@@ -11,7 +11,7 @@ function toLocalDateTimeInputValue(input) {
 
 function parseLocalDateTimeInput(value) {
   const input = String(value || '').trim();
-  const match = input.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})$/);
+  const match = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})$/.exec(input);
   if (!match) {
     return null;
   }

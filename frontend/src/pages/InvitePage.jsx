@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Users } from 'lucide-react';
-import { get, post } from '../api/client.js';
+import { post } from '../api/client.js';
 import { parseUser } from '../lib/session.js';
 import { getGroupTheme } from '../lib/groupTheme.js';
 

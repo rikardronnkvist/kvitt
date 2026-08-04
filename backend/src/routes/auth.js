@@ -91,8 +91,8 @@ router.put('/profile', requireAuth, async (req, res) => {
   }
 
   const { full_name, phone, initials } = parsed.data;
-  const normalizedInitials = initials && initials.trim().length === 2 ? initials.trim().toUpperCase() : null;
-  const normalizedPhone = phone && phone.trim().length > 0 ? phone.trim() : null;
+  const normalizedInitials = initials?.trim().length === 2 ? initials.trim().toUpperCase() : null;
+  const normalizedPhone = phone?.trim().length > 0 ? phone.trim() : null;
   const currentUser = db.prepare('SELECT id, is_admin, full_name, phone, initials FROM users WHERE id = ?').get(req.user.id);
 
   if (!currentUser) {
