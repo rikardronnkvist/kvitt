@@ -17,6 +17,404 @@ import { formatSwedishPhone, sanitizePhoneInput } from '../lib/phone.js';
 import { isPushSupported, isIosNonStandalone, subscribeToPush, unsubscribeFromPush, getSubscriptionState } from '../lib/pushNotifications.js';
 import { t } from '../lib/i18n.js';
 
+function NotificationsBanner({ notifState, onEnableNotifications, onDismissNotifications }) {
+  if (notifState === 'default') {
+    return (
+      <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-4 py-3 shadow-[var(--shadow-soft)]">
+        <div className="flex items-center gap-3">
+          <Bell className="h-4 w-4 shrink-0 text-[var(--text-secondary)]" />
+          <p className="m-0 text-sm text-[var(--text-secondary)]">{t('shell.notifPrompt')}</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <button type="button" className="btn-primary py-1.5 text-xs" onClick={onEnableNotifications}>
+            {t('shell.enableNotifications')}
+          </button>
+          <button type="button" className="icon-button" aria-label={t('common.close')} onClick={onDismissNotifications}>
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (notifState === 'ios_install') {
+    return (
+      <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-4 py-3 shadow-[var(--shadow-soft)]">
+        <div className="flex items-center gap-3">
+          <Bell className="h-4 w-4 shrink-0 text-[var(--text-secondary)]" />
+          <p className="m-0 text-sm text-[var(--text-secondary)]">{t('shell.iosInstallPrompt')}</p>
+        </div>
+        <button type="button" className="icon-button shrink-0" aria-label={t('common.close')} onClick={onDismissNotifications}>
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function AppMenuDropdown({
+  dropdownOpen,
+  user,
+  hasNotificationsMenuItem,
+  notifState,
+  setDropdownOpen,
+  setScannerOpen,
+  setNotifState,
+  navigate,
+  onOpenCreateGroup,
+  onOpenEditProfile,
+  onOpenPasskeys,
+  onLogout,
+}) {
+  if (!dropdownOpen) {
+    return null;
+  }
+
+  return (
+    <div className="absolute right-0 top-full z-50 mt-1.5 w-52 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] py-1 shadow-[var(--shadow-strong)]">
+      <button
+        type="button"
+        className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
+        onClick={() => { setDropdownOpen(false); window.location.assign('/'); }}
+      >
+        <Home className="h-4 w-4 text-[var(--text-secondary)]" />
+        {t('shell.myGroups')}
+      </button>
+      {user ? (
+        <>
+          <button
+            type="button"
+            className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
+            onClick={() => { setDropdownOpen(false); onOpenCreateGroup(); }}
+          >
+            <FolderPlus className="h-4 w-4 text-[var(--text-secondary)]" />
+            {t('shell.createGroup')}
+          </button>
+          <button
+            type="button"
+            className="flex w-full items-center gap-3 whitespace-nowrap px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)] md:hidden"
+            onClick={() => { setDropdownOpen(false); setScannerOpen(true); }}
+          >
+            <ScanLine className="h-4 w-4 text-[var(--text-secondary)]" />
+            {t('shell.scanQr')}
+          </button>
+          <div className="my-1 border-t border-[var(--border-subtle)]" />
+        </>
+      ) : null}
+      <button
+        type="button"
+        className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
+        onClick={onOpenEditProfile}
+      >
+        <UserCircle2 className="h-4 w-4 text-[var(--text-secondary)]" />
+        {t('shell.editProfile')}
+      </button>
+      <button
+        type="button"
+        className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
+        onClick={onOpenPasskeys}
+      >
+        <KeyRound className="h-4 w-4 text-[var(--text-secondary)]" />
+        {t('shell.myPasskeys')}
+      </button>
+      {!user?.is_admin || hasNotificationsMenuItem ? (
+        <div className="my-1 border-t border-[var(--border-subtle)]" />
+      ) : null}
+      {notifState === 'subscribed' ? (
+        <button
+          type="button"
+          className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
+          onClick={async () => { await unsubscribeFromPush(); setNotifState('default'); setDropdownOpen(false); }}
+        >
+          <BellOff className="h-4 w-4 text-[var(--text-secondary)]" />
+          {t('shell.disableNotifications')}
+        </button>
+      ) : notifState === 'default' || notifState === 'dismissed' ? (
+        <button
+          type="button"
+          className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
+          onClick={() => { localStorage.removeItem('notifications_dismissed'); setNotifState('default'); setDropdownOpen(false); }}
+        >
+          <Bell className="h-4 w-4 text-[var(--text-secondary)]" />
+          {t('shell.enableNotifications')}
+        </button>
+      ) : null}
+      {user?.is_admin ? <div className="my-1 border-t border-[var(--border-subtle)]" /> : null}
+      {user?.is_admin ? (
+        <button
+          type="button"
+          className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
+          onClick={() => { setDropdownOpen(false); navigate('/admin'); }}
+        >
+          <Settings className="h-4 w-4 text-[var(--text-secondary)]" />
+          {t('shell.adminPanel')}
+        </button>
+      ) : null}
+      {user?.is_admin ? <div className="my-1 border-t border-[var(--border-subtle)]" /> : null}
+      <button
+        type="button"
+        className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
+        onClick={() => { setDropdownOpen(false); navigate('/about'); }}
+      >
+        <Info className="h-4 w-4 text-[var(--text-secondary)]" />
+        {t('shell.aboutKvitt')}
+      </button>
+      <button
+        type="button"
+        className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--danger)] hover:bg-[color:color-mix(in_srgb,var(--danger)_6%,transparent)]"
+        onClick={onLogout}
+      >
+        <LogOut className="h-4 w-4" />
+        {t('shell.logout')}
+      </button>
+    </div>
+  );
+}
+
+function CreateGroupModal({
+  creatingGroup,
+  newGroupName,
+  newGroupTheme,
+  groupError,
+  groupSaving,
+  setCreatingGroup,
+  setNewGroupName,
+  setNewGroupTheme,
+  onSubmit,
+}) {
+  if (!creatingGroup) {
+    return null;
+  }
+
+  return (
+    <div className="modal-backdrop app-shell-modal-backdrop" onClick={() => setCreatingGroup(false)}>
+      <div className="modal-sheet app-shell-modal-sheet md:w-[420px]" onClick={(event) => event.stopPropagation()}>
+        <form className="space-y-5 p-5 sm:p-6" onSubmit={onSubmit}>
+          <div className="space-y-1">
+            <p className="section-eyebrow">{t('shell.groupsEyebrow')}</p>
+            <h2 className="m-0 text-xl font-semibold">{t('shell.createGroupTitle')}</h2>
+          </div>
+          <div className="space-y-3">
+            <label className="field-label">
+              {t('shell.groupName')}
+              <input
+                type="text"
+                value={newGroupName}
+                onChange={(event) => setNewGroupName(event.target.value)}
+                placeholder={t('shell.groupNamePlaceholder')}
+                required
+                autoFocus
+              />
+            </label>
+            <div className="grid gap-3">
+              <p className="text-sm font-medium text-[var(--text-secondary)]">{t('shell.theme')}</p>
+              <div className="flex gap-2 overflow-x-auto px-2 py-2">
+                {GROUP_THEMES.map((theme) => (
+                  <button
+                    key={theme.id}
+                    type="button"
+                    title={theme.name}
+                    onClick={() => setNewGroupTheme(theme.id)}
+                    className="h-7 w-7 rounded-full transition hover:scale-110 focus:outline-none focus-visible:ring-2"
+                    style={{
+                      background: theme.base,
+                      outline: newGroupTheme === theme.id ? `2px solid ${theme.base}` : undefined,
+                      outlineOffset: newGroupTheme === theme.id ? '2px' : undefined,
+                      boxShadow: newGroupTheme === theme.id
+                        ? `0 0 0 3px var(--app-surface-strong), 0 0 0 5px ${theme.base}`
+                        : undefined,
+                    }}
+                    aria-pressed={newGroupTheme === theme.id}
+                    aria-label={theme.name}
+                  />
+                ))}
+              </div>
+            </div>
+            {groupError ? (
+              <p className="m-0 rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{groupError}</p>
+            ) : null}
+          </div>
+          <div className="flex gap-3">
+            <button type="button" className="btn-secondary flex-1" onClick={() => setCreatingGroup(false)}>
+              {t('shell.cancelCreateGroup')}
+            </button>
+            <button type="submit" className="btn-primary flex-1" disabled={groupSaving}>
+              {groupSaving ? t('shell.creating') : t('shell.saveGroup')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function EditProfileModal({
+  editingProfile,
+  profileForm,
+  profileError,
+  profileSaving,
+  setEditingProfile,
+  setProfileForm,
+  onSubmit,
+}) {
+  if (!editingProfile) {
+    return null;
+  }
+
+  return (
+    <div className="modal-backdrop app-shell-modal-backdrop" onClick={() => setEditingProfile(false)}>
+      <div className="modal-sheet app-shell-modal-sheet md:w-[420px]" onClick={(event) => event.stopPropagation()}>
+        <form className="space-y-5 p-5 sm:p-6" onSubmit={onSubmit}>
+          <div className="space-y-1">
+            <p className="section-eyebrow">{t('shell.profileEyebrow')}</p>
+            <h2 className="m-0 text-xl font-semibold">{t('shell.profileTitle')}</h2>
+          </div>
+          <div className="space-y-3">
+            <label className="field-label">
+              {t('auth.fullName')}
+              <input
+                type="text"
+                value={profileForm.full_name}
+                onChange={(event) => setProfileForm((formState) => ({ ...formState, full_name: event.target.value }))}
+                required
+                autoComplete="name"
+              />
+            </label>
+            <label className="field-label">
+              {t('auth.phoneLabel')}
+              <input
+                type="tel"
+                value={profileForm.phone}
+                onChange={(event) => setProfileForm((formState) => ({ ...formState, phone: sanitizePhoneInput(event.target.value) }))}
+                onBlur={(event) => setProfileForm((formState) => ({ ...formState, phone: formatSwedishPhone(event.target.value) }))}
+                placeholder={t('auth.phonePlaceholder')}
+                autoComplete="tel"
+                pattern="[\\d+\-\\s]*"
+              />
+            </label>
+            <label className="field-label">
+              <span>{t('shell.initials')} <span className="text-[var(--text-muted)] font-normal">{t('shell.initialsOptionalHint')}</span></span>
+              <input
+                type="text"
+                value={profileForm.initials}
+                onChange={(event) => setProfileForm((formState) => ({ ...formState, initials: event.target.value.slice(0, 2) }))}
+                placeholder={t('shell.initialsPlaceholder')}
+                autoComplete="off"
+                maxLength={2}
+              />
+            </label>
+            {profileError ? (
+              <p className="m-0 rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{profileError}</p>
+            ) : null}
+          </div>
+          <div className="flex gap-3">
+            <button type="button" className="btn-secondary flex-1" onClick={() => setEditingProfile(false)}>
+              {t('common.cancel')}
+            </button>
+            <button type="submit" className="btn-primary flex-1" disabled={profileSaving}>
+              {profileSaving ? t('shell.saving') : t('common.save')}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function PasskeysModal({
+  managingPasskeys,
+  passkeysLoading,
+  passkeys,
+  passkeysSaving,
+  passkeysActionId,
+  passkeysError,
+  user,
+  setManagingPasskeys,
+  setPasskeys,
+  onRenamePasskey,
+  onDeletePasskey,
+  onAddPasskey,
+}) {
+  if (!managingPasskeys) {
+    return null;
+  }
+
+  return (
+    <div className="modal-backdrop app-shell-modal-backdrop" onClick={() => setManagingPasskeys(false)}>
+      <div className="modal-sheet app-shell-modal-sheet md:w-[480px]" onClick={(event) => event.stopPropagation()}>
+        <div className="space-y-5 p-5 sm:p-6">
+          <div className="space-y-1">
+            <p className="section-eyebrow">{t('shell.securityEyebrow')}</p>
+            <h2 className="m-0 text-xl font-semibold">{t('shell.passkeysTitle')}</h2>
+          </div>
+
+          {passkeysLoading ? (
+            <p className="m-0 text-sm text-[var(--text-secondary)]">{t('shell.loadingPasskeys')}</p>
+          ) : passkeys.length ? (
+            <div className="space-y-2">
+              {passkeys.map((passkey) => (
+                <div key={passkey.id} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-3 py-2.5">
+                  <input
+                    type="text"
+                    className="w-full rounded-md border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-2 py-1 text-sm font-semibold"
+                    value={passkey.name || ''}
+                    onChange={(event) => setPasskeys((previous) => previous.map((row) => (row.id === passkey.id ? { ...row, name: event.target.value } : row)))}
+                  />
+                  <p className="m-0 text-xs text-[var(--text-secondary)]">
+                    {t('shell.createdAt')}: {formatDateTime(passkey.created_at)}
+                  </p>
+                  <p className="m-0 text-xs text-[var(--text-secondary)]">
+                    {t('shell.lastUsed')}: {passkey.last_used_at ? formatDateTime(passkey.last_used_at) : t('shell.never')}
+                  </p>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      className="btn-secondary flex-1"
+                      onClick={() => onRenamePasskey(passkey.id, passkey.name || '')}
+                      disabled={passkeysLoading || passkeysSaving || passkeysActionId === passkey.id || !(passkey.name || '').trim()}
+                    >
+                      {passkeysActionId === passkey.id ? t('shell.saving') : t('shell.saveName')}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-danger flex-1"
+                      onClick={() => onDeletePasskey(passkey.id)}
+                      disabled={passkeysLoading || passkeysSaving || passkeysActionId === passkey.id || Number(user?.current_passkey_id) === Number(passkey.id)}
+                      title={Number(user?.current_passkey_id) === Number(passkey.id) ? t('shell.cannotDeleteCurrentPasskey') : undefined}
+                    >
+                      {t('shell.delete')}
+                    </button>
+                  </div>
+                  {Number(user?.current_passkey_id) === Number(passkey.id) ? (
+                    <p className="mt-1 m-0 text-xs text-[var(--text-secondary)]">{t('shell.activeSessionPasskey')}</p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="m-0 text-sm text-[var(--text-secondary)]">{t('shell.noPasskeys')}</p>
+          )}
+
+          {passkeysError ? (
+            <p className="m-0 rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{passkeysError}</p>
+          ) : null}
+
+          <div className="flex gap-3">
+            <button type="button" className="btn-secondary flex-1" onClick={() => setManagingPasskeys(false)}>
+              {t('common.close')}
+            </button>
+            <button type="button" className="btn-primary flex-1" onClick={onAddPasskey} disabled={passkeysLoading || passkeysSaving}>
+              {passkeysSaving ? t('shell.starting') : t('shell.addPasskey')}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AppShell() {
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -252,106 +650,20 @@ export default function AppShell() {
                 >
                   <Menu className="h-5 w-5" />
                 </button>
-
-                {dropdownOpen ? (
-                  <div className="absolute right-0 top-full z-50 mt-1.5 w-52 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] py-1 shadow-[var(--shadow-strong)]">
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
-                    onClick={() => { setDropdownOpen(false); window.location.assign('/'); }}
-                  >
-                    <Home className="h-4 w-4 text-[var(--text-secondary)]" />
-                    {t('shell.myGroups')}
-                  </button>
-                  {user ? (
-                    <>
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
-                        onClick={() => { setDropdownOpen(false); openCreateGroup(); }}
-                      >
-                        <FolderPlus className="h-4 w-4 text-[var(--text-secondary)]" />
-                        {t('shell.createGroup')}
-                      </button>
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-3 whitespace-nowrap px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)] md:hidden"
-                        onClick={() => { setDropdownOpen(false); setScannerOpen(true); }}
-                      >
-                        <ScanLine className="h-4 w-4 text-[var(--text-secondary)]" />
-                        {t('shell.scanQr')}
-                      </button>
-                      <div className="my-1 border-t border-[var(--border-subtle)]" />
-                    </>
-                  ) : null}
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
-                    onClick={openEditProfile}
-                  >
-                    <UserCircle2 className="h-4 w-4 text-[var(--text-secondary)]" />
-                    {t('shell.editProfile')}
-                  </button>
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
-                    onClick={openPasskeys}
-                  >
-                    <KeyRound className="h-4 w-4 text-[var(--text-secondary)]" />
-                    {t('shell.myPasskeys')}
-                  </button>
-                  {!user?.is_admin || hasNotificationsMenuItem ? (
-                    <div className="my-1 border-t border-[var(--border-subtle)]" />
-                  ) : null}
-                  {notifState === 'subscribed' ? (
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
-                      onClick={async () => { await unsubscribeFromPush(); setNotifState('default'); setDropdownOpen(false); }}
-                    >
-                      <BellOff className="h-4 w-4 text-[var(--text-secondary)]" />
-                      {t('shell.disableNotifications')}
-                    </button>
-                  ) : notifState === 'default' || notifState === 'dismissed' ? (
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
-                      onClick={() => { localStorage.removeItem('notifications_dismissed'); setNotifState('default'); setDropdownOpen(false); }}
-                    >
-                      <Bell className="h-4 w-4 text-[var(--text-secondary)]" />
-                      {t('shell.enableNotifications')}
-                    </button>
-                  ) : null}
-                  {user?.is_admin ? <div className="my-1 border-t border-[var(--border-subtle)]" /> : null}
-                  {user?.is_admin ? (
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
-                      onClick={() => { setDropdownOpen(false); navigate('/admin'); }}
-                    >
-                      <Settings className="h-4 w-4 text-[var(--text-secondary)]" />
-                      {t('shell.adminPanel')}
-                    </button>
-                  ) : null}
-                  {user?.is_admin ? <div className="my-1 border-t border-[var(--border-subtle)]" /> : null}
-                  <button
-                      type="button"
-                      className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
-                      onClick={() => { setDropdownOpen(false); navigate('/about'); }}
-                    >
-                      <Info className="h-4 w-4 text-[var(--text-secondary)]" />
-                      {t('shell.aboutKvitt')}
-                    </button>
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--danger)] hover:bg-[color:color-mix(in_srgb,var(--danger)_6%,transparent)]"
-                    onClick={handleLogout}
-                  >
-                    <LogOut className="h-4 w-4" />
-                    {t('shell.logout')}
-                  </button>
-                  </div>
-                ) : null}
+                <AppMenuDropdown
+                  dropdownOpen={dropdownOpen}
+                  user={user}
+                  hasNotificationsMenuItem={hasNotificationsMenuItem}
+                  notifState={notifState}
+                  setDropdownOpen={setDropdownOpen}
+                  setScannerOpen={setScannerOpen}
+                  setNotifState={setNotifState}
+                  navigate={navigate}
+                  onOpenCreateGroup={openCreateGroup}
+                  onOpenEditProfile={openEditProfile}
+                  onOpenPasskeys={openPasskeys}
+                  onLogout={handleLogout}
+                />
               </div>
             </div>
           </div>
@@ -361,229 +673,52 @@ export default function AppShell() {
       <div className="mx-auto max-w-[1280px] px-4 pb-24 pt-6 sm:px-6 lg:pb-10">
         <div className="min-w-0 flex-1">
           <div className="mx-auto max-w-[960px]">
-            {notifState === 'default' ? (
-              <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-4 py-3 shadow-[var(--shadow-soft)]">
-                <div className="flex items-center gap-3">
-                  <Bell className="h-4 w-4 shrink-0 text-[var(--text-secondary)]" />
-                  <p className="m-0 text-sm text-[var(--text-secondary)]">{t('shell.notifPrompt')}</p>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <button type="button" className="btn-primary py-1.5 text-xs" onClick={handleEnableNotifications}>
-                    {t('shell.enableNotifications')}
-                  </button>
-                  <button type="button" className="icon-button" aria-label={t('common.close')} onClick={handleDismissNotifications}>
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            ) : notifState === 'ios_install' ? (
-              <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-4 py-3 shadow-[var(--shadow-soft)]">
-                <div className="flex items-center gap-3">
-                  <Bell className="h-4 w-4 shrink-0 text-[var(--text-secondary)]" />
-                  <p className="m-0 text-sm text-[var(--text-secondary)]">{t('shell.iosInstallPrompt')}</p>
-                </div>
-                <button type="button" className="icon-button shrink-0" aria-label={t('common.close')} onClick={handleDismissNotifications}>
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            ) : null}
+            <NotificationsBanner
+              notifState={notifState}
+              onEnableNotifications={handleEnableNotifications}
+              onDismissNotifications={handleDismissNotifications}
+            />
             <Outlet />
           </div>
         </div>
       </div>
 
-      {creatingGroup ? (
-        <div className="modal-backdrop app-shell-modal-backdrop" onClick={() => setCreatingGroup(false)}>
-          <div className="modal-sheet app-shell-modal-sheet md:w-[420px]" onClick={(event) => event.stopPropagation()}>
-            <form className="space-y-5 p-5 sm:p-6" onSubmit={handleCreateGroup}>
-              <div className="space-y-1">
-                <p className="section-eyebrow">{t('shell.groupsEyebrow')}</p>
-                <h2 className="m-0 text-xl font-semibold">{t('shell.createGroupTitle')}</h2>
-              </div>
-              <div className="space-y-3">
-                <label className="field-label">
-                  {t('shell.groupName')}
-                  <input
-                    type="text"
-                    value={newGroupName}
-                    onChange={(e) => setNewGroupName(e.target.value)}
-                    placeholder={t('shell.groupNamePlaceholder')}
-                    required
-                    autoFocus
-                  />
-                </label>
-                <div className="grid gap-3">
-                  <p className="text-sm font-medium text-[var(--text-secondary)]">{t('shell.theme')}</p>
-                  <div className="flex gap-2 overflow-x-auto px-2 py-2">
-                    {GROUP_THEMES.map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        title={t.name}
-                        onClick={() => setNewGroupTheme(t.id)}
-                        className="h-7 w-7 rounded-full transition hover:scale-110 focus:outline-none focus-visible:ring-2"
-                        style={{
-                          background: t.base,
-                          outline: newGroupTheme === t.id ? `2px solid ${t.base}` : undefined,
-                          outlineOffset: newGroupTheme === t.id ? '2px' : undefined,
-                          boxShadow: newGroupTheme === t.id
-                            ? `0 0 0 3px var(--app-surface-strong), 0 0 0 5px ${t.base}`
-                            : undefined,
-                        }}
-                        aria-pressed={newGroupTheme === t.id}
-                        aria-label={t.name}
-                      />
-                    ))}
-                  </div>
-                </div>
-                {groupError ? (
-                  <p className="m-0 rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{groupError}</p>
-                ) : null}
-              </div>
-              <div className="flex gap-3">
-                <button type="button" className="btn-secondary flex-1" onClick={() => setCreatingGroup(false)}>
-                  {t('shell.cancelCreateGroup')}
-                </button>
-                <button type="submit" className="btn-primary flex-1" disabled={groupSaving}>
-                  {groupSaving ? t('shell.creating') : t('shell.saveGroup')}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+      <CreateGroupModal
+        creatingGroup={creatingGroup}
+        newGroupName={newGroupName}
+        newGroupTheme={newGroupTheme}
+        groupError={groupError}
+        groupSaving={groupSaving}
+        setCreatingGroup={setCreatingGroup}
+        setNewGroupName={setNewGroupName}
+        setNewGroupTheme={setNewGroupTheme}
+        onSubmit={handleCreateGroup}
+      />
 
-      {editingProfile ? (
-        <div className="modal-backdrop app-shell-modal-backdrop" onClick={() => setEditingProfile(false)}>
-          <div className="modal-sheet app-shell-modal-sheet md:w-[420px]" onClick={(event) => event.stopPropagation()}>
-            <form className="space-y-5 p-5 sm:p-6" onSubmit={handleSaveProfile}>
-              <div className="space-y-1">
-                <p className="section-eyebrow">{t('shell.profileEyebrow')}</p>
-                <h2 className="m-0 text-xl font-semibold">{t('shell.profileTitle')}</h2>
-              </div>
-              <div className="space-y-3">
-                <label className="field-label">
-                  {t('auth.fullName')}
-                  <input
-                    type="text"
-                    value={profileForm.full_name}
-                    onChange={(e) => setProfileForm((f) => ({ ...f, full_name: e.target.value }))}
-                    required
-                    autoComplete="name"
-                  />
-                </label>
-                <label className="field-label">
-                  {t('auth.phoneLabel')}
-                  <input
-                    type="tel"
-                    value={profileForm.phone}
-                    onChange={(e) => setProfileForm((f) => ({ ...f, phone: sanitizePhoneInput(e.target.value) }))}
-                    onBlur={(e) => setProfileForm((f) => ({ ...f, phone: formatSwedishPhone(e.target.value) }))}
-                    placeholder={t('auth.phonePlaceholder')}
-                    autoComplete="tel"
-                    pattern="[\d+\-\s]*"
-                  />
-                </label>
-                <label className="field-label">
-                  <span>{t('shell.initials')} <span className="text-[var(--text-muted)] font-normal">{t('shell.initialsOptionalHint')}</span></span>
-                  <input
-                    type="text"
-                    value={profileForm.initials}
-                    onChange={(e) => setProfileForm((f) => ({ ...f, initials: e.target.value.slice(0, 2) }))}
-                    placeholder={t('shell.initialsPlaceholder')}
-                    autoComplete="off"
-                    maxLength={2}
-                  />
-                </label>
-                {profileError ? (
-                  <p className="m-0 rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{profileError}</p>
-                ) : null}
-              </div>
-              <div className="flex gap-3">
-                <button type="button" className="btn-secondary flex-1" onClick={() => setEditingProfile(false)}>
-                  {t('common.cancel')}
-                </button>
-                <button type="submit" className="btn-primary flex-1" disabled={profileSaving}>
-                  {profileSaving ? t('shell.saving') : t('common.save')}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      ) : null}
+      <EditProfileModal
+        editingProfile={editingProfile}
+        profileForm={profileForm}
+        profileError={profileError}
+        profileSaving={profileSaving}
+        setEditingProfile={setEditingProfile}
+        setProfileForm={setProfileForm}
+        onSubmit={handleSaveProfile}
+      />
 
-      {managingPasskeys ? (
-        <div className="modal-backdrop app-shell-modal-backdrop" onClick={() => setManagingPasskeys(false)}>
-          <div className="modal-sheet app-shell-modal-sheet md:w-[480px]" onClick={(event) => event.stopPropagation()}>
-            <div className="space-y-5 p-5 sm:p-6">
-              <div className="space-y-1">
-                <p className="section-eyebrow">{t('shell.securityEyebrow')}</p>
-                <h2 className="m-0 text-xl font-semibold">{t('shell.passkeysTitle')}</h2>
-              </div>
-
-              {passkeysLoading ? (
-                <p className="m-0 text-sm text-[var(--text-secondary)]">{t('shell.loadingPasskeys')}</p>
-              ) : passkeys.length ? (
-                <div className="space-y-2">
-                  {passkeys.map((passkey) => (
-                    <div key={passkey.id} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-3 py-2.5">
-                      <input
-                        type="text"
-                        className="w-full rounded-md border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-2 py-1 text-sm font-semibold"
-                        value={passkey.name || ''}
-                        onChange={(event) => setPasskeys((previous) => previous.map((row) => (row.id === passkey.id ? { ...row, name: event.target.value } : row)))}
-                      />
-                      <p className="m-0 text-xs text-[var(--text-secondary)]">
-                        {t('shell.createdAt')}: {formatDateTime(passkey.created_at)}
-                      </p>
-                      <p className="m-0 text-xs text-[var(--text-secondary)]">
-                        {t('shell.lastUsed')}: {passkey.last_used_at ? formatDateTime(passkey.last_used_at) : t('shell.never')}
-                      </p>
-                      <div className="mt-2 flex gap-2">
-                        <button
-                          type="button"
-                          className="btn-secondary flex-1"
-                          onClick={() => handleRenamePasskey(passkey.id, passkey.name || '')}
-                          disabled={passkeysLoading || passkeysSaving || passkeysActionId === passkey.id || !(passkey.name || '').trim()}
-                        >
-                          {passkeysActionId === passkey.id ? t('shell.saving') : t('shell.saveName')}
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-danger flex-1"
-                          onClick={() => handleDeletePasskey(passkey.id)}
-                          disabled={passkeysLoading || passkeysSaving || passkeysActionId === passkey.id || Number(user?.current_passkey_id) === Number(passkey.id)}
-                          title={Number(user?.current_passkey_id) === Number(passkey.id) ? t('shell.cannotDeleteCurrentPasskey') : undefined}
-                        >
-                          {t('shell.delete')}
-                        </button>
-                      </div>
-                      {Number(user?.current_passkey_id) === Number(passkey.id) ? (
-                        <p className="mt-1 m-0 text-xs text-[var(--text-secondary)]">{t('shell.activeSessionPasskey')}</p>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="m-0 text-sm text-[var(--text-secondary)]">{t('shell.noPasskeys')}</p>
-              )}
-
-              {passkeysError ? (
-                <p className="m-0 rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{passkeysError}</p>
-              ) : null}
-
-              <div className="flex gap-3">
-                <button type="button" className="btn-secondary flex-1" onClick={() => setManagingPasskeys(false)}>
-                  {t('common.close')}
-                </button>
-                <button type="button" className="btn-primary flex-1" onClick={handleAddPasskey} disabled={passkeysLoading || passkeysSaving}>
-                  {passkeysSaving ? t('shell.starting') : t('shell.addPasskey')}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <PasskeysModal
+        managingPasskeys={managingPasskeys}
+        passkeysLoading={passkeysLoading}
+        passkeys={passkeys}
+        passkeysSaving={passkeysSaving}
+        passkeysActionId={passkeysActionId}
+        passkeysError={passkeysError}
+        user={user}
+        setManagingPasskeys={setManagingPasskeys}
+        setPasskeys={setPasskeys}
+        onRenamePasskey={handleRenamePasskey}
+        onDeletePasskey={handleDeletePasskey}
+        onAddPasskey={handleAddPasskey}
+      />
 
       {scannerOpen ? (
         <InviteQrScannerModal
