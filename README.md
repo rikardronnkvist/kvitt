@@ -19,6 +19,19 @@ docker compose up --build
 
 The frontend is available on `http://localhost:8080` by default and proxies API calls to the backend.
 
+### Container image tags
+The GitHub Actions workflow publishes backend and frontend images to GHCR with predictable tags:
+
+- On `main` pushes: `main`, `main-<run_number>`, `sha-<commit>` (Docker metadata sha tag), and `latest`.
+- On `v*` tag pushes: the release tag (for example `v1.4.2`) plus metadata tags.
+
+Image names:
+
+- `ghcr.io/<owner>/<repo>-backend`
+- `ghcr.io/<owner>/<repo>-frontend`
+
+Use `main-<run_number>` for immutable CI deployments and `v*` tags for release deployments.
+
 ### Environment variables
 | Variable | Container | Default | Description |
 | --- | --- | --- | --- |
@@ -132,7 +145,7 @@ Deployment in Docker Swarm using the ghcr.io-hosted containers, Gulster as a sha
 ```yaml
 services:
   frontend:
-    image: ghcr.io/rikardronnkvist/kvitt-frontend
+    image: ghcr.io/rikardronnkvist/kvitt-frontend:latest
     deploy:
       replicas: 1
       labels:
@@ -149,7 +162,7 @@ services:
       - traefik
 
   backend:
-    image: ghcr.io/rikardronnkvist/kvitt-backend
+    image: ghcr.io/rikardronnkvist/kvitt-backend:latest
     volumes:
       - /mnt/gluster01/kvitt:/app/data
     labels:

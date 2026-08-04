@@ -19,6 +19,9 @@ env:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    concurrency:
+      group: publish-${{ github.ref }}-${{ matrix.service }}
+      cancel-in-progress: false
     strategy:
       matrix:
         include:
@@ -50,6 +53,7 @@ jobs:
             type=ref,event=branch
             type=ref,event=tag
             type=sha
+            type=raw,value=main-${{ github.run_number }},enable=${{ github.ref == 'refs/heads/main' }}
             type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and publish container image
