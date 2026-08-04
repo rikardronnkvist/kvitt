@@ -25,43 +25,36 @@ export const db = new Database(dbPath);
 db.pragma('foreign_keys = ON');
 db.pragma('journal_mode = WAL');
 
-function ensureUsersSchemaForPasskeys() {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      email TEXT UNIQUE NOT NULL,
-      is_admin INTEGER NOT NULL DEFAULT 0,
-      password_hash TEXT NOT NULL,
-      full_name TEXT,
-      phone TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
+function tableHasColumn(columns, columnName) {
+  return columns.some((column) => column.name === columnName);
+}
 
-  const userColumns = db.prepare('PRAGMA table_info(users)').all();
-  const getColumn = (name) => userColumns.find((column) => column.name === name);
-  const hasColumn = (name) => Boolean(getColumn(name));
+function getUserSelectExpressions(hasColumn) {
+  return {
+    selectEmail: hasColumn('email') ? 'NULLIF(email, \'\')' : 'NULL',
+    selectPasswordHash: hasColumn('password_hash') ? 'NULLIF(password_hash, \'\')' : 'NULL',
+    selectCreatedAt: hasColumn('created_at') ? 'COALESCE(created_at, CURRENT_TIMESTAMP)' : 'CURRENT_TIMESTAMP',
+    selectIsAdmin: hasColumn('is_admin') ? 'COALESCE(is_admin, 0)' : '0',
+    selectFullName: hasColumn('full_name') ? 'full_name' : 'NULL',
+    selectPhone: hasColumn('phone') ? 'NULLIF(phone, \'\')' : 'NULL',
+    selectInitials: hasColumn('initials') ? 'initials' : 'NULL',
+    selectUserHandle: hasColumn('user_handle')
+      ? 'COALESCE(NULLIF(user_handle, \'\'), \'legacy-\' || id)'
+      : '\'legacy-\' || id',
+  };
+}
 
-  const hasTargetColumns = ['email', 'password_hash', 'created_at', 'is_admin', 'full_name', 'phone', 'initials', 'user_handle']
-    .every((name) => hasColumn(name));
-  const hasNullableEmail = hasColumn('email') && getColumn('email').notnull === 0;
-  const hasNullablePassword = hasColumn('password_hash') && getColumn('password_hash').notnull === 0;
-  const hasUserHandleConstraint = hasColumn('user_handle') && getColumn('user_handle').notnull === 1;
-
-  if (hasTargetColumns && hasNullableEmail && hasNullablePassword && hasUserHandleConstraint) {
-    return;
-  }
-
-  const selectEmail = hasColumn('email') ? 'NULLIF(email, \'\')' : 'NULL';
-  const selectPasswordHash = hasColumn('password_hash') ? 'NULLIF(password_hash, \'\')' : 'NULL';
-  const selectCreatedAt = hasColumn('created_at') ? 'COALESCE(created_at, CURRENT_TIMESTAMP)' : 'CURRENT_TIMESTAMP';
-  const selectIsAdmin = hasColumn('is_admin') ? 'COALESCE(is_admin, 0)' : '0';
-  const selectFullName = hasColumn('full_name') ? 'full_name' : 'NULL';
-  const selectPhone = hasColumn('phone') ? 'NULLIF(phone, \'\')' : 'NULL';
-  const selectInitials = hasColumn('initials') ? 'initials' : 'NULL';
-  const selectUserHandle = hasColumn('user_handle')
-    ? 'COALESCE(NULLIF(user_handle, \'\'), \'legacy-\' || id)'
-    : '\'legacy-\' || id';
+function migrateUsersTableForPasskeys(expressions) {
+  const {
+    selectEmail,
+    selectPasswordHash,
+    selectCreatedAt,
+    selectIsAdmin,
+    selectFullName,
+    selectPhone,
+    selectInitials,
+    selectUserHandle,
+  } = expressions;
 
   db.exec('PRAGMA foreign_keys = OFF');
   const migrateUsersTable = db.transaction(() => {
@@ -103,7 +96,9 @@ function ensureUsersSchemaForPasskeys() {
   } finally {
     db.exec('PRAGMA foreign_keys = ON');
   }
+}
 
+function ensureUniqueUserHandles() {
   const duplicateUserHandles = db.prepare(`
     SELECT user_handle
     FROM users
@@ -111,21 +106,53 @@ function ensureUsersSchemaForPasskeys() {
     HAVING COUNT(*) > 1
   `).all();
 
-  if (duplicateUserHandles.length > 0) {
-    const updateHandle = db.prepare('UPDATE users SET user_handle = ? WHERE id = ?');
-    const rows = db.prepare('SELECT id, user_handle FROM users ORDER BY id ASC').all();
-    for (const row of rows) {
-      const conflict = db.prepare('SELECT id FROM users WHERE user_handle = ? AND id != ?').get(row.user_handle, row.id);
-      if (conflict) {
-        updateHandle.run(`legacy-${row.id}-${randomUUID()}`, row.id);
-      }
+  if (duplicateUserHandles.length === 0) {
+    return;
+  }
+
+  const updateHandle = db.prepare('UPDATE users SET user_handle = ? WHERE id = ?');
+  const rows = db.prepare('SELECT id, user_handle FROM users ORDER BY id ASC').all();
+  for (const row of rows) {
+    const conflict = db.prepare('SELECT id FROM users WHERE user_handle = ? AND id != ?').get(row.user_handle, row.id);
+    if (conflict) {
+      updateHandle.run(`legacy-${row.id}-${randomUUID()}`, row.id);
     }
   }
 }
 
-export function initializeDatabase() {
-  ensureUsersSchemaForPasskeys();
+function ensureUsersSchemaForPasskeys() {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT UNIQUE NOT NULL,
+      is_admin INTEGER NOT NULL DEFAULT 0,
+      password_hash TEXT NOT NULL,
+      full_name TEXT,
+      phone TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
 
+  const userColumns = db.prepare('PRAGMA table_info(users)').all();
+  const getColumn = (name) => userColumns.find((column) => column.name === name);
+  const hasColumn = (name) => Boolean(getColumn(name));
+
+  const hasTargetColumns = ['email', 'password_hash', 'created_at', 'is_admin', 'full_name', 'phone', 'initials', 'user_handle']
+    .every((name) => hasColumn(name));
+  const hasNullableEmail = hasColumn('email') && getColumn('email').notnull === 0;
+  const hasNullablePassword = hasColumn('password_hash') && getColumn('password_hash').notnull === 0;
+  const hasUserHandleConstraint = hasColumn('user_handle') && getColumn('user_handle').notnull === 1;
+
+  if (hasTargetColumns && hasNullableEmail && hasNullablePassword && hasUserHandleConstraint) {
+    return;
+  }
+
+  const expressions = getUserSelectExpressions(hasColumn);
+  migrateUsersTableForPasskeys(expressions);
+  ensureUniqueUserHandles();
+}
+
+function createCoreSchema() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS groups (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -258,36 +285,28 @@ export function initializeDatabase() {
 
     CREATE INDEX IF NOT EXISTS idx_user_recovery_tokens_token ON user_recovery_tokens(token);
   `);
+}
 
+function ensureUsersTableColumns() {
   const userColumns = db.prepare('PRAGMA table_info(users)').all();
-  const hasIsAdminColumn = userColumns.some((column) => column.name === 'is_admin');
-  if (!hasIsAdminColumn) {
+  if (!tableHasColumn(userColumns, 'is_admin')) {
     db.exec('ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0');
   }
-
-  const hasFullNameColumn = userColumns.some((column) => column.name === 'full_name');
-  if (!hasFullNameColumn) {
+  if (!tableHasColumn(userColumns, 'full_name')) {
     db.exec('ALTER TABLE users ADD COLUMN full_name TEXT');
   }
-
-  const hasPhoneColumn = userColumns.some((column) => column.name === 'phone');
-  if (!hasPhoneColumn) {
+  if (!tableHasColumn(userColumns, 'phone')) {
     db.exec('ALTER TABLE users ADD COLUMN phone TEXT');
   }
-
-  const hasInitialsColumn = userColumns.some((column) => column.name === 'initials');
-  if (!hasInitialsColumn) {
+  if (!tableHasColumn(userColumns, 'initials')) {
     db.exec('ALTER TABLE users ADD COLUMN initials TEXT');
   }
-
-  const hasUserHandleColumn = userColumns.some((column) => column.name === 'user_handle');
-  if (!hasUserHandleColumn) {
+  if (!tableHasColumn(userColumns, 'user_handle')) {
     db.exec('ALTER TABLE users ADD COLUMN user_handle TEXT');
   }
   db.exec('UPDATE users SET user_handle = COALESCE(NULLIF(user_handle, \'\'), \'legacy-\' || id)');
 
-  const hasIsPlaceholderColumn = userColumns.some((column) => column.name === 'is_placeholder');
-  if (!hasIsPlaceholderColumn) {
+  if (!tableHasColumn(userColumns, 'is_placeholder')) {
     db.exec('ALTER TABLE users ADD COLUMN is_placeholder INTEGER NOT NULL DEFAULT 0');
   }
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_user_handle ON users(user_handle)');
@@ -299,18 +318,20 @@ export function initializeDatabase() {
       db.prepare('UPDATE users SET is_admin = 1 WHERE id = ?').run(firstUser.id);
     }
   }
+}
 
+function ensureGroupColumnsAndSlugs() {
   const groupColumns = db.prepare('PRAGMA table_info(groups)').all();
-  if (!groupColumns.some((c) => c.name === 'theme_color')) {
+  if (!tableHasColumn(groupColumns, 'theme_color')) {
     db.exec('ALTER TABLE groups ADD COLUMN theme_color TEXT');
   }
-  if (!groupColumns.some((c) => c.name === 'slug')) {
+  if (!tableHasColumn(groupColumns, 'slug')) {
     db.exec('ALTER TABLE groups ADD COLUMN slug TEXT');
   }
-  if (!groupColumns.some((c) => c.name === 'mileage_rate')) {
+  if (!tableHasColumn(groupColumns, 'mileage_rate')) {
     db.exec('ALTER TABLE groups ADD COLUMN mileage_rate REAL NOT NULL DEFAULT 20');
   }
-  if (!groupColumns.some((c) => c.name === 'archived_at')) {
+  if (!tableHasColumn(groupColumns, 'archived_at')) {
     db.exec('ALTER TABLE groups ADD COLUMN archived_at DATETIME');
   }
 
@@ -331,18 +352,9 @@ export function initializeDatabase() {
 
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_groups_slug ON groups(slug)');
   db.exec('UPDATE groups SET mileage_rate = 20 WHERE mileage_rate IS NULL OR mileage_rate <= 0');
+}
 
-  const expenseColumns = db.prepare('PRAGMA table_info(expenses)').all();
-  if (!expenseColumns.some((column) => column.name === 'category_id')) {
-    db.exec('ALTER TABLE expenses ADD COLUMN category_id INTEGER REFERENCES expense_categories(id)');
-  }
-  if (!expenseColumns.some((column) => column.name === 'occurred_at')) {
-    db.exec('ALTER TABLE expenses ADD COLUMN occurred_at DATETIME');
-  }
-  db.exec("UPDATE expenses SET occurred_at = COALESCE(created_at, datetime('now')) WHERE occurred_at IS NULL");
-  db.exec('UPDATE expenses SET amount = ROUND(amount)');
-  db.exec('UPDATE expense_splits SET amount_owed = ROUND(amount_owed)');
-  db.exec('UPDATE settlements SET amount = ROUND(amount)');
+function reconcileExpenseSplits() {
   const reconcileSplits = db.transaction(() => {
     const expenses = db.prepare('SELECT id, CAST(ROUND(amount) AS INTEGER) AS amount FROM expenses').all();
     const listSplits = db.prepare('SELECT id, CAST(ROUND(amount_owed) AS INTEGER) AS amount_owed FROM expense_splits WHERE expense_id = ? ORDER BY id ASC');
@@ -403,10 +415,28 @@ export function initializeDatabase() {
       }
     }
   });
-  reconcileSplits();
 
+  reconcileSplits();
+}
+
+function ensureExpenseColumnsAndData() {
+  const expenseColumns = db.prepare('PRAGMA table_info(expenses)').all();
+  if (!tableHasColumn(expenseColumns, 'category_id')) {
+    db.exec('ALTER TABLE expenses ADD COLUMN category_id INTEGER REFERENCES expense_categories(id)');
+  }
+  if (!tableHasColumn(expenseColumns, 'occurred_at')) {
+    db.exec('ALTER TABLE expenses ADD COLUMN occurred_at DATETIME');
+  }
+  db.exec("UPDATE expenses SET occurred_at = COALESCE(created_at, datetime('now')) WHERE occurred_at IS NULL");
+  db.exec('UPDATE expenses SET amount = ROUND(amount)');
+  db.exec('UPDATE expense_splits SET amount_owed = ROUND(amount_owed)');
+  db.exec('UPDATE settlements SET amount = ROUND(amount)');
+  reconcileExpenseSplits();
+}
+
+function ensurePasskeyColumnsAndSeedCategories() {
   const passkeyColumns = db.prepare('PRAGMA table_info(passkeys)').all();
-  if (!passkeyColumns.some((column) => column.name === 'name')) {
+  if (!tableHasColumn(passkeyColumns, 'name')) {
     db.exec('ALTER TABLE passkeys ADD COLUMN name TEXT');
   }
 
@@ -453,6 +483,16 @@ export function initializeDatabase() {
     });
     tx();
   }
+}
+
+export function initializeDatabase() {
+  ensureUsersSchemaForPasskeys();
+
+  createCoreSchema();
+  ensureUsersTableColumns();
+  ensureGroupColumnsAndSlugs();
+  ensureExpenseColumnsAndData();
+  ensurePasskeyColumnsAndSeedCategories();
 
   ensureRegistrationAccessToken();
 }
