@@ -1,7 +1,5 @@
 # Kvitt
 
-## English
-
 Kvitt is a self-hosted bill-splitting web application for small groups, trips, households, and shared projects.
 
 ### Features
@@ -38,7 +36,7 @@ The frontend is available on `http://localhost:8080` by default and proxies API 
 | `VITE_TAGLINE` | `frontend` (build arg or runtime env) | `Dela kostnader, bli kvitt` | Tagline shown on the login page and in the app header. |
 | `VAPID_PUBLIC_KEY` | `backend` | _(none)_ | VAPID public key for Web Push notifications. Leave empty to disable push. |
 | `VAPID_PRIVATE_KEY` | `backend` | _(none)_ | VAPID private key. Keep this secret. |
-| `VAPID_CONTACT_EMAIL` | `backend` | `admin@example.com` | Contact email sent in VAPID headers. Change to a real address in production. |
+| `VAPID_CONTACT_EMAIL` | `backend` | `admin@mydomain.se` | Contact email sent in VAPID headers. Change to a real address in production. |
 
 ### Language configuration
 Kvitt now loads UI strings from a language file:
@@ -69,7 +67,7 @@ Copy the output into your `.env` (or Docker Compose environment):
 ```
 VAPID_PUBLIC_KEY=<your public key>
 VAPID_PRIVATE_KEY=<your private key>
-VAPID_CONTACT_EMAIL=you@example.com
+VAPID_CONTACT_EMAIL=you@mydomain.se
 ```
 
 - If `VAPID_PUBLIC_KEY` or `VAPID_PRIVATE_KEY` is empty, push notifications are silently disabled and the opt-in banner is not shown.
@@ -78,7 +76,7 @@ VAPID_CONTACT_EMAIL=you@example.com
 
 ### Passkey setup notes (local vs production)
 - **Local development**: use `PASSKEY_RP_ID=localhost` and `PASSKEY_ORIGIN=http://localhost:5173`.
-- **Production**: set `PASSKEY_RP_ID` to your real domain and `PASSKEY_ORIGIN` to your HTTPS app origin (for example `https://kvitt.example.com`).
+- **Production**: set `PASSKEY_RP_ID` to your real domain and `PASSKEY_ORIGIN` to your HTTPS app origin (for example `https://kvitt.mydomain.se`).
 - WebAuthn verification will fail if RP ID or origin does not match the browser context.
 
 ### Registration access control
@@ -143,7 +141,6 @@ services:
         - "traefik.http.routers.kvitt.entrypoints=websecure"
         - "traefik.http.routers.kvitt.tls=true"
         - "traefik.http.routers.kvitt.tls.certresolver=le"
-        - "traefik.http.routers.kvitt.middlewares=geo-block@file,tor-block@file"
         - "traefik.http.services.kvitt.loadbalancer.server.port=80"
     environment:
       VITE_TAGLINE: "#teambail on tour"
