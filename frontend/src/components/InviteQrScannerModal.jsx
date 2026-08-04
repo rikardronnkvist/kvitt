@@ -5,6 +5,9 @@ import ModalShell from './ModalShell.jsx';
 import { extractInviteToken } from '../lib/inviteToken.js';
 import { t } from '../lib/i18n.js';
 
+// Sentinel used when device enumeration returns nothing (e.g. iOS before permission)
+const ENVIRONMENT_CAMERA = '__environment__';
+
 function getUserFacingError(message) {
   const lowered = String(message || '').toLowerCase();
   if (lowered.includes('permission') || lowered.includes('denied') || lowered.includes('notallowed')) {
@@ -29,17 +32,21 @@ export default function InviteQrScannerModal({ onClose, onDetected }) {
   const [devices, setDevices] = useState([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState(null);
 
-  // Load available devices once on mount
+  // Load available devices once on mount.
+  // On iOS, enumeration returns empty before permission — fall back to ENVIRONMENT_CAMERA sentinel.
   useEffect(() => {
     if (!navigator?.mediaDevices?.getUserMedia) return;
 
     BrowserCodeReader.listVideoInputDevices()
       .then((videoDevices) => {
-        setDevices(videoDevices);
-        const preferred = videoDevices.find((device) => /back|rear|environment/i.test(device.label || ''));
-        setSelectedDeviceId(preferred?.deviceId || videoDevices[0]?.deviceId || null);
+        const validDevices = videoDevices.filter((d) => d.deviceId);
+        setDevices(validDevices);
+        const preferred = validDevices.find((device) => /back|rear|environment/i.test(device.label || ''));
+        setSelectedDeviceId(preferred?.deviceId || validDevices[0]?.deviceId || ENVIRONMENT_CAMERA);
       })
-      .catch(() => {});
+      .catch(() => {
+        setSelectedDeviceId(ENVIRONMENT_CAMERA);
+      });
   }, []);
 
   // Start scanner when a device is selected
@@ -54,7 +61,8 @@ export default function InviteQrScannerModal({ onClose, onDetected }) {
     const start = async () => {
       try {
         const reader = new BrowserMultiFormatReader();
-        const controls = await reader.decodeFromVideoDevice(selectedDeviceId, videoRef.current, (result) => {
+
+        const onResult = (result) => {
           if (!result || handledRef.current) return;
           const token = extractInviteToken(result.getText());
           if (!token) return;
@@ -63,7 +71,28 @@ export default function InviteQrScannerModal({ onClose, onDetected }) {
           if (active) {
             onDetected(token);
           }
-        });
+        };
+
+        let controls;
+        if (selectedDeviceId === ENVIRONMENT_CAMERA) {
+          // iOS: enumerate devices only after permission is granted via getUserMedia
+          controls = await reader.decodeFromConstraints(
+            { video: { facingMode: { ideal: 'environment' } } },
+            videoRef.current,
+            onResult,
+          );
+          // Re-enumerate now that permission is granted, so the camera switcher can appear
+          if (active) {
+            BrowserCodeReader.listVideoInputDevices()
+              .then((videoDevices) => {
+                const validDevices = videoDevices.filter((d) => d.deviceId);
+                if (active && validDevices.length > 0) setDevices(validDevices);
+              })
+              .catch(() => {});
+          }
+        } else {
+          controls = await reader.decodeFromVideoDevice(selectedDeviceId, videoRef.current, onResult);
+        }
 
         if (!active) {
           controls.stop();
