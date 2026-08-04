@@ -350,6 +350,58 @@ function EditProfileModal({
   );
 }
 
+function PasskeyRow({
+  passkey,
+  passkeysLoading,
+  passkeysSaving,
+  passkeysActionId,
+  currentPasskeyId,
+  onNameChange,
+  onRenamePasskey,
+  onDeletePasskey,
+}) {
+  const isCurrentPasskey = Number(currentPasskeyId) === Number(passkey.id);
+
+  return (
+    <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-3 py-2.5">
+      <input
+        type="text"
+        className="w-full rounded-md border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-2 py-1 text-sm font-semibold"
+        value={passkey.name || ''}
+        onChange={(event) => onNameChange(passkey.id, event.target.value)}
+      />
+      <p className="m-0 text-xs text-[var(--text-secondary)]">
+        {t('shell.createdAt')}: {formatDateTime(passkey.created_at)}
+      </p>
+      <p className="m-0 text-xs text-[var(--text-secondary)]">
+        {t('shell.lastUsed')}: {passkey.last_used_at ? formatDateTime(passkey.last_used_at) : t('shell.never')}
+      </p>
+      <div className="mt-2 flex gap-2">
+        <button
+          type="button"
+          className="btn-secondary flex-1"
+          onClick={() => onRenamePasskey(passkey.id, passkey.name || '')}
+          disabled={passkeysLoading || passkeysSaving || passkeysActionId === passkey.id || !(passkey.name || '').trim()}
+        >
+          {passkeysActionId === passkey.id ? t('shell.saving') : t('shell.saveName')}
+        </button>
+        <button
+          type="button"
+          className="btn-danger flex-1"
+          onClick={() => onDeletePasskey(passkey.id)}
+          disabled={passkeysLoading || passkeysSaving || passkeysActionId === passkey.id || isCurrentPasskey}
+          title={isCurrentPasskey ? t('shell.cannotDeleteCurrentPasskey') : undefined}
+        >
+          {t('shell.delete')}
+        </button>
+      </div>
+      {isCurrentPasskey ? (
+        <p className="mt-1 m-0 text-xs text-[var(--text-secondary)]">{t('shell.activeSessionPasskey')}</p>
+      ) : null}
+    </div>
+  );
+}
+
 function PasskeysModal({
   managingPasskeys,
   passkeysLoading,
@@ -368,6 +420,10 @@ function PasskeysModal({
     return null;
   }
 
+  const handlePasskeyNameChange = (passkeyId, name) => {
+    setPasskeys((previous) => previous.map((row) => (row.id === passkeyId ? { ...row, name } : row)));
+  };
+
   const renderPasskeysContent = () => {
     if (passkeysLoading) {
       return <p className="m-0 text-sm text-[var(--text-secondary)]">{t('shell.loadingPasskeys')}</p>;
@@ -380,42 +436,17 @@ function PasskeysModal({
     return (
       <div className="space-y-2">
         {passkeys.map((passkey) => (
-          <div key={passkey.id} className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-3 py-2.5">
-            <input
-              type="text"
-              className="w-full rounded-md border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-2 py-1 text-sm font-semibold"
-              value={passkey.name || ''}
-              onChange={(event) => setPasskeys((previous) => previous.map((row) => (row.id === passkey.id ? { ...row, name: event.target.value } : row)))}
-            />
-            <p className="m-0 text-xs text-[var(--text-secondary)]">
-              {t('shell.createdAt')}: {formatDateTime(passkey.created_at)}
-            </p>
-            <p className="m-0 text-xs text-[var(--text-secondary)]">
-              {t('shell.lastUsed')}: {passkey.last_used_at ? formatDateTime(passkey.last_used_at) : t('shell.never')}
-            </p>
-            <div className="mt-2 flex gap-2">
-              <button
-                type="button"
-                className="btn-secondary flex-1"
-                onClick={() => onRenamePasskey(passkey.id, passkey.name || '')}
-                disabled={passkeysLoading || passkeysSaving || passkeysActionId === passkey.id || !(passkey.name || '').trim()}
-              >
-                {passkeysActionId === passkey.id ? t('shell.saving') : t('shell.saveName')}
-              </button>
-              <button
-                type="button"
-                className="btn-danger flex-1"
-                onClick={() => onDeletePasskey(passkey.id)}
-                disabled={passkeysLoading || passkeysSaving || passkeysActionId === passkey.id || Number(user?.current_passkey_id) === Number(passkey.id)}
-                title={Number(user?.current_passkey_id) === Number(passkey.id) ? t('shell.cannotDeleteCurrentPasskey') : undefined}
-              >
-                {t('shell.delete')}
-              </button>
-            </div>
-            {Number(user?.current_passkey_id) === Number(passkey.id) ? (
-              <p className="mt-1 m-0 text-xs text-[var(--text-secondary)]">{t('shell.activeSessionPasskey')}</p>
-            ) : null}
-          </div>
+          <PasskeyRow
+            key={passkey.id}
+            passkey={passkey}
+            passkeysLoading={passkeysLoading}
+            passkeysSaving={passkeysSaving}
+            passkeysActionId={passkeysActionId}
+            currentPasskeyId={user?.current_passkey_id}
+            onNameChange={handlePasskeyNameChange}
+            onRenamePasskey={onRenamePasskey}
+            onDeletePasskey={onDeletePasskey}
+          />
         ))}
       </div>
     );

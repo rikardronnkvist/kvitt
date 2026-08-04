@@ -240,6 +240,198 @@ function AdminUsersTab({
   );
 }
 
+function AdminGroupList({ groups, selectedGroupId, setSelectedGroupId }) {
+  return (
+    <aside className="space-y-2">
+      {groups.map((group) => {
+        const theme = getThemeForGroup(group);
+        const isActive = selectedGroupId === group.id;
+        return (
+          <button
+            key={group.id}
+            type="button"
+            onClick={() => setSelectedGroupId(group.id)}
+            className={[
+              'w-full rounded-lg border px-4 py-3 text-left transition',
+              isActive
+                ? 'border-[var(--border-strong)] bg-[var(--app-surface-muted)]'
+                : 'border-[var(--border-subtle)] bg-[var(--app-surface-strong)] hover:bg-[var(--app-surface-muted)]',
+            ].join(' ')}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="m-0 truncate text-sm font-semibold">{group.name}</p>
+                <p className="mt-1 m-0 text-xs text-[var(--text-secondary)]">{group.member_count} medlemmar</p>
+              </div>
+              <span className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: theme.base }} />
+            </div>
+          </button>
+        );
+      })}
+    </aside>
+  );
+}
+
+function GroupArchiveAction({ selectedGroup, groupAction, handleArchiveGroup, handleUnarchiveGroup }) {
+  const isBusy = groupAction.id === selectedGroup.id;
+
+  if (selectedGroup.archived_at) {
+    return (
+      <button
+        type="button"
+        className="btn-secondary"
+        onClick={() => handleUnarchiveGroup(selectedGroup.id)}
+        disabled={isBusy}
+      >
+        <RotateCcw className="h-4 w-4" />
+        {isBusy && groupAction.type === 'unarchive' ? 'Återaktiverar...' : 'Återaktivera'}
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className="btn-secondary"
+      onClick={() => handleArchiveGroup(selectedGroup.id)}
+      disabled={isBusy || Boolean(selectedGroup.has_open_balances)}
+      title={selectedGroup.has_open_balances ? 'Kan inte arkivera förrän alla balanser är 0.' : undefined}
+    >
+      <Archive className="h-4 w-4" />
+      {isBusy && groupAction.type === 'archive' ? 'Arkiverar...' : 'Arkivera'}
+    </button>
+  );
+}
+
+function getGroupStatusMessage(selectedGroup) {
+  if (selectedGroup.archived_at) {
+    return 'Gruppen är arkiverad och kan inte redigeras förrän den återaktiveras.';
+  }
+  if (selectedGroup.has_open_balances) {
+    return 'Gruppen kan inte arkiveras förrän allas balans är 0.';
+  }
+  return '';
+}
+
+function AdminGroupDetails({
+  selectedGroup,
+  selectedGroupDraft,
+  handleGroupDraftChange,
+  handleUnarchiveGroup,
+  handleArchiveGroup,
+  handleDeleteGroup,
+  handleSaveGroup,
+  savingGroupId,
+  groupAction,
+}) {
+  if (!selectedGroup || !selectedGroupDraft) {
+    return (
+      <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-6">
+        <p className="m-0 text-sm text-[var(--text-secondary)]">Välj en grupp i listan för att redigera inställningar.</p>
+      </section>
+    );
+  }
+
+  const activeThemeId = selectedGroupDraft.theme_color ?? getThemeForGroup(selectedGroup).id;
+  const statusMessage = getGroupStatusMessage(selectedGroup);
+
+  return (
+    <section className="space-y-6 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-5 sm:p-6">
+      <div className="space-y-1">
+        <p className="section-eyebrow">Grupp</p>
+        <h3 className="m-0 text-lg font-semibold">Gruppinställningar</h3>
+        <p className="m-0 text-sm text-[var(--text-secondary)]">Redigera namn och färgtema för vald grupp.</p>
+      </div>
+
+      <div className="space-y-3">
+        <label className="field-label">
+          Gruppnamn
+          <input
+            value={selectedGroupDraft.name}
+            onChange={(event) => handleGroupDraftChange(selectedGroup.id, 'name', event.target.value)}
+            disabled={Boolean(selectedGroup.archived_at)}
+          />
+        </label>
+        <label className="field-label">
+          Milkostnad för Bil (kr/mil)
+          <input
+            type="number"
+            min="0.1"
+            step="0.1"
+            value={selectedGroupDraft.mileage_rate}
+            onChange={(event) => handleGroupDraftChange(selectedGroup.id, 'mileage_rate', event.target.value)}
+            disabled={Boolean(selectedGroup.archived_at)}
+          />
+        </label>
+      </div>
+
+      <div className="space-y-3">
+        <p className="field-label">Färgtema</p>
+        <div className="flex flex-wrap gap-2">
+          {GROUP_THEMES.map((theme) => {
+            const isActive = activeThemeId === theme.id;
+            return (
+              <button
+                key={theme.id}
+                type="button"
+                title={theme.name}
+                onClick={() => handleGroupDraftChange(selectedGroup.id, 'theme_color', theme.id)}
+                disabled={Boolean(selectedGroup.archived_at)}
+                className="h-7 w-7 rounded-full transition hover:scale-110 focus:outline-none focus-visible:ring-2"
+                style={{
+                  background: theme.base,
+                  outline: isActive ? `2px solid ${theme.base}` : undefined,
+                  outlineOffset: isActive ? '2px' : undefined,
+                  boxShadow: isActive ? `0 0 0 3px rgba(255,255,255,0.9), 0 0 0 5px ${theme.base}` : undefined,
+                }}
+                aria-pressed={isActive}
+                aria-label={theme.name}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="space-y-1 text-sm text-[var(--text-secondary)]">
+        <p className="m-0">Skapad av: {getUserDisplayName({ full_name: selectedGroup.created_by_full_name })}</p>
+        <p className="m-0">Antal medlemmar: {selectedGroup.member_count}</p>
+        <p className="m-0">Status: {selectedGroup.archived_at ? 'Arkiverad' : 'Aktiv'}</p>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <GroupArchiveAction
+          selectedGroup={selectedGroup}
+          groupAction={groupAction}
+          handleArchiveGroup={handleArchiveGroup}
+          handleUnarchiveGroup={handleUnarchiveGroup}
+        />
+        <button
+          type="button"
+          className="btn-danger"
+          onClick={() => handleDeleteGroup(selectedGroup.id)}
+          disabled={groupAction.id === selectedGroup.id}
+        >
+          <Trash2 className="h-4 w-4" />
+          {groupAction.id === selectedGroup.id && groupAction.type === 'delete' ? 'Raderar...' : 'Radera grupp'}
+        </button>
+      </div>
+
+      {statusMessage ? (
+        <p className="m-0 text-sm text-[var(--text-secondary)]">{statusMessage}</p>
+      ) : null}
+
+      <button
+        type="button"
+        className="btn-primary"
+        onClick={() => handleSaveGroup(selectedGroup.id)}
+        disabled={savingGroupId === selectedGroup.id || Boolean(selectedGroup.archived_at) || groupAction.id === selectedGroup.id}
+      >
+        {savingGroupId === selectedGroup.id ? 'Sparar...' : 'Spara grupp'}
+      </button>
+    </section>
+  );
+}
+
 function AdminGroupsTab({
   groups,
   selectedGroupId,
@@ -256,156 +448,22 @@ function AdminGroupsTab({
 }) {
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
-      <aside className="space-y-2">
-        {groups.map((group) => {
-          const theme = getThemeForGroup(group);
-          const isActive = selectedGroupId === group.id;
-          return (
-            <button
-              key={group.id}
-              type="button"
-              onClick={() => setSelectedGroupId(group.id)}
-              className={[
-                'w-full rounded-lg border px-4 py-3 text-left transition',
-                isActive
-                  ? 'border-[var(--border-strong)] bg-[var(--app-surface-muted)]'
-                  : 'border-[var(--border-subtle)] bg-[var(--app-surface-strong)] hover:bg-[var(--app-surface-muted)]',
-              ].join(' ')}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="m-0 truncate text-sm font-semibold">{group.name}</p>
-                  <p className="mt-1 m-0 text-xs text-[var(--text-secondary)]">{group.member_count} medlemmar</p>
-                </div>
-                <span className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: theme.base }} />
-              </div>
-            </button>
-          );
-        })}
-      </aside>
-
-      {selectedGroup && selectedGroupDraft ? (
-        <section className="space-y-6 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-5 sm:p-6">
-          <div className="space-y-1">
-            <p className="section-eyebrow">Grupp</p>
-            <h3 className="m-0 text-lg font-semibold">Gruppinställningar</h3>
-            <p className="m-0 text-sm text-[var(--text-secondary)]">Redigera namn och färgtema för vald grupp.</p>
-          </div>
-
-          <div className="space-y-3">
-            <label className="field-label">
-              Gruppnamn
-              <input
-                value={selectedGroupDraft.name}
-                onChange={(event) => handleGroupDraftChange(selectedGroup.id, 'name', event.target.value)}
-                disabled={Boolean(selectedGroup.archived_at)}
-              />
-            </label>
-            <label className="field-label">
-              Milkostnad för Bil (kr/mil)
-              <input
-                type="number"
-                min="0.1"
-                step="0.1"
-                value={selectedGroupDraft.mileage_rate}
-                onChange={(event) => handleGroupDraftChange(selectedGroup.id, 'mileage_rate', event.target.value)}
-                disabled={Boolean(selectedGroup.archived_at)}
-              />
-            </label>
-          </div>
-
-          <div className="space-y-3">
-            <p className="field-label">Färgtema</p>
-            <div className="flex flex-wrap gap-2">
-              {GROUP_THEMES.map((theme) => {
-                const activeThemeId = selectedGroupDraft.theme_color ?? getThemeForGroup(selectedGroup).id;
-                const isActive = activeThemeId === theme.id;
-                return (
-                  <button
-                    key={theme.id}
-                    type="button"
-                    title={theme.name}
-                    onClick={() => handleGroupDraftChange(selectedGroup.id, 'theme_color', theme.id)}
-                    disabled={Boolean(selectedGroup.archived_at)}
-                    className="h-7 w-7 rounded-full transition hover:scale-110 focus:outline-none focus-visible:ring-2"
-                    style={{
-                      background: theme.base,
-                      outline: isActive ? `2px solid ${theme.base}` : undefined,
-                      outlineOffset: isActive ? '2px' : undefined,
-                      boxShadow: isActive ? `0 0 0 3px rgba(255,255,255,0.9), 0 0 0 5px ${theme.base}` : undefined,
-                    }}
-                    aria-pressed={isActive}
-                    aria-label={theme.name}
-                  />
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="space-y-1 text-sm text-[var(--text-secondary)]">
-            <p className="m-0">Skapad av: {getUserDisplayName({ full_name: selectedGroup.created_by_full_name })}</p>
-            <p className="m-0">Antal medlemmar: {selectedGroup.member_count}</p>
-            <p className="m-0">Status: {selectedGroup.archived_at ? 'Arkiverad' : 'Aktiv'}</p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {selectedGroup.archived_at ? (
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => handleUnarchiveGroup(selectedGroup.id)}
-                disabled={groupAction.id === selectedGroup.id}
-              >
-                <RotateCcw className="h-4 w-4" />
-                {groupAction.id === selectedGroup.id && groupAction.type === 'unarchive' ? 'Återaktiverar...' : 'Återaktivera'}
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => handleArchiveGroup(selectedGroup.id)}
-                disabled={groupAction.id === selectedGroup.id || Boolean(selectedGroup.has_open_balances)}
-                title={selectedGroup.has_open_balances ? 'Kan inte arkivera förrän alla balanser är 0.' : undefined}
-              >
-                <Archive className="h-4 w-4" />
-                {groupAction.id === selectedGroup.id && groupAction.type === 'archive' ? 'Arkiverar...' : 'Arkivera'}
-              </button>
-            )}
-            <button
-              type="button"
-              className="btn-danger"
-              onClick={() => handleDeleteGroup(selectedGroup.id)}
-              disabled={groupAction.id === selectedGroup.id}
-            >
-              <Trash2 className="h-4 w-4" />
-              {groupAction.id === selectedGroup.id && groupAction.type === 'delete' ? 'Raderar...' : 'Radera grupp'}
-            </button>
-          </div>
-
-          {selectedGroup.archived_at ? (
-            <p className="m-0 text-sm text-[var(--text-secondary)]">
-              Gruppen är arkiverad och kan inte redigeras förrän den återaktiveras.
-            </p>
-          ) : selectedGroup.has_open_balances ? (
-            <p className="m-0 text-sm text-[var(--text-secondary)]">
-              Gruppen kan inte arkiveras förrän allas balans är 0.
-            </p>
-          ) : null}
-
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={() => handleSaveGroup(selectedGroup.id)}
-            disabled={savingGroupId === selectedGroup.id || Boolean(selectedGroup.archived_at) || groupAction.id === selectedGroup.id}
-          >
-            {savingGroupId === selectedGroup.id ? 'Sparar...' : 'Spara grupp'}
-          </button>
-        </section>
-      ) : (
-        <section className="rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-6">
-          <p className="m-0 text-sm text-[var(--text-secondary)]">Välj en grupp i listan för att redigera inställningar.</p>
-        </section>
-      )}
+      <AdminGroupList
+        groups={groups}
+        selectedGroupId={selectedGroupId}
+        setSelectedGroupId={setSelectedGroupId}
+      />
+      <AdminGroupDetails
+        selectedGroup={selectedGroup}
+        selectedGroupDraft={selectedGroupDraft}
+        handleGroupDraftChange={handleGroupDraftChange}
+        handleUnarchiveGroup={handleUnarchiveGroup}
+        handleArchiveGroup={handleArchiveGroup}
+        handleDeleteGroup={handleDeleteGroup}
+        handleSaveGroup={handleSaveGroup}
+        savingGroupId={savingGroupId}
+        groupAction={groupAction}
+      />
     </div>
   );
 }
