@@ -27,6 +27,202 @@ function sanitizeIntegerInput(value) {
   return String(value ?? '').replace(/\D/g, '');
 }
 
+const CAR_TRIP_TITLE_PATTERN = /^(?:Bil|Bilresa)(?:\s+\d+\s+mil)?$/u;
+
+function isCarTripTitle(title) {
+  return CAR_TRIP_TITLE_PATTERN.test(String(title || '').trim());
+}
+
+function getCarTripTitle(distanceMil) {
+  return `Bil ${distanceMil} mil`;
+}
+
+function deriveDistanceMil({ distance_mil: distanceMil, amount }, mileageRate) {
+  const fallbackDistance = Number(distanceMil);
+  if (Number.isFinite(fallbackDistance) && fallbackDistance >= 0) {
+    return Math.round(fallbackDistance);
+  }
+
+  const fallbackFromAmount = Number(amount);
+  if (Number.isFinite(fallbackFromAmount) && fallbackFromAmount >= 0 && mileageRate > 0) {
+    return Math.round(fallbackFromAmount / mileageRate);
+  }
+
+  return 0;
+}
+
+function getCategorySelectionUpdate(previous, category, categories, mileageRate) {
+  const previousCategory = categories.find((item) => String(item.id) === String(previous.category_id));
+  const trimmedTitle = previous.title.trim();
+  const shouldSyncTitle = !trimmedTitle
+    || (previousCategory && trimmedTitle === previousCategory.name)
+    || isCarTripTitle(trimmedTitle);
+  const selectingCarTrip = category.icon === 'car';
+  const derivedDistance = deriveDistanceMil(previous, mileageRate);
+
+  return {
+    ...previous,
+    category_id: String(category.id),
+    distance_mil: selectingCarTrip ? String(derivedDistance) : previous.distance_mil,
+    title: selectingCarTrip
+      ? getCarTripTitle(derivedDistance)
+      : shouldSyncTitle
+        ? category.name
+        : previous.title,
+  };
+}
+
+function getDistanceMilUpdate(previous, distanceMil, mileageRate) {
+  const numericDistance = Number(distanceMil);
+  const calculatedAmount = Number.isFinite(numericDistance) && numericDistance >= 0
+    ? String(Math.round(numericDistance * mileageRate))
+    : '';
+
+  return {
+    ...previous,
+    distance_mil: distanceMil,
+    amount: calculatedAmount,
+    title: getCarTripTitle(distanceMil || 0),
+  };
+}
+
+function getAmountUpdate(previous, amountValue, isCarTripCategory, mileageRate) {
+  const numericAmount = Number(amountValue);
+  const derivedDistance = Number.isFinite(numericAmount) && numericAmount >= 0 && mileageRate > 0
+    ? String(Math.round(numericAmount / mileageRate))
+    : '';
+
+  return {
+    ...previous,
+    amount: amountValue,
+    distance_mil: isCarTripCategory ? derivedDistance : previous.distance_mil,
+    title: isCarTripCategory ? getCarTripTitle(derivedDistance || 0) : previous.title,
+  };
+}
+
+function getCustomDifferenceText(hasValidAmount, customDifference) {
+  if (!hasValidAmount) {
+    return 'Ange totalbelopp först';
+  }
+  if (customDifference === 0) {
+    return 'Summerar korrekt';
+  }
+  return `${customDifference > 0 ? 'Återstår' : 'Över'} ${formatCurrency(Math.abs(customDifference), { precise: true })}`;
+}
+
+function getCustomDifferenceClass(hasValidAmount, customDifference) {
+  if (!hasValidAmount) {
+    return 'text-[var(--text-secondary)]';
+  }
+  return customDifference === 0 ? 'amount-positive' : 'amount-negative';
+}
+
+function CategorySelector({ categories, form, setForm, mileageRate }) {
+  return (
+    <div className="space-y-2">
+      <p className="section-eyebrow">Kategori</p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-6">
+        {categories.map((category) => {
+          const Icon = getCategoryIcon(category.icon);
+          const isActive = String(form.category_id) === String(category.id);
+          return (
+            <button
+              key={category.id}
+              type="button"
+              title={category.name}
+              onClick={() => setForm((previous) => getCategorySelectionUpdate(previous, category, categories, mileageRate))}
+              className={[
+                'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition',
+                isActive
+                  ? 'border-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--text-primary)]'
+                  : 'border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[var(--text-secondary)] hover:bg-[var(--app-surface-muted)]',
+              ].join(' ')}
+              aria-pressed={isActive}
+              aria-label={category.name}
+            >
+              <Icon className="h-5 w-5" />
+              {category.name}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SplitDetailsPanel({
+  form,
+  equalSplits,
+  members,
+  selectedMembers,
+  customDifference,
+  customTotal,
+  hasValidAmount,
+  setForm,
+}) {
+  if (form.split_type === 'equal') {
+    return (
+      <div className="space-y-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
+        <div className="flex items-center gap-2">
+          <ReceiptText className="h-4 w-4 text-[var(--text-secondary)]" />
+          <p className="m-0 text-sm font-medium">Förhandsvisning</p>
+        </div>
+        <div className="space-y-2">
+          {equalSplits.map((split) => {
+            const member = members.find((item) => item.id === split.user_id);
+            return (
+              <div key={split.user_id} className="flex items-center justify-between gap-3 text-sm">
+                <span className="text-[var(--text-secondary)]">{member ? getUserDisplayName(member) : 'Okänd användare'}</span>
+                <span className="font-medium amount-neutral">{formatCurrency(split.amount_owed, { precise: true })}</span>
+              </div>
+            );
+          })}
+          {!equalSplits.length ? <p className="m-0 text-sm text-[var(--text-muted)]">Ange ett belopp för att se fördelningen.</p> : null}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="font-medium">Egen fördelning</span>
+        <span className={[
+          'font-medium',
+          getCustomDifferenceClass(hasValidAmount, customDifference),
+        ].join(' ')}>
+          {getCustomDifferenceText(hasValidAmount, customDifference)}
+        </span>
+      </div>
+      <div className="space-y-3">
+        {selectedMembers.map((member) => (
+          <label key={member.id} className="field-label">
+            {getUserDisplayName(member)}
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={form.custom_amounts[member.id] || ''}
+              onChange={(event) => setForm((previous) => ({
+                ...previous,
+                custom_amounts: {
+                  ...previous.custom_amounts,
+                  [member.id]: sanitizeIntegerInput(event.target.value),
+                },
+              }))}
+              placeholder="0"
+            />
+          </label>
+        ))}
+      </div>
+      <div className="flex items-center justify-between gap-3 border-t border-[var(--border-subtle)] pt-3 text-sm">
+        <span className="text-[var(--text-secondary)]">Summa</span>
+        <span className="font-medium amount-neutral">{formatCurrency(customTotal, { precise: true })}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function ExpenseFormFields({
   form,
   setForm,
@@ -44,8 +240,6 @@ export default function ExpenseFormFields({
   const { selectedMembers, equalSplits, customTotal, customDifference, hasValidAmount } = getSplitSummary(form, members);
   const selectedCategory = categories.find((category) => String(category.id) === String(form.category_id));
   const isCarTripCategory = selectedCategory?.icon === 'car';
-  const isCarTripTitle = (title) => /^(?:Bil|Bilresa)(?:\s+\d+\s+mil)?$/u.test(title.trim());
-  const getCarTripTitle = (distanceMil) => `Bil ${distanceMil} mil`;
 
   function handleCancel() {
     onCancel();
@@ -63,59 +257,7 @@ export default function ExpenseFormFields({
 
   return (
     <form className="space-y-6" onSubmit={handleSubmit}>
-      <div className="space-y-2">
-        <p className="section-eyebrow">Kategori</p>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-6">
-          {categories.map((category) => {
-            const Icon = getCategoryIcon(category.icon);
-            const isActive = String(form.category_id) === String(category.id);
-            return (
-              <button
-                key={category.id}
-                type="button"
-                title={category.name}
-                onClick={() => setForm((previous) => {
-                  const previousCategory = categories.find((item) => String(item.id) === String(previous.category_id));
-                  const trimmedTitle = previous.title.trim();
-                  const shouldSyncTitle = !trimmedTitle
-                    || (previousCategory && trimmedTitle === previousCategory.name)
-                    || isCarTripTitle(trimmedTitle);
-                  const selectingCarTrip = category.icon === 'car';
-                  const fallbackDistance = Number(previous.distance_mil);
-                  const fallbackFromAmount = Number(previous.amount);
-                  const derivedDistance = Number.isFinite(fallbackDistance) && fallbackDistance >= 0
-                    ? Math.round(fallbackDistance)
-                    : Number.isFinite(fallbackFromAmount) && fallbackFromAmount >= 0 && mileageRate > 0
-                      ? Math.round(fallbackFromAmount / mileageRate)
-                      : 0;
-
-                  return {
-                    ...previous,
-                    category_id: String(category.id),
-                    distance_mil: selectingCarTrip ? String(derivedDistance) : previous.distance_mil,
-                    title: selectingCarTrip
-                      ? getCarTripTitle(derivedDistance)
-                      : shouldSyncTitle
-                        ? category.name
-                        : previous.title,
-                  };
-                })}
-                className={[
-                  'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition',
-                  isActive
-                    ? 'border-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_10%,transparent)] text-[var(--text-primary)]'
-                    : 'border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[var(--text-secondary)] hover:bg-[var(--app-surface-muted)]',
-                ].join(' ')}
-                aria-pressed={isActive}
-                aria-label={category.name}
-              >
-                <Icon className="h-5 w-5" />
-                {category.name}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <CategorySelector categories={categories} form={form} setForm={setForm} mileageRate={mileageRate} />
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className="field-label md:col-span-2">
@@ -140,16 +282,7 @@ export default function ExpenseFormFields({
               value={form.distance_mil || ''}
               onChange={(event) => {
                 const distanceMil = sanitizeIntegerInput(event.target.value);
-                const numericDistance = Number(distanceMil);
-                const calculatedAmount = Number.isFinite(numericDistance) && numericDistance >= 0
-                  ? String(Math.round(numericDistance * mileageRate))
-                  : '';
-                setForm((previous) => ({
-                  ...previous,
-                  distance_mil: distanceMil,
-                  amount: calculatedAmount,
-                  title: getCarTripTitle(distanceMil || 0),
-                }));
+                setForm((previous) => getDistanceMilUpdate(previous, distanceMil, mileageRate));
               }}
               placeholder="0"
             />
@@ -165,16 +298,7 @@ export default function ExpenseFormFields({
             value={form.amount}
             onChange={(event) => {
               const amountValue = sanitizeIntegerInput(event.target.value);
-              const numericAmount = Number(amountValue);
-              const derivedDistance = Number.isFinite(numericAmount) && numericAmount >= 0 && mileageRate > 0
-                ? String(Math.round(numericAmount / mileageRate))
-                : '';
-              setForm((previous) => ({
-                ...previous,
-                amount: amountValue,
-                distance_mil: isCarTripCategory ? derivedDistance : previous.distance_mil,
-                title: isCarTripCategory ? getCarTripTitle(derivedDistance || 0) : previous.title,
-              }));
+              setForm((previous) => getAmountUpdate(previous, amountValue, isCarTripCategory, mileageRate));
             }}
             placeholder="0"
             required
@@ -266,67 +390,16 @@ export default function ExpenseFormFields({
           })}
         </div>
 
-        {form.split_type === 'equal' ? (
-          <div className="space-y-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
-            <div className="flex items-center gap-2">
-              <ReceiptText className="h-4 w-4 text-[var(--text-secondary)]" />
-              <p className="m-0 text-sm font-medium">Förhandsvisning</p>
-            </div>
-            <div className="space-y-2">
-              {equalSplits.map((split) => {
-                const member = members.find((item) => item.id === split.user_id);
-                return (
-                  <div key={split.user_id} className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-[var(--text-secondary)]">{member ? getUserDisplayName(member) : 'Okänd användare'}</span>
-                    <span className="font-medium amount-neutral">{formatCurrency(split.amount_owed, { precise: true })}</span>
-                  </div>
-                );
-              })}
-              {!equalSplits.length ? <p className="m-0 text-sm text-[var(--text-muted)]">Ange ett belopp för att se fördelningen.</p> : null}
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="font-medium">Egen fördelning</span>
-              <span className={[
-                'font-medium',
-                !hasValidAmount ? 'text-[var(--text-secondary)]' : customDifference === 0 ? 'amount-positive' : 'amount-negative',
-              ].join(' ')}>
-                {!hasValidAmount
-                  ? 'Ange totalbelopp först'
-                  : customDifference === 0
-                    ? 'Summerar korrekt'
-                    : `${customDifference > 0 ? 'Återstår' : 'Över'} ${formatCurrency(Math.abs(customDifference), { precise: true })}`}
-              </span>
-            </div>
-            <div className="space-y-3">
-              {selectedMembers.map((member) => (
-                <label key={member.id} className="field-label">
-                  {getUserDisplayName(member)}
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    value={form.custom_amounts[member.id] || ''}
-                    onChange={(event) => setForm((previous) => ({
-                      ...previous,
-                      custom_amounts: {
-                        ...previous.custom_amounts,
-                        [member.id]: sanitizeIntegerInput(event.target.value),
-                      },
-                    }))}
-                    placeholder="0"
-                  />
-                </label>
-              ))}
-            </div>
-            <div className="flex items-center justify-between gap-3 border-t border-[var(--border-subtle)] pt-3 text-sm">
-              <span className="text-[var(--text-secondary)]">Summa</span>
-              <span className="font-medium amount-neutral">{formatCurrency(customTotal, { precise: true })}</span>
-            </div>
-          </div>
-        )}
+        <SplitDetailsPanel
+          form={form}
+          equalSplits={equalSplits}
+          members={members}
+          selectedMembers={selectedMembers}
+          customDifference={customDifference}
+          customTotal={customTotal}
+          hasValidAmount={hasValidAmount}
+          setForm={setForm}
+        />
       </div>
 
       {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
