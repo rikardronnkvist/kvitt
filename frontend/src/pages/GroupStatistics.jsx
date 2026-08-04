@@ -384,11 +384,11 @@ function TimelineChart({ periods, granularity, onGranularityChange, dataMode, on
               <span className="inline-flex flex-col items-start gap-1 leading-tight">
                 <span className="inline-flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 rounded-sm bg-[rgba(17,24,39,0.68)]" aria-hidden="true" />
-                  Utgifter
+                  <span>Utgifter</span>
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 rounded-sm bg-[rgba(15,118,110,0.72)]" aria-hidden="true" />
-                  Kvittningar
+                  <span>Kvittningar</span>
                 </span>
               </span>
             ) : (

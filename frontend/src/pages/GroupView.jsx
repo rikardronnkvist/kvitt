@@ -614,7 +614,7 @@ function GroupSettingsModal({
           <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">Inställningar</h3>
           <div className="space-y-3">
             <label className="field-label">
-              Gruppnamn
+                <span>Gruppnamn</span>
               <input
                 type="text"
                 value={groupNameDraft}
@@ -666,7 +666,7 @@ function GroupSettingsModal({
           </div>
           <div className="space-y-3">
             <label className="field-label">
-              Milkostnad för Bil (kr/mil)
+                <span>Milkostnad för Bil (kr/mil)</span>
               <input
                 type="text"
                 inputMode="numeric"

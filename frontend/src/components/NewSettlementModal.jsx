@@ -197,7 +197,7 @@ export default function NewSettlementModal({
         </section>
 
         <label className="field-label">
-          Betalare
+          <span>Betalare</span>
           <MemberDropdown
             value={formData.payer_id}
             options={members}
@@ -208,7 +208,7 @@ export default function NewSettlementModal({
         </label>
 
         <label className="field-label">
-          Mottagare
+          <span>Mottagare</span>
           <MemberDropdown
             value={formData.receiver_id}
             options={availableReceivers}
@@ -219,7 +219,7 @@ export default function NewSettlementModal({
         </label>
 
         <label className="field-label">
-          Belopp
+          <span>Belopp</span>
           <input
             type="text"
             inputMode="numeric"
@@ -232,7 +232,7 @@ export default function NewSettlementModal({
         </label>
 
         <label className="field-label">
-          Tidpunkt för kvittningen
+          <span>Tidpunkt för kvittningen</span>
           <DateTimePicker
             value={formData.settled_at}
             onChange={(value) => handleFieldChange('settled_at', value)}

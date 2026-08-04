@@ -100,7 +100,7 @@ function AdminRegistrationTab({
         <p className="m-0 text-sm text-[var(--text-secondary)]">Endast besökare med denna länk kan skapa konto.</p>
       </div>
       <label className="field-label">
-        Registreringsnyckel
+        <span>Registreringsnyckel</span>
         <input
           value={registrationToken}
           onChange={(event) => setRegistrationToken(event.target.value)}
@@ -108,7 +108,7 @@ function AdminRegistrationTab({
         />
       </label>
       <label className="field-label">
-        Registrerings-URL
+        <span>Registrerings-URL</span>
         <input value={registrationUrl} readOnly />
       </label>
       <div className="flex flex-wrap gap-2">
@@ -211,7 +211,7 @@ function AdminUsersTab({
                   checked={Boolean(draft.is_admin)}
                   onChange={(event) => handleUserDraftChange(user.id, 'is_admin', event.target.checked)}
                 />
-                Admin
+                <span>Admin</span>
               </label>
               <span className="text-xs text-[var(--text-muted)]">{user.group_count} grupper</span>
               <span className="text-xs text-[var(--text-muted)]">{user.passkey_count} passkeys</span>
@@ -345,7 +345,7 @@ function AdminGroupDetails({
 
       <div className="space-y-3">
         <label className="field-label">
-          Gruppnamn
+          <span>Gruppnamn</span>
           <input
             value={selectedGroupDraft.name}
             onChange={(event) => handleGroupDraftChange(selectedGroup.id, 'name', event.target.value)}
@@ -353,7 +353,7 @@ function AdminGroupDetails({
           />
         </label>
         <label className="field-label">
-          Milkostnad för Bil (kr/mil)
+          <span>Milkostnad för Bil (kr/mil)</span>
           <input
             type="number"
             min="0.1"
@@ -576,7 +576,7 @@ function AdminActivityTab({
     <div className="space-y-4">
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <label className="field-label">
-          Händelse
+          <span>Händelse</span>
           <select
             value={activityFilters.event_type}
             onChange={(event) => handleActivityFilterChange('event_type', event.target.value)}
@@ -587,7 +587,7 @@ function AdminActivityTab({
           </select>
         </label>
         <label className="field-label">
-          Användare
+          <span>Användare</span>
           <select
             value={activityFilters.actor_user_id}
             onChange={(event) => handleActivityFilterChange('actor_user_id', event.target.value)}
@@ -599,7 +599,7 @@ function AdminActivityTab({
           </select>
         </label>
         <label className="field-label">
-          Grupp
+          <span>Grupp</span>
           <select
             value={activityFilters.group_id}
             onChange={(event) => handleActivityFilterChange('group_id', event.target.value)}
@@ -611,7 +611,7 @@ function AdminActivityTab({
           </select>
         </label>
         <label className="field-label">
-          Från
+          <span>Från</span>
           <input
             type="datetime-local"
             value={activityFilters.from}
@@ -619,7 +619,7 @@ function AdminActivityTab({
           />
         </label>
         <label className="field-label">
-          Till
+          <span>Till</span>
           <input
             type="datetime-local"
             value={activityFilters.to}
@@ -627,7 +627,7 @@ function AdminActivityTab({
           />
         </label>
         <label className="field-label">
-          Söktext
+          <span>Söktext</span>
           <input
             value={activityFilters.query}
             onChange={(event) => handleActivityFilterChange('query', event.target.value)}

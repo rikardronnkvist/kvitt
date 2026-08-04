@@ -264,7 +264,7 @@ export default function ExpenseFormFields({
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className="field-label md:col-span-2">
-          Titel
+            <span>Titel</span>
           <input
             value={form.title}
             onChange={(event) => setForm((previous) => ({ ...previous, title: event.target.value }))}
@@ -293,7 +293,7 @@ export default function ExpenseFormFields({
         ) : null}
 
         <label className="field-label">
-          Belopp
+            <span>Belopp</span>
           <input
             type="text"
             inputMode="numeric"
@@ -311,7 +311,7 @@ export default function ExpenseFormFields({
         {!isCarTripCategory ? <div className="hidden md:block" aria-hidden="true" /> : null}
 
         <label className="field-label md:col-span-2">
-          Betald av
+          <span>Betald av</span>
           <MemberDropdown
             value={form.paid_by_user_id}
             options={members}
@@ -330,7 +330,7 @@ export default function ExpenseFormFields({
         </label>
 
         <label className="field-label md:col-span-2">
-          Anteckningar
+          <span>Anteckningar</span>
           <textarea
             rows="3"
             value={form.notes}

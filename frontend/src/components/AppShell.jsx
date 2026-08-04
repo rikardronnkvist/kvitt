@@ -216,8 +216,8 @@ function CreateGroupModal({
   }
 
   return (
-    <div className="modal-backdrop app-shell-modal-backdrop" onClick={() => setCreatingGroup(false)}>
-      <div className="modal-sheet app-shell-modal-sheet md:w-[420px]" onClick={(event) => event.stopPropagation()}>
+    <div className="modal-backdrop app-shell-modal-backdrop">
+      <div className="modal-sheet app-shell-modal-sheet md:w-[420px]">
         <form className="space-y-5 p-5 sm:p-6" onSubmit={onSubmit}>
           <div className="space-y-1">
             <p className="section-eyebrow">{t('shell.groupsEyebrow')}</p>
@@ -291,8 +291,8 @@ function EditProfileModal({
   }
 
   return (
-    <div className="modal-backdrop app-shell-modal-backdrop" onClick={() => setEditingProfile(false)}>
-      <div className="modal-sheet app-shell-modal-sheet md:w-[420px]" onClick={(event) => event.stopPropagation()}>
+    <div className="modal-backdrop app-shell-modal-backdrop">
+      <div className="modal-sheet app-shell-modal-sheet md:w-[420px]">
         <form className="space-y-5 p-5 sm:p-6" onSubmit={onSubmit}>
           <div className="space-y-1">
             <p className="section-eyebrow">{t('shell.profileEyebrow')}</p>
@@ -453,8 +453,8 @@ function PasskeysModal({
   };
 
   return (
-    <div className="modal-backdrop app-shell-modal-backdrop" onClick={() => setManagingPasskeys(false)}>
-      <div className="modal-sheet app-shell-modal-sheet md:w-[480px]" onClick={(event) => event.stopPropagation()}>
+    <div className="modal-backdrop app-shell-modal-backdrop">
+      <div className="modal-sheet app-shell-modal-sheet md:w-[480px]">
         <div className="space-y-5 p-5 sm:p-6">
           <div className="space-y-1">
             <p className="section-eyebrow">{t('shell.securityEyebrow')}</p>
