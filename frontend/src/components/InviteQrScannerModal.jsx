@@ -25,24 +25,35 @@ export default function InviteQrScannerModal({ onClose, onDetected }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [manualInput, setManualInput] = useState('');
+  const [devices, setDevices] = useState([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState(null);
 
+  // Load available devices once on mount
   useEffect(() => {
+    if (!navigator?.mediaDevices?.getUserMedia) return;
+
+    BrowserCodeReader.listVideoInputDevices()
+      .then((videoDevices) => {
+        setDevices(videoDevices);
+        const preferred = videoDevices.find((device) => /back|rear|environment/i.test(device.label || ''));
+        setSelectedDeviceId(preferred?.deviceId || videoDevices[0]?.deviceId || null);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Start scanner when a device is selected
+  useEffect(() => {
+    if (!selectedDeviceId) return;
+
     let active = true;
+    handledRef.current = false;
+    setLoading(true);
+    setError('');
 
     const start = async () => {
-      if (!navigator?.mediaDevices?.getUserMedia) {
-        setError('Din enhet stödjer inte kameraläsning i webbläsaren.');
-        setLoading(false);
-        return;
-      }
-
       try {
-        const devices = await BrowserCodeReader.listVideoInputDevices();
-        const preferred = devices.find((device) => /back|rear|environment/i.test(device.label || ''));
-        const deviceId = preferred?.deviceId || devices[0]?.deviceId;
-
         const reader = new BrowserMultiFormatReader();
-        const controls = await reader.decodeFromVideoDevice(deviceId, videoRef.current, (result) => {
+        const controls = await reader.decodeFromVideoDevice(selectedDeviceId, videoRef.current, (result) => {
           if (!result || handledRef.current) return;
           const token = extractInviteToken(result.getText());
           if (!token) return;
@@ -75,7 +86,15 @@ export default function InviteQrScannerModal({ onClose, onDetected }) {
       handledRef.current = true;
       controlsRef.current?.stop();
     };
-  }, [onDetected]);
+  }, [onDetected, selectedDeviceId]);
+
+  // Show error if media devices not supported (devices list stays empty after mount)
+  useEffect(() => {
+    if (!navigator?.mediaDevices?.getUserMedia) {
+      setError('Din enhet stödjer inte kameraläsning i webbläsaren.');
+      setLoading(false);
+    }
+  }, []);
 
   const submitManual = () => {
     const token = extractInviteToken(manualInput);
@@ -93,6 +112,26 @@ export default function InviteQrScannerModal({ onClose, onDetected }) {
       onClose={onClose}
     >
       <div className="space-y-4">
+        {devices.length > 1 ? (
+          <div className="flex items-center gap-2">
+            <Camera className="h-4 w-4 shrink-0 text-[var(--text-secondary)]" />
+            <select
+              className="flex-1"
+              value={selectedDeviceId || ''}
+              onChange={(event) => {
+                controlsRef.current?.stop();
+                setSelectedDeviceId(event.target.value);
+              }}
+            >
+              {devices.map((device, index) => (
+                <option key={device.deviceId} value={device.deviceId}>
+                  {device.label || `Kamera ${index + 1}`}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+
         <div className="relative overflow-hidden rounded-lg border border-[var(--border-subtle)] bg-black">
           <video ref={videoRef} className="h-64 w-full object-cover" muted playsInline autoPlay />
           {loading ? (
