@@ -49,7 +49,7 @@ function getNiceAxisMax(value, { allowOnePointFive = false } = {}) {
 
   const magnitude = 10 ** Math.floor(Math.log10(numeric));
   const normalized = numeric / magnitude;
-  let niceNormalized = 1;
+  let niceNormalized;
 
   if (normalized <= 1) {
     niceNormalized = 1;
@@ -219,19 +219,58 @@ function toPieData(entries, { sortByValue = true } = {}) {
 }
 
 function getTimelineAxisLabels(dataMode) {
-  const amountAxisLabel = dataMode === 'expenses'
-    ? 'Totala utgifter'
-    : dataMode === 'transfers'
-      ? 'Totala kvittningar'
-      : 'Utgifter + kvittningar';
+  let amountAxisLabel = 'Utgifter + kvittningar';
+  if (dataMode === 'expenses') {
+    amountAxisLabel = 'Totala utgifter';
+  } else if (dataMode === 'transfers') {
+    amountAxisLabel = 'Totala kvittningar';
+  }
 
-  const countAxisLabel = dataMode === 'expenses'
-    ? 'Antal utgifter'
-    : dataMode === 'transfers'
-      ? 'Antal kvittningar'
-      : 'Antal händelser';
+  let countAxisLabel = 'Antal händelser';
+  if (dataMode === 'expenses') {
+    countAxisLabel = 'Antal utgifter';
+  } else if (dataMode === 'transfers') {
+    countAxisLabel = 'Antal kvittningar';
+  }
 
   return { amountAxisLabel, countAxisLabel };
+}
+
+function getMinLabelSpacing(granularity) {
+  if (granularity === 'day') {
+    return 66;
+  }
+  if (granularity === 'week') {
+    return 90;
+  }
+  if (granularity === 'month') {
+    return 70;
+  }
+  return 48;
+}
+
+function getTimelineSingleBarFill(dataMode) {
+  if (dataMode === 'expenses') {
+    return 'rgba(17, 24, 39, 0.68)';
+  }
+  return 'rgba(15, 118, 110, 0.72)';
+}
+
+function getOverviewRowBackground(index) {
+  if (index % 2 === 0) {
+    return 'color-mix(in srgb, var(--app-surface-strong) 80%, transparent)';
+  }
+  return 'color-mix(in srgb, var(--app-surface-muted) 70%, transparent)';
+}
+
+function getBalanceClass(balance) {
+  if (balance > 0) {
+    return 'amount-positive';
+  }
+  if (balance < 0) {
+    return 'amount-negative';
+  }
+  return 'amount-neutral';
 }
 
 function getShownLabelIndexes(periodsLength, stepX, minLabelSpacing) {
@@ -290,7 +329,7 @@ function TimelineChart({ periods, granularity, onGranularityChange, dataMode, on
   const maxCount = getNiceAxisMax(rawMaxCount);
   const barWidth = Math.min(40, chartWidth / Math.max(periods.length * 1.8, 1));
   const stepX = chartWidth / Math.max(periods.length, 1);
-  const minLabelSpacing = granularity === 'day' ? 66 : granularity === 'week' ? 90 : granularity === 'month' ? 70 : 48;
+  const minLabelSpacing = getMinLabelSpacing(granularity);
   const shownLabelIndexes = getShownLabelIndexes(periods.length, stepX, minLabelSpacing);
 
   const yTicks = [0, 0.25, 0.5, 0.75, 1];
@@ -305,7 +344,7 @@ function TimelineChart({ periods, granularity, onGranularityChange, dataMode, on
         <p className="m-0 hidden text-sm font-semibold sm:block">Tidslinje</p>
         <div className="flex flex-wrap items-center gap-2">
           <label className="inline-flex items-center gap-2 text-xs text-[var(--text-muted)]">
-            Data:
+            <span>Data:</span>
             <select
               className="w-auto min-w-[7rem] rounded-md border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-2 py-1 text-xs text-[var(--text-primary)]"
               value={dataMode}
@@ -318,7 +357,7 @@ function TimelineChart({ periods, granularity, onGranularityChange, dataMode, on
             </select>
           </label>
           <label className="inline-flex items-center gap-2 text-xs text-[var(--text-muted)]">
-            Visa:
+            <span>Visa:</span>
             <select
               className="w-auto min-w-[6rem] rounded-md border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-2 py-1 text-xs text-[var(--text-primary)]"
               value={granularity}
@@ -438,7 +477,7 @@ function TimelineChart({ periods, granularity, onGranularityChange, dataMode, on
                       width={barWidth}
                       height={barHeight}
                       rx="3"
-                      fill={dataMode === 'expenses' ? 'rgba(17, 24, 39, 0.68)' : 'rgba(15, 118, 110, 0.72)'}
+                      fill={getTimelineSingleBarFill(dataMode)}
                     />
                   )}
                   {shouldShowLabel ? (
@@ -574,21 +613,22 @@ function PieCard({ title, entries }) {
           {entries.length ? entries.map((entry) => {
             const isActive = hoveredLabel === entry.label;
             return (
-            <div
+            <button
               key={entry.label}
+              type="button"
               className={`flex items-center justify-between gap-3 rounded-md px-2 py-1.5 text-sm transition ${isActive ? 'bg-[var(--app-surface-muted)]' : ''}`}
               onMouseEnter={() => setHoveredLabel(entry.label)}
               onMouseLeave={() => setHoveredLabel('')}
               onFocus={() => setHoveredLabel(entry.label)}
               onBlur={() => setHoveredLabel('')}
-              tabIndex={0}
+              onClick={() => setHoveredLabel(entry.label)}
             >
               <span className="inline-flex items-center gap-2 text-[var(--text-secondary)]">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ background: entry.color }} />
                 {entry.label}
               </span>
               <span className="font-semibold amount-neutral">{formatCurrency(entry.value, { precise: true })}</span>
-            </div>
+            </button>
             );
           }) : (
             <p className="m-0 text-sm text-[var(--text-secondary)]">Ingen data att visa.</p>
@@ -940,9 +980,7 @@ export default function GroupStatistics() {
                     key={row.label}
                     className="flex items-center justify-between gap-3 rounded-md px-2.5 py-1.5"
                     style={{
-                      background: index % 2 === 0
-                        ? 'color-mix(in srgb, var(--app-surface-strong) 80%, transparent)'
-                        : 'color-mix(in srgb, var(--app-surface-muted) 70%, transparent)',
+                      background: getOverviewRowBackground(index),
                     }}
                   >
                     <span className="text-[var(--text-secondary)]">{row.label}</span>
@@ -1006,7 +1044,7 @@ export default function GroupStatistics() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-[var(--text-secondary)]">Nuvarande balans</span>
-                  <span className={`font-semibold ${member.balance > 0 ? 'amount-positive' : member.balance < 0 ? 'amount-negative' : 'amount-neutral'}`}>
+                  <span className={`font-semibold ${getBalanceClass(member.balance)}`}>
                     {member.balance < 0 ? '-' : ''}
                     {formatCurrency(Math.abs(member.balance), { precise: true })}
                   </span>
