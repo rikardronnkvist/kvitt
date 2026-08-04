@@ -402,6 +402,43 @@ function PasskeyRow({
   );
 }
 
+function PasskeysContent({
+  passkeysLoading,
+  passkeys,
+  passkeysSaving,
+  passkeysActionId,
+  currentPasskeyId,
+  onNameChange,
+  onRenamePasskey,
+  onDeletePasskey,
+}) {
+  if (passkeysLoading) {
+    return <p className="m-0 text-sm text-[var(--text-secondary)]">{t('shell.loadingPasskeys')}</p>;
+  }
+
+  if (!passkeys.length) {
+    return <p className="m-0 text-sm text-[var(--text-secondary)]">{t('shell.noPasskeys')}</p>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {passkeys.map((passkey) => (
+        <PasskeyRow
+          key={passkey.id}
+          passkey={passkey}
+          passkeysLoading={passkeysLoading}
+          passkeysSaving={passkeysSaving}
+          passkeysActionId={passkeysActionId}
+          currentPasskeyId={currentPasskeyId}
+          onNameChange={onNameChange}
+          onRenamePasskey={onRenamePasskey}
+          onDeletePasskey={onDeletePasskey}
+        />
+      ))}
+    </div>
+  );
+}
+
 function PasskeysModal({
   managingPasskeys,
   passkeysLoading,
@@ -424,34 +461,6 @@ function PasskeysModal({
     setPasskeys((previous) => previous.map((row) => (row.id === passkeyId ? { ...row, name } : row)));
   };
 
-  const renderPasskeysContent = () => {
-    if (passkeysLoading) {
-      return <p className="m-0 text-sm text-[var(--text-secondary)]">{t('shell.loadingPasskeys')}</p>;
-    }
-
-    if (!passkeys.length) {
-      return <p className="m-0 text-sm text-[var(--text-secondary)]">{t('shell.noPasskeys')}</p>;
-    }
-
-    return (
-      <div className="space-y-2">
-        {passkeys.map((passkey) => (
-          <PasskeyRow
-            key={passkey.id}
-            passkey={passkey}
-            passkeysLoading={passkeysLoading}
-            passkeysSaving={passkeysSaving}
-            passkeysActionId={passkeysActionId}
-            currentPasskeyId={user?.current_passkey_id}
-            onNameChange={handlePasskeyNameChange}
-            onRenamePasskey={onRenamePasskey}
-            onDeletePasskey={onDeletePasskey}
-          />
-        ))}
-      </div>
-    );
-  };
-
   return (
     <div className="modal-backdrop app-shell-modal-backdrop">
       <div className="modal-sheet app-shell-modal-sheet md:w-[480px]">
@@ -461,7 +470,16 @@ function PasskeysModal({
             <h2 className="m-0 text-xl font-semibold">{t('shell.passkeysTitle')}</h2>
           </div>
 
-          {renderPasskeysContent()}
+          <PasskeysContent
+            passkeysLoading={passkeysLoading}
+            passkeys={passkeys}
+            passkeysSaving={passkeysSaving}
+            passkeysActionId={passkeysActionId}
+            currentPasskeyId={user?.current_passkey_id}
+            onNameChange={handlePasskeyNameChange}
+            onRenamePasskey={onRenamePasskey}
+            onDeletePasskey={onDeletePasskey}
+          />
 
           {passkeysError ? (
             <p className="m-0 rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{passkeysError}</p>
