@@ -154,6 +154,156 @@ function useDevboxUsers({ isRegisterMode, setError }) {
   return { devboxUsers, devboxAvailable, devboxLoading };
 }
 
+function RegistrationNotice({ hasRegistrationToken, checkingRegistrationToken, hasValidRegistrationToken }) {
+  if (!hasRegistrationToken) {
+    return (
+      <p className="m-0 rounded-lg border border-[var(--border-strong)] bg-[var(--app-surface-muted)] px-3 py-2 text-sm text-[var(--text-secondary)]">
+        {t('auth.registerClosed')}
+      </p>
+    );
+  }
+
+  if (checkingRegistrationToken) {
+    return (
+      <p className="m-0 rounded-lg border border-[var(--border-strong)] bg-[var(--app-surface-muted)] px-3 py-2 text-sm text-[var(--text-secondary)]">
+        {t('auth.registerLinkVerifying')}
+      </p>
+    );
+  }
+
+  if (!hasValidRegistrationToken) {
+    return (
+      <p className="m-0 rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">
+        {t('auth.registerLinkInvalid')}
+      </p>
+    );
+  }
+
+  return null;
+}
+
+function RegisterSection({
+  hasRegistrationToken,
+  checkingRegistrationToken,
+  hasValidRegistrationToken,
+  registerForm,
+  setRegisterForm,
+  isBusy,
+  hasValidRegisterName,
+  passkeyLoading,
+  onPasskeySignup,
+}) {
+  return (
+    <>
+      <RegistrationNotice
+        hasRegistrationToken={hasRegistrationToken}
+        checkingRegistrationToken={checkingRegistrationToken}
+        hasValidRegistrationToken={hasValidRegistrationToken}
+      />
+      <label className="field-label">
+        {t('auth.fullName')}
+        <input
+          name="full_name"
+          value={registerForm.full_name}
+          onChange={(event) => setRegisterForm((previous) => ({ ...previous, full_name: event.target.value }))}
+          disabled={!hasValidRegistrationToken}
+          minLength={3}
+        />
+      </label>
+      <label className="field-label">
+        {t('auth.phoneLabel')}
+        <input
+          name="phone"
+          type="tel"
+          value={registerForm.phone}
+          onChange={(event) => setRegisterForm((previous) => ({ ...previous, phone: sanitizePhoneInput(event.target.value) }))}
+          onBlur={(event) => setRegisterForm((previous) => ({ ...previous, phone: formatSwedishPhone(event.target.value) }))}
+          disabled={!hasValidRegistrationToken}
+          placeholder={t('auth.phonePlaceholder')}
+          autoComplete="tel"
+          pattern="[\d+\-\s]*"
+        />
+      </label>
+      <div className="space-y-4">
+        <PasskeyButton
+          label={t('auth.signupPasskey')}
+          loadingLabel={t('auth.startPasskey')}
+          loading={passkeyLoading}
+          disabled={isBusy || !hasValidRegistrationToken || !hasValidRegisterName}
+          onClick={onPasskeySignup}
+        />
+      </div>
+    </>
+  );
+}
+
+function LoginSection({ isBusy, passkeyLoading, handlePasskeyLogin, setIsScannerOpen }) {
+  return (
+    <div className="space-y-4">
+      <PasskeyButton
+        label={t('auth.loginPasskey')}
+        loadingLabel={t('auth.startPasskey')}
+        loading={passkeyLoading}
+        disabled={isBusy}
+        onClick={handlePasskeyLogin}
+      />
+      <button type="button" className="btn-secondary w-full" disabled={isBusy} onClick={() => setIsScannerOpen(true)}>
+        <ScanLine className="h-4 w-4" />
+        {t('auth.scanInviteQr')}
+      </button>
+    </div>
+  );
+}
+
+function DevboxSection({ devboxUsers, isBusy, onLogin }) {
+  return (
+    <div className="space-y-3">
+      <p className="m-0 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t('auth.devbox')}</p>
+      <div className="space-y-2">
+        {devboxUsers.length ? devboxUsers.map((user) => (
+          <button
+            key={user.id}
+            type="button"
+            className="btn-secondary w-full items-start justify-start py-3 text-left"
+            onClick={() => onLogin(user.id)}
+            disabled={isBusy}
+          >
+            <span className="flex w-full flex-col items-start gap-0.5 leading-tight">
+              <span>{user.name}</span>
+              {user.subtitle ? <span className="text-xs text-[var(--text-muted)]">{user.subtitle}</span> : null}
+            </span>
+            {user.is_admin ? (
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="ml-auto size-4 shrink-0 text-[var(--text-muted)]" aria-label={t('auth.adminLabel')}>
+                <path fillRule="evenodd" d="M9.661 2.237a.531.531 0 0 1 .678 0 11.947 11.947 0 0 0 7.078 2.749.5.5 0 0 1 .479.425c.069.52.104 1.05.104 1.589 0 5.162-3.26 9.563-7.834 11.256a.48.48 0 0 1-.332 0C5.26 16.563 2 12.162 2 7c0-.538.035-1.069.104-1.589a.5.5 0 0 1 .48-.425 11.947 11.947 0 0 0 7.077-2.749Z" clipRule="evenodd" />
+              </svg>
+            ) : null}
+          </button>
+        )) : (
+          <p className="m-0 text-sm text-[var(--text-secondary)]">{t('auth.noUsersFound')}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AuthFooter({ isRegisterMode, hasRegistrationToken, registrationToken }) {
+  return (
+    <p className="m-0 text-center text-sm text-[var(--text-secondary)]">
+      {!isRegisterMode ? (
+        hasRegistrationToken ? (
+          <>
+            {t('auth.noAccount')} <Link to={`/register?${encodeURIComponent(registrationToken)}`}>{t('auth.register')}</Link>
+          </>
+        ) : t('auth.registerRequiresInvite')
+      ) : (
+        <>
+          {t('auth.alreadyHaveAccount')} <Link to="/login">{t('auth.login')}</Link>
+        </>
+      )}
+    </p>
+  );
+}
+
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -226,114 +376,37 @@ export default function Login() {
 
         <form className="space-y-4" onSubmit={(event) => event.preventDefault()}>
           {isRegisterMode ? (
-            <>
-              {!hasRegistrationToken ? (
-                <p className="m-0 rounded-lg border border-[var(--border-strong)] bg-[var(--app-surface-muted)] px-3 py-2 text-sm text-[var(--text-secondary)]">
-                  {t('auth.registerClosed')}
-                </p>
-              ) : checkingRegistrationToken ? (
-                <p className="m-0 rounded-lg border border-[var(--border-strong)] bg-[var(--app-surface-muted)] px-3 py-2 text-sm text-[var(--text-secondary)]">
-                  {t('auth.registerLinkVerifying')}
-                </p>
-              ) : !hasValidRegistrationToken ? (
-                <p className="m-0 rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">
-                  {t('auth.registerLinkInvalid')}
-                </p>
-              ) : null}
-              <label className="field-label">
-                {t('auth.fullName')}
-                <input
-                  name="full_name"
-                  value={registerForm.full_name}
-                  onChange={(event) => setRegisterForm((previous) => ({ ...previous, full_name: event.target.value }))}
-                  disabled={!hasValidRegistrationToken}
-                  minLength={3}
-                />
-              </label>
-              <label className="field-label">
-                {t('auth.phoneLabel')}
-                <input
-                  name="phone"
-                  type="tel"
-                  value={registerForm.phone}
-                  onChange={(event) => setRegisterForm((previous) => ({ ...previous, phone: sanitizePhoneInput(event.target.value) }))}
-                  onBlur={(event) => setRegisterForm((previous) => ({ ...previous, phone: formatSwedishPhone(event.target.value) }))}
-                  disabled={!hasValidRegistrationToken}
-                  placeholder={t('auth.phonePlaceholder')}
-                  autoComplete="tel"
-                  pattern="[\d+\-\s]*"
-                />
-              </label>
-              <div className="space-y-4">
-                <PasskeyButton
-                  label={t('auth.signupPasskey')}
-                  loadingLabel={t('auth.startPasskey')}
-                  loading={passkeyLoading}
-                  disabled={isBusy || !hasValidRegistrationToken || !hasValidRegisterName}
-                  onClick={onPasskeySignup}
-                />
-              </div>
-            </>
+            <RegisterSection
+              hasRegistrationToken={hasRegistrationToken}
+              checkingRegistrationToken={checkingRegistrationToken}
+              hasValidRegistrationToken={hasValidRegistrationToken}
+              registerForm={registerForm}
+              setRegisterForm={setRegisterForm}
+              isBusy={isBusy}
+              hasValidRegisterName={hasValidRegisterName}
+              passkeyLoading={passkeyLoading}
+              onPasskeySignup={onPasskeySignup}
+            />
           ) : (
-            <div className="space-y-4">
-              <PasskeyButton
-                label={t('auth.loginPasskey')}
-                loadingLabel={t('auth.startPasskey')}
-                loading={passkeyLoading}
-                disabled={isBusy}
-                onClick={handlePasskeyLogin}
-              />
-              <button type="button" className="btn-secondary w-full" disabled={isBusy} onClick={() => setIsScannerOpen(true)}>
-                <ScanLine className="h-4 w-4" />
-                {t('auth.scanInviteQr')}
-              </button>
-            </div>
+            <LoginSection
+              isBusy={isBusy}
+              passkeyLoading={passkeyLoading}
+              handlePasskeyLogin={handlePasskeyLogin}
+              setIsScannerOpen={setIsScannerOpen}
+            />
           )}
 
           {!isRegisterMode && devboxAvailable ? (
-            <div className="space-y-3">
-              <p className="m-0 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t('auth.devbox')}</p>
-              <div className="space-y-2">
-                {devboxUsers.length ? devboxUsers.map((user) => (
-                  <button
-                    key={user.id}
-                    type="button"
-                    className="btn-secondary w-full items-start justify-start py-3 text-left"
-                    onClick={() => handleDevboxUserLogin(user.id)}
-                    disabled={isBusy}
-                  >
-                    <span className="flex w-full flex-col items-start gap-0.5 leading-tight">
-                      <span>{user.name}</span>
-                      {user.subtitle ? <span className="text-xs text-[var(--text-muted)]">{user.subtitle}</span> : null}
-                    </span>
-                    {user.is_admin ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="ml-auto size-4 shrink-0 text-[var(--text-muted)]" aria-label={t('auth.adminLabel')}>
-                        <path fillRule="evenodd" d="M9.661 2.237a.531.531 0 0 1 .678 0 11.947 11.947 0 0 0 7.078 2.749.5.5 0 0 1 .479.425c.069.52.104 1.05.104 1.589 0 5.162-3.26 9.563-7.834 11.256a.48.48 0 0 1-.332 0C5.26 16.563 2 12.162 2 7c0-.538.035-1.069.104-1.589a.5.5 0 0 1 .48-.425 11.947 11.947 0 0 0 7.077-2.749Z" clipRule="evenodd" />
-                      </svg>
-                    ) : null}
-                  </button>
-                )) : (
-                  <p className="m-0 text-sm text-[var(--text-secondary)]">{t('auth.noUsersFound')}</p>
-                )}
-              </div>
-            </div>
+            <DevboxSection devboxUsers={devboxUsers} isBusy={isBusy} onLogin={handleDevboxUserLogin} />
           ) : null}
 
           {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
 
-          <p className="m-0 text-center text-sm text-[var(--text-secondary)]">
-            {!isRegisterMode ? (
-              hasRegistrationToken ? (
-                <>
-                  {t('auth.noAccount')} <Link to={`/register?${encodeURIComponent(registrationToken)}`}>{t('auth.register')}</Link>
-                </>
-              ) : t('auth.registerRequiresInvite')
-            ) : (
-              <>
-                {t('auth.alreadyHaveAccount')} <Link to="/login">{t('auth.login')}</Link>
-              </>
-            )}
-          </p>
+          <AuthFooter
+            isRegisterMode={isRegisterMode}
+            hasRegistrationToken={hasRegistrationToken}
+            registrationToken={registrationToken}
+          />
         </form>
       </section>
 

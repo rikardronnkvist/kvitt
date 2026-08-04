@@ -354,6 +354,61 @@ function ensureGroupColumnsAndSlugs() {
   db.exec('UPDATE groups SET mileage_rate = 20 WHERE mileage_rate IS NULL OR mileage_rate <= 0');
 }
 
+function normalizeSplitAmounts(splits) {
+  for (const split of splits) {
+    split.amount_owed = Math.max(1, split.amount_owed);
+  }
+}
+
+function ensureMinimumExpenseAmount(expense, splits, updateExpense) {
+  let targetAmount = expense.amount;
+  const minimumSplitTotal = splits.length;
+
+  if (targetAmount < minimumSplitTotal) {
+    targetAmount = minimumSplitTotal;
+    updateExpense.run(targetAmount, expense.id);
+  }
+
+  return targetAmount;
+}
+
+function rebalanceSplitAmounts(splits, targetAmount) {
+  let diff = targetAmount - splits.reduce((sum, split) => sum + split.amount_owed, 0);
+  if (diff === 0) {
+    return;
+  }
+
+  while (diff !== 0) {
+    let changed = false;
+    for (const split of splits) {
+      if (diff > 0) {
+        split.amount_owed += 1;
+        diff -= 1;
+        changed = true;
+      } else if (split.amount_owed > 1) {
+        split.amount_owed -= 1;
+        diff += 1;
+        changed = true;
+      }
+
+      if (diff === 0) {
+        break;
+      }
+    }
+
+    if (!changed) {
+      splits[0].amount_owed += diff;
+      diff = 0;
+    }
+  }
+}
+
+function persistSplitAmounts(splits, updateSplit) {
+  for (const split of splits) {
+    updateSplit.run(split.amount_owed, split.id);
+  }
+}
+
 function reconcileExpenseSplits() {
   const reconcileSplits = db.transaction(() => {
     const expenses = db.prepare('SELECT id, CAST(ROUND(amount) AS INTEGER) AS amount FROM expenses').all();
@@ -367,52 +422,10 @@ function reconcileExpenseSplits() {
         continue;
       }
 
-      for (const split of splits) {
-        split.amount_owed = Math.max(1, split.amount_owed);
-      }
-
-      let targetAmount = expense.amount;
-      const minimumSplitTotal = splits.length;
-      if (targetAmount < minimumSplitTotal) {
-        targetAmount = minimumSplitTotal;
-        updateExpense.run(targetAmount, expense.id);
-      }
-
-      let diff = targetAmount - splits.reduce((sum, split) => sum + split.amount_owed, 0);
-      if (diff === 0) {
-        for (const split of splits) {
-          updateSplit.run(split.amount_owed, split.id);
-        }
-        continue;
-      }
-
-      while (diff !== 0) {
-        let changed = false;
-        for (const split of splits) {
-          if (diff > 0) {
-            split.amount_owed += 1;
-            diff -= 1;
-            changed = true;
-          } else if (split.amount_owed > 1) {
-            split.amount_owed -= 1;
-            diff += 1;
-            changed = true;
-          }
-
-          if (diff === 0) {
-            break;
-          }
-        }
-
-        if (!changed) {
-          splits[0].amount_owed += diff;
-          diff = 0;
-        }
-      }
-
-      for (const split of splits) {
-        updateSplit.run(split.amount_owed, split.id);
-      }
+      normalizeSplitAmounts(splits);
+      const targetAmount = ensureMinimumExpenseAmount(expense, splits, updateExpense);
+      rebalanceSplitAmounts(splits, targetAmount);
+      persistSplitAmounts(splits, updateSplit);
     }
   });
 
