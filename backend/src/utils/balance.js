@@ -49,9 +49,6 @@ export function calculateMemberBalances(groupId) {
     balanceMap.set(settlement.receiver_id, (balanceMap.get(settlement.receiver_id) || 0) - Number(settlement.amount));
   }
 
-  const creditors = [];
-  const debtors = [];
-
   for (const [userId, balance] of balanceMap.entries()) {
     const rounded = Math.round(balance);
     const member = memberMap.get(userId);
@@ -59,12 +56,6 @@ export function calculateMemberBalances(groupId) {
       continue;
     }
     member.balance = rounded;
-
-    if (rounded > 0) {
-      creditors.push({ ...member, balance: rounded });
-    } else if (rounded < 0) {
-      debtors.push({ ...member, balance: Math.abs(rounded) });
-    }
   }
 
   return Array.from(memberMap.values()).map((member) => ({

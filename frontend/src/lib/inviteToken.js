@@ -3,7 +3,17 @@ const INVITE_TOKEN_PATTERN = /^[a-zA-Z0-9_-]{8,200}$/;
 function sanitizeToken(value) {
   if (!value) return '';
   const trimmed = decodeURIComponent(String(value).trim());
-  return trimmed.replace(/^\/+|\/+$/g, '');
+  return trimmed.replace(/^\/+/, '').replace(/\/+$/, '');
+}
+
+function toAbsoluteInviteCandidate(raw, origin) {
+  if (raw.startsWith('http://') || raw.startsWith('https://')) {
+    return raw;
+  }
+  if (raw.startsWith('/')) {
+    return `${origin}${raw}`;
+  }
+  return `${origin}/${raw}`;
 }
 
 export function isValidInviteToken(token) {
@@ -20,11 +30,7 @@ export function extractInviteToken(input, { baseOrigin } = {}) {
   }
 
   const origin = baseOrigin || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
-  const candidate = raw.startsWith('http://') || raw.startsWith('https://')
-    ? raw
-    : raw.startsWith('/')
-      ? `${origin}${raw}`
-      : `${origin}/${raw}`;
+  const candidate = toAbsoluteInviteCandidate(raw, origin);
 
   try {
     const parsed = new URL(candidate);
