@@ -105,7 +105,7 @@ export function createExpenseForm({ members, categories = [], currentUserId, exp
 
 export function getSplitSummary(form, members) {
   const amount = Number(form.amount);
-  const selectedMembers = form.split_type === 'all_equal'
+  const selectedMembers = form.split_type === 'all_equal' || form.split_type === 'custom'
     ? members
     : getSelectedMembers(members, form.included_users);
   const hasValidAmount = Number.isInteger(amount) && amount > 0;

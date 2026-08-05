@@ -64,6 +64,7 @@ export default function MemberDropdown({
         <ul
           role="listbox"
           aria-label={ariaLabel}
+          onMouseDown={(e) => e.stopPropagation()}
           className="absolute z-10 mt-1 w-full overflow-hidden rounded-[var(--radius-field)] border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] py-1 shadow-lg"
         >
           {options.map((member) => {
@@ -76,7 +77,8 @@ export default function MemberDropdown({
                 key={member.id}
                 role="option"
                 aria-selected={isActive}
-                onClick={() => handleSelect(String(member.id))}
+                onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); handleSelect(String(member.id)); }}
+                onClick={(e) => e.stopPropagation()}
                 className={[
                   'flex cursor-pointer items-center gap-2 px-3 py-2 text-sm transition',
                   isActive

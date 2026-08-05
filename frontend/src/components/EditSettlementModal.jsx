@@ -160,7 +160,7 @@ export default function EditSettlementModal({ settlement, members, groupId, onCl
             inputMode="numeric"
             pattern="[0-9]*"
             value={formData.amount}
-            onChange={(event) => setFormData((previous) => ({ ...previous, amount: sanitizeIntegerInput(event.target.value) }))}
+            onChange={(event) => setFormData((previous) => { const raw = sanitizeIntegerInput(event.target.value); return { ...previous, amount: raw === '' ? '' : String(Math.min(99999, Math.max(1, Number(raw)))) }; })}
             required
           />
         </label>

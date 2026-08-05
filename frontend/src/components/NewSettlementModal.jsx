@@ -132,7 +132,7 @@ export default function NewSettlementModal({
   const handleFieldChange = (field, value) => {
     setFormData((previous) => ({
       ...previous,
-      [field]: field === 'amount' ? sanitizeIntegerInput(value) : value,
+      [field]: field === 'amount' ? (() => { const raw = sanitizeIntegerInput(value); return raw === '' ? '' : String(Math.min(99999, Math.max(1, Number(raw)))); })() : value,
     }));
     setError('');
   };
@@ -273,7 +273,7 @@ export default function NewSettlementModal({
           <button type="button" className="btn-secondary" onClick={handleClose} disabled={saving}>
             Avbryt
           </button>
-          <button type="submit" className="btn-primary" disabled={saving}>
+          <button type="submit" className="btn-primary" disabled={saving || !formData.payer_id || !formData.receiver_id || !(Number.isInteger(parsedAmount) && parsedAmount > 0)}>
             {saving ? 'Sparar...' : 'Markera som kvittad'}
           </button>
         </div>

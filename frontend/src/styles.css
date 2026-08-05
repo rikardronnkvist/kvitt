@@ -353,6 +353,16 @@ input[type="radio"] {
   scroll-margin-top: 5rem;
 }
 
+.split-suffix-input {
+  padding-right: 2.2rem;
+}
+
+@media (max-width: 639px) {
+  .split-suffix-input {
+    padding-right: 0.95rem;
+  }
+}
+
 @media (min-width: 768px) {
   .modal-backdrop {
     align-items: center;

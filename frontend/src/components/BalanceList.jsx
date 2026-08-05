@@ -13,15 +13,15 @@ export default function BalanceList({ balances, nested = false, onSelect }) {
         const key = `${balance.from.id}-${balance.to.id}-${index}`;
         const content = (
           <>
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="flex flex-col">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <span className="flex min-w-0 flex-col">
                 <span className="truncate font-medium">{getUserDisplayName(balance.from)}</span>
                 {balance.from.is_placeholder ? (
                   <span className="text-xs text-[var(--text-muted)]">Ej ansluten</span>
                 ) : null}
               </span>
               <ArrowRight className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
-              <span className="flex flex-col">
+              <span className="flex min-w-0 flex-col">
                 <span className="truncate text-[var(--text-secondary)]">{getUserDisplayName(balance.to)}</span>
                 {balance.to.is_placeholder ? (
                   <span className="text-xs text-[var(--text-muted)]">Ej ansluten</span>

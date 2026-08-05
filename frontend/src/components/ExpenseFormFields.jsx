@@ -85,7 +85,7 @@ function getCarTripTitle(distanceMil) {
 
 function deriveDistanceMil({ distance_mil: distanceMil, amount }, mileageRate) {
   const fallbackDistance = Number(distanceMil);
-  if (Number.isFinite(fallbackDistance) && fallbackDistance >= 0) {
+  if (distanceMil !== '' && Number.isFinite(fallbackDistance) && fallbackDistance > 0) {
     return Math.round(fallbackDistance);
   }
 
@@ -232,7 +232,7 @@ function SplitDetailsPanel({
                   imageClassName="h-full w-full object-cover"
                 />
                 <span className="flex-1 truncate text-sm">{getUserDisplayName(member)}</span>
-                <div className="relative w-28 shrink-0">
+                <div className="relative w-16 sm:w-20 shrink-0">
                   <input
                     type="text"
                     inputMode="numeric"
@@ -247,11 +247,11 @@ function SplitDetailsPanel({
                       };
                     })}
                     placeholder="0"
-                    style={{ paddingRight: '2.2rem' }}
+                    className="split-suffix-input"
                   />
-                  <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-[var(--text-muted)]">%</span>
+                  <span className="pointer-events-none absolute inset-y-0 right-3 hidden sm:flex items-center text-sm text-[var(--text-muted)]">%</span>
                 </div>
-                <span className="w-16 shrink-0 text-right text-sm font-medium amount-neutral">
+                <span className="w-10 sm:w-16 shrink-0 text-right text-sm font-medium amount-neutral">
                   {computed && computed.amount_owed > 0
                     ? formatCurrency(computed.amount_owed, { precise: true })
                     : <span className="text-[var(--text-muted)]">—</span>}
@@ -260,15 +260,15 @@ function SplitDetailsPanel({
             );
           })}
         </div>
-        <div className="flex items-center gap-3 border-t border-[var(--border-subtle)] pt-3 text-sm">
+        <div className="flex items-start gap-3 border-t border-[var(--border-subtle)] pt-3 text-sm">
           <span className="flex-1 text-[var(--text-secondary)]">
             Totalt
             {percentTotal > 0 && percentDifference !== 0 && (
-              <span className={`ml-2 ${diffClass}`}>({diffLabel})</span>
+              <span className={`block text-xs ${diffClass}`}>{diffLabel}</span>
             )}
           </span>
-          <span className="w-28 shrink-0 text-right font-medium amount-neutral">{percentTotal}%</span>
-          <span className="w-16 shrink-0 text-right font-medium amount-neutral">
+          <span className="w-16 sm:w-20 shrink-0 text-right font-medium amount-neutral">{percentTotal}%</span>
+          <span className="w-10 sm:w-16 shrink-0 text-right font-medium amount-neutral">
             {percentSplits.length > 0
               ? formatCurrency(percentSplits.reduce((s, r) => s + r.amount_owed, 0), { precise: true })
               : <span className="text-[var(--text-muted)]">—</span>}
@@ -296,7 +296,7 @@ function SplitDetailsPanel({
                   initialsClassName=""
                   imageClassName="h-full w-full object-cover"
                 />
-                <span className={`flex-1 truncate text-sm ${isIncluded ? '' : 'text-[var(--text-muted)]'}`}>{getUserDisplayName(member)}</span>
+                <span className="flex-1 truncate text-sm">{getUserDisplayName(member)}</span>
                 <input
                   type="checkbox"
                   checked={checked}
@@ -307,10 +307,10 @@ function SplitDetailsPanel({
                     return { ...previous, included_users: next };
                   })}
                 />
-                <span className={`w-28 shrink-0 text-right text-sm font-medium ${isIncluded ? 'amount-neutral' : 'text-[var(--text-muted)]'}`}>
+                <span className={`w-16 sm:w-24 shrink-0 text-right text-sm font-medium ${isIncluded ? 'amount-neutral' : 'text-[var(--text-muted)]'}`}>
                   {isIncluded ? formatCurrency(split.amount_owed, { precise: true }) : '0 kr'}
                 </span>
-                <span className={`w-16 shrink-0 text-right text-sm font-medium ${isIncluded ? 'amount-neutral' : 'text-[var(--text-muted)]'}`}>
+                <span className={`w-10 sm:w-14 shrink-0 text-right text-sm font-medium ${isIncluded ? 'amount-neutral' : 'text-[var(--text-muted)]'}`}>
                   {pct != null ? `${pct}%` : isIncluded ? '' : '0%'}
                 </span>
               </div>
@@ -321,10 +321,10 @@ function SplitDetailsPanel({
         {equalSplits.length > 0 && (
           <div className="flex items-center gap-3 border-t border-[var(--border-subtle)] pt-3 text-sm">
             <span className="flex-1 text-[var(--text-secondary)]">Totalt</span>
-            <span className="w-28 shrink-0 text-right font-medium amount-neutral">
+            <span className="w-16 sm:w-24 shrink-0 text-right font-medium amount-neutral">
               {formatCurrency(equalSplits.reduce((s, r) => s + r.amount_owed, 0), { precise: true })}
             </span>
-            <span className="w-16 shrink-0 text-right font-medium amount-neutral">100%</span>
+            <span className="w-10 sm:w-14 shrink-0 text-right font-medium amount-neutral">100%</span>
           </div>
         )}
       </div>
@@ -346,44 +346,42 @@ function SplitDetailsPanel({
               imageClassName="h-full w-full object-cover"
             />
             <span className="flex-1 truncate text-sm">{getUserDisplayName(member)}</span>
-            <div className="relative w-28 shrink-0">
+            <div className="relative w-20 shrink-0">
               <input
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
                 value={form.custom_amounts[member.id] || ''}
-                onChange={(event) => setForm((previous) => ({
-                  ...previous,
-                  custom_amounts: {
-                    ...previous.custom_amounts,
-                    [member.id]: sanitizeIntegerInput(event.target.value),
-                  },
-                }))}
+                onChange={(event) => setForm((previous) => {
+                  const raw = sanitizeIntegerInput(event.target.value);
+                  const clamped = raw === '' ? '' : String(Math.min(hasValidAmount ? amount : Infinity, Math.max(0, Number(raw))));
+                  return { ...previous, custom_amounts: { ...previous.custom_amounts, [member.id]: clamped } };
+                })}
                 placeholder="0"
-                style={{ paddingRight: '2.4rem' }}
+                className="split-suffix-input"
               />
-              <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-[var(--text-muted)]">kr</span>
+              <span className="pointer-events-none absolute inset-y-0 right-3 hidden sm:flex items-center text-sm text-[var(--text-muted)]">kr</span>
             </div>
-            <span className="w-16 shrink-0 text-right text-sm font-medium amount-neutral">
+            <span className="w-10 sm:w-14 shrink-0 text-right text-sm font-medium amount-neutral">
               {pct != null ? `${pct}%` : <span className="text-[var(--text-muted)]">—</span>}
             </span>
           </div>
           );
         })}
       </div>
-      <div className="flex items-center gap-3 border-t border-[var(--border-subtle)] pt-3 text-sm">
+      <div className="flex items-start gap-3 border-t border-[var(--border-subtle)] pt-3 text-sm">
         <span className="flex-1 text-[var(--text-secondary)]">
           Totalt
           {hasValidAmount && customDifference !== 0 && (
-            <span className={`ml-2 ${getCustomDifferenceClass(hasValidAmount, customDifference)}`}>
-              ({getCustomDifferenceText(hasValidAmount, customDifference)})
+            <span className={`block text-xs ${getCustomDifferenceClass(hasValidAmount, customDifference)}`}>
+              {getCustomDifferenceText(hasValidAmount, customDifference)}
             </span>
           )}
         </span>
-        <span className="w-28 shrink-0 text-right font-medium amount-neutral">
+        <span className="w-16 sm:w-20 shrink-0 text-right font-medium amount-neutral">
           {formatCurrency(customTotal, { precise: true })}
         </span>
-        <span className="w-16 shrink-0 text-right font-medium amount-neutral">
+        <span className="w-10 sm:w-14 shrink-0 text-right font-medium amount-neutral">
           {hasValidAmount && customTotal > 0 ? `${Math.round(customTotal / amount * 100)}%` : <span className="text-[var(--text-muted)]">—</span>}
         </span>
       </div>
@@ -477,14 +475,15 @@ export default function ExpenseFormFields({
                   pattern="[0-9]*"
                   value={form.amount}
                   onChange={(event) => {
-                    const amountValue = sanitizeIntegerInput(event.target.value);
+                    const raw = sanitizeIntegerInput(event.target.value);
+                    const amountValue = raw === '' ? '' : String(Math.min(99999, Math.max(1, Number(raw))));
                     setForm((previous) => getAmountUpdate(previous, amountValue, isCarTripCategory, mileageRate));
                   }}
                   placeholder="0"
                   required
                   style={{ paddingRight: '2.4rem' }}
                 />
-                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-[var(--text-muted)]">kr</span>
+                  <span className="pointer-events-none absolute inset-y-0 right-3 hidden sm:flex items-center text-sm text-[var(--text-muted)]">%</span>
               </div>
             </label>
           </>
@@ -498,7 +497,8 @@ export default function ExpenseFormFields({
                 pattern="[0-9]*"
                 value={form.amount}
                 onChange={(event) => {
-                  const amountValue = sanitizeIntegerInput(event.target.value);
+                  const raw = sanitizeIntegerInput(event.target.value);
+                  const amountValue = raw === '' ? '' : String(Math.min(99999, Math.max(1, Number(raw))));
                   setForm((previous) => getAmountUpdate(previous, amountValue, isCarTripCategory, mileageRate));
                 }}
                 placeholder="0"
