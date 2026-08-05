@@ -3,7 +3,7 @@ ARG VITE_TAGLINE
 ENV VITE_TAGLINE=${VITE_TAGLINE}
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --ignore-scripts
 COPY . .
 RUN npm run build
 
