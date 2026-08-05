@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FolderPlus } from 'lucide-react';
 import GroupCard from '../components/GroupCard.jsx';
@@ -24,23 +24,68 @@ export default function Dashboard() {
   const [groups, setGroups] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const groupsSnapshotRef = useRef('');
 
-  const loadGroups = useCallback(async () => {
-    setLoading(true);
+  const createGroupsSnapshot = useCallback((groupList) => (
+    groupList
+      .map((group) => `${group.id}:${group.last_activity_at ?? ''}:${group.current_user_balance ?? 0}:${group.archived_at ?? ''}`)
+      .join('|')
+  ), []);
+
+  const loadGroups = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     try {
       const data = await get('/api/groups');
       setGroups(data);
+      groupsSnapshotRef.current = createGroupsSnapshot(data);
       setError('');
     } catch (loadError) {
-      setError(loadError.message);
+      if (!silent) setError(loadError.message);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
-  }, []);
+  }, [createGroupsSnapshot]);
 
   useEffect(() => {
     loadGroups();
   }, [loadGroups]);
+
+  // Poll for changes while visible so balances stay current without a manual reload.
+  useEffect(() => {
+    const POLL_INTERVAL = 20_000;
+    let timerId = null;
+
+    const checkAndRefresh = async () => {
+      if (document.hidden) return;
+      try {
+        const data = await get('/api/groups');
+        const nextSnapshot = createGroupsSnapshot(data);
+        if (groupsSnapshotRef.current !== '' && nextSnapshot !== groupsSnapshotRef.current) {
+          setGroups(data);
+          groupsSnapshotRef.current = nextSnapshot;
+        }
+      } catch {
+        // ignore poll errors
+      }
+    };
+
+    const schedule = () => {
+      timerId = window.setTimeout(async () => {
+        await checkAndRefresh();
+        schedule();
+      }, POLL_INTERVAL);
+    };
+
+    const onVisibilityChange = () => { checkAndRefresh(); };
+
+    schedule();
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      window.clearTimeout(timerId);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [createGroupsSnapshot]);
 
   const activeGroups = groups.filter((group) => !group.archived_at);
   const archivedGroups = groups.filter((group) => Boolean(group.archived_at));
