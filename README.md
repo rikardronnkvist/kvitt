@@ -7,7 +7,6 @@ Kvitt is a self-hosted bill-splitting web application for small groups, trips, h
 - Group creation and membership management
 - Expense tracking with equal or manual splits
 - Balance calculation with settlement support
-- CSV export for group expenses
 - Docker-based self-hosted deployment
 
 ### Quick start with Docker Compose
@@ -164,17 +163,12 @@ services:
   backend:
     image: ghcr.io/rikardronnkvist/kvitt-backend:latest
     volumes:
-      - /mnt/gluster01/kvitt:/app/data
-    labels:
-      - "ssb.backup-db=sqlite"
-      - "ssb.backup-db-path=/app/data/kvitt.db"
+      - /mnt/gluster/kvitt:/app/data
     environment:
       JWT_SECRET: ABCyyyyyyyyyyyyyy987
       PASSKEY_RP_ID: kvitt.mydomain.se
       PASSKEY_RP_NAME: Kvitt
       PASSKEY_ORIGIN: https://kvitt.mydomain.se
-      PORT: ${PORT:-3000}
-      DEVBOX: "false"
       DB_PATH: /app/data/kvitt.db
       VAPID_PUBLIC_KEY: ABCxxxxxxxxxxxxxx123
       VAPID_PRIVATE_KEY: ZXYxxxxxxxxxxxxxx987
