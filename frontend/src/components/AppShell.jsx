@@ -623,8 +623,9 @@ export default function AppShell() {
   useEffect(() => {
     get('/api/auth/me').then(({ user: profile }) => {
       setUser((prev) => ({ ...prev, ...profile }));
+      setThemePreference(profile?.theme_preference || 'system');
     }).catch(() => {});
-  }, []);
+  }, [setThemePreference]);
 
   useEffect(() => {
     if (!dropdownOpen) return;
@@ -679,7 +680,7 @@ export default function AppShell() {
       avatar_preview_url: user?.avatar_url || '',
       avatar_remove: false,
     });
-    setProfileThemePreference(themePreference);
+    setProfileThemePreference(user?.theme_preference || themePreference || 'system');
     setProfileError('');
     setDropdownOpen(false);
     setEditingProfile(true);
@@ -831,6 +832,7 @@ export default function AppShell() {
       const body = {
         full_name: profileForm.full_name,
         initials: trimmedInitials.length === 2 ? trimmedInitials : '',
+        theme_preference: profileThemePreference,
       };
       if (appSettings.phone_enabled) {
         body.phone = formatPhoneNumber(profileForm.phone, appSettings.phone_format);
@@ -844,7 +846,7 @@ export default function AppShell() {
       const data = await put('/api/auth/profile', body);
       localStorage.setItem('token', data.token);
       setUser((prev) => ({ ...prev, ...data.user }));
-      setThemePreference(profileThemePreference);
+      setThemePreference(data.user?.theme_preference || profileThemePreference || 'system');
       setEditingProfile(false);
     } catch (err) {
       setProfileError(err.message || t('common.somethingWentWrong'));

@@ -40,6 +40,7 @@ function getUserSelectExpressions(hasColumn) {
     selectInitials: hasColumn('initials') ? 'initials' : 'NULL',
     selectAvatarPath: hasColumn('avatar_path') ? 'avatar_path' : 'NULL',
     selectAvatarVersion: hasColumn('avatar_version') ? 'COALESCE(avatar_version, 0)' : '0',
+    selectThemePreference: hasColumn('theme_preference') ? "COALESCE(NULLIF(theme_preference, ''), 'system')" : "'system'",
     selectUserHandle: hasColumn('user_handle')
       ? 'COALESCE(NULLIF(user_handle, \'\'), \'legacy-\' || id)'
       : '\'legacy-\' || id',
@@ -57,6 +58,7 @@ function migrateUsersTableForPasskeys(expressions) {
     selectInitials,
     selectAvatarPath,
     selectAvatarVersion,
+    selectThemePreference,
     selectUserHandle,
   } = expressions;
 
@@ -74,12 +76,13 @@ function migrateUsersTableForPasskeys(expressions) {
         initials TEXT,
         avatar_path TEXT,
         avatar_version INTEGER NOT NULL DEFAULT 0,
+        theme_preference TEXT NOT NULL DEFAULT 'system',
         user_handle TEXT UNIQUE NOT NULL
       );
     `);
 
     db.exec(`
-      INSERT INTO users_new (id, email, password_hash, created_at, is_admin, full_name, phone, initials, avatar_path, avatar_version, user_handle)
+      INSERT INTO users_new (id, email, password_hash, created_at, is_admin, full_name, phone, initials, avatar_path, avatar_version, theme_preference, user_handle)
       SELECT
         id,
         ${selectEmail},
@@ -91,6 +94,7 @@ function migrateUsersTableForPasskeys(expressions) {
         ${selectInitials},
         ${selectAvatarPath},
         ${selectAvatarVersion},
+        ${selectThemePreference},
         ${selectUserHandle}
       FROM users;
     `);
@@ -139,6 +143,7 @@ function ensureUsersSchemaForPasskeys() {
       phone TEXT,
       avatar_path TEXT,
       avatar_version INTEGER NOT NULL DEFAULT 0,
+      theme_preference TEXT NOT NULL DEFAULT 'system',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
@@ -318,6 +323,10 @@ function ensureUsersTableColumns() {
     db.exec('ALTER TABLE users ADD COLUMN avatar_version INTEGER NOT NULL DEFAULT 0');
   }
   db.exec('UPDATE users SET avatar_version = 0 WHERE avatar_version IS NULL OR avatar_version < 0');
+  if (!tableHasColumn(userColumns, 'theme_preference')) {
+    db.exec("ALTER TABLE users ADD COLUMN theme_preference TEXT NOT NULL DEFAULT 'system'");
+  }
+  db.exec("UPDATE users SET theme_preference = 'system' WHERE theme_preference IS NULL OR theme_preference NOT IN ('system', 'light', 'dark')");
   if (!tableHasColumn(userColumns, 'user_handle')) {
     db.exec('ALTER TABLE users ADD COLUMN user_handle TEXT');
   }

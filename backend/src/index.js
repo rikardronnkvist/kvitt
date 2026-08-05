@@ -78,15 +78,29 @@ function getRegistrationUrl() {
 
   return `${getFrontendPublicOrigin()}/register?${encodeURIComponent(token)}`;
 }
+
+function isSensitiveAuthAttempt(req) {
+  if (req.method !== 'POST') {
+    return false;
+  }
+
+  const authPath = req.path || '';
+  return (
+    authPath === '/devbox/login'
+    || authPath === '/passkey/register/options'
+    || authPath === '/passkey/register/verify'
+    || authPath === '/passkey/login/options'
+    || authPath === '/passkey/login/verify'
+    || /^\/passkey\/recover\/[^/]+\/(options|verify)$/.test(authPath)
+  );
+}
+
 const authRateLimit = rateLimit({
   windowMs: 60_000,
-  limit: 10,
+  limit: 20,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  skip: (req) => req.method === 'GET' && (
-    req.originalUrl.startsWith('/api/auth/devbox/users')
-    || req.originalUrl.startsWith('/api/auth/passkey/available')
-  ),
+  skip: (req) => !isSensitiveAuthAttempt(req),
   message: { error: 'För många inloggnings- eller registreringsförsök. Försök igen om en minut.' },
 });
 const apiRateLimit = rateLimit({

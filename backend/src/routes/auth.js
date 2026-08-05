@@ -23,6 +23,7 @@ const updateProfileSchema = z.object({
   full_name: z.string().trim().min(1).max(100),
   phone: z.string().trim().max(30).optional().or(z.literal('')),
   initials: z.string().trim().length(2).optional().or(z.literal('')),
+  theme_preference: z.enum(['system', 'light', 'dark']).optional(),
   avatar_data_url: z.string().trim().max(1_600_000).optional().or(z.literal('')),
   avatar_remove: z.boolean().optional(),
 });
@@ -202,11 +203,12 @@ router.put('/profile', requireAuth, async (req, res) => {
     full_name,
     phone,
     initials,
+    theme_preference: themePreference,
     avatar_data_url: avatarDataUrl,
     avatar_remove: avatarRemove,
   } = parsed.data;
   const normalizedInitials = initials?.trim().length === 2 ? initials.trim().toUpperCase() : null;
-  const currentUser = db.prepare('SELECT id, is_admin, full_name, phone, initials, avatar_path, avatar_version FROM users WHERE id = ?').get(req.user.id);
+  const currentUser = db.prepare('SELECT id, is_admin, full_name, phone, initials, theme_preference, avatar_path, avatar_version FROM users WHERE id = ?').get(req.user.id);
 
   if (!currentUser) {
     return res.status(404).json({ error: 'Användaren hittades inte.' });
@@ -232,9 +234,10 @@ router.put('/profile', requireAuth, async (req, res) => {
     phone,
     currentPhone: currentUser.phone,
   });
+  const normalizedThemePreference = themePreference || currentUser.theme_preference || 'system';
 
-  db.prepare('UPDATE users SET full_name = ?, phone = ?, initials = ?, avatar_path = ?, avatar_version = ? WHERE id = ?')
-    .run(full_name, normalizedPhone, normalizedInitials, avatarPath, avatarVersion, req.user.id);
+  db.prepare('UPDATE users SET full_name = ?, phone = ?, initials = ?, theme_preference = ?, avatar_path = ?, avatar_version = ? WHERE id = ?')
+    .run(full_name, normalizedPhone, normalizedInitials, normalizedThemePreference, avatarPath, avatarVersion, req.user.id);
 
   if (avatarCleanupPath || avatarRemove) {
     cleanupUserAvatarFiles(req.user.id, avatarCleanupPath);
@@ -252,6 +255,7 @@ router.put('/profile', requireAuth, async (req, res) => {
         full_name: currentUser.full_name,
         phone: currentUser.phone,
         initials: currentUser.initials,
+        theme_preference: currentUser.theme_preference || 'system',
         avatar_path: currentUser.avatar_path,
         avatar_version: Number(currentUser.avatar_version) || 0,
       },
@@ -259,6 +263,7 @@ router.put('/profile', requireAuth, async (req, res) => {
         full_name,
         phone: normalizedPhone,
         initials: normalizedInitials,
+        theme_preference: normalizedThemePreference,
         avatar_path: avatarPath,
         avatar_version: avatarVersion,
       },

@@ -23,7 +23,7 @@ export function signToken(user, { currentPasskeyId = null } = {}) {
 
 export function getAuthUserById(userId) {
   const user = db.prepare(`
-    SELECT id, is_admin, full_name, phone, initials, user_handle, avatar_path, avatar_version
+    SELECT id, is_admin, full_name, phone, initials, theme_preference, user_handle, avatar_path, avatar_version
     FROM users
     WHERE id = ?
   `).get(userId);

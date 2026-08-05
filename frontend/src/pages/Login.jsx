@@ -7,6 +7,7 @@ import InviteQrScannerModal from '../components/InviteQrScannerModal.jsx';
 import { usePasskeyAuth } from '../hooks/usePasskeyAuth.js';
 import { formatPhoneNumber, getPhonePlaceholder, sanitizePhoneInput } from '../lib/phone.js';
 import { useAppSettings } from '../hooks/useAppSettings.js';
+import { applyThemePreference, getStoredThemePreference, getSystemTheme } from '../lib/theme.js';
 import { PENDING_INVITE_TOKEN_KEY } from './InvitePage.jsx';
 import { t } from '../lib/i18n.js';
 
@@ -340,6 +341,21 @@ export default function Login() {
   const hasValidRegisterName = registerForm.full_name.trim().length >= 3;
   const { passkeyLoading, handlePasskeySignup, handlePasskeyLogin } = usePasskeyAuth({ navigate, setError });
   const isBusy = passkeyLoading || devboxLoading || devboxLoginLoading || checkingRegistrationToken;
+
+  useEffect(() => {
+    if (location.pathname !== '/login') {
+      return undefined;
+    }
+
+    if (typeof document !== 'undefined') {
+      document.documentElement.dataset.theme = getSystemTheme();
+      document.documentElement.dataset.themePreference = 'system';
+    }
+
+    return () => {
+      applyThemePreference(getStoredThemePreference());
+    };
+  }, [location.pathname]);
 
   const onPasskeySignup = async () => {
     const displayName = registerForm.full_name.trim();
