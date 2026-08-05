@@ -59,7 +59,73 @@ jobs:
       - name: Audit frontend dependencies
         run: |
           npm audit --json > audit-frontend.json || true
-          node -e "const fs=require('fs');const report=JSON.parse(fs.readFileSync('audit-frontend.json','utf8'));const allow=new Set(['GHSA-qwww-vcr4-c8h2']);const vulns=Object.entries(report.vulnerabilities||{});const blocking=vulns.filter(([_,v])=>{if(!['high','critical'].includes(v.severity))return false;const via=(v.via||[]).filter((x)=>x&&typeof x==='object');if(v.fixAvailable===false&&via.length>0){const onlyAllowlisted=via.every((item)=>{const m=(item.url||'').match(/GHSA-[A-Za-z0-9-]+/);return m&&allow.has(m[0]);});if(onlyAllowlisted)return false;}return true;});if(blocking.length){console.error('Blocking frontend npm audit findings detected:');for(const [name,v] of blocking){console.error('- '+name+' ('+v.severity+')');}process.exit(1);}const summary=report.metadata&&report.metadata.vulnerabilities?report.metadata.vulnerabilities:{};console.log('Frontend audit completed. Remaining advisories are allowlisted no-fix items only.');console.log(JSON.stringify(summary));"
+          node <<'NODE'
+          const fs = require('fs');
+
+          const report = JSON.parse(fs.readFileSync('audit-frontend.json', 'utf8'));
+          const allow = new Set(['GHSA-qwww-vcr4-c8h2']);
+          const severityGate = new Set(['high', 'critical']);
+          const vulns = report.vulnerabilities || {};
+          const memo = new Map();
+
+          function getAdvisoryIds(vulnerability) {
+            const viaObjects = (vulnerability.via || []).filter((item) => item && typeof item === 'object');
+            return viaObjects
+              .map((item) => {
+                const match = (item.url || '').match(/GHSA-[A-Za-z0-9-]+/);
+                return match ? match[0] : null;
+              })
+              .filter(Boolean);
+          }
+
+          function isAllowlistedNoFix(name, visiting = new Set()) {
+            if (memo.has(name)) {
+              return memo.get(name);
+            }
+
+            const vulnerability = vulns[name];
+            if (!vulnerability || vulnerability.fixAvailable !== false) {
+              memo.set(name, false);
+              return false;
+            }
+
+            const advisoryIds = getAdvisoryIds(vulnerability);
+            if (advisoryIds.length > 0) {
+              const allAllowlisted = advisoryIds.every((id) => allow.has(id));
+              memo.set(name, allAllowlisted);
+              return allAllowlisted;
+            }
+
+            const referencedPackages = (vulnerability.via || []).filter((item) => typeof item === 'string');
+            if (referencedPackages.length === 0 || visiting.has(name)) {
+              memo.set(name, false);
+              return false;
+            }
+
+            visiting.add(name);
+            const allReferencedAllowlisted = referencedPackages.every((dep) => isAllowlistedNoFix(dep, visiting));
+            visiting.delete(name);
+
+            memo.set(name, allReferencedAllowlisted);
+            return allReferencedAllowlisted;
+          }
+
+          const blocking = Object.entries(vulns).filter(([name, vulnerability]) => (
+            severityGate.has(vulnerability.severity) && !isAllowlistedNoFix(name)
+          ));
+
+          if (blocking.length) {
+            console.error('Blocking frontend npm audit findings detected:');
+            for (const [name, vulnerability] of blocking) {
+              console.error(`- ${name} (${vulnerability.severity})`);
+            }
+            process.exit(1);
+          }
+
+          const summary = report.metadata?.vulnerabilities || {};
+          console.log('Frontend audit completed. Remaining advisories are allowlisted no-fix items only.');
+          console.log(JSON.stringify(summary));
+          NODE
         working-directory: frontend
 
   publish:
