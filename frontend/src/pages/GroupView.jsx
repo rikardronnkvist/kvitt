@@ -1284,24 +1284,31 @@ export default function GroupView() {
             <div className="grid gap-4 md:grid-cols-2">
               <article className="rounded-lg border p-4" style={{ background: theme.bgSoft, borderColor: theme.borderSoft }}>
                 <p className="section-eyebrow">Balans</p>
-                <div className="mt-2 space-y-1.5">
-                  {memberBalancesAscending.map((member) => (
-                    <div key={member.id} className="flex items-center justify-between gap-3 text-sm">
-                      <span className="inline-flex items-center gap-1.5 font-medium">
+                <div className="mt-2 space-y-0.5">
+                  {memberBalancesAscending.map((member) => {
+                    const isCurrentUser = Number(member.id) === Number(currentUserId);
+                    const shouldEmphasizeCurrentUser = memberBalancesAscending.length > 3 && isCurrentUser;
+                    return (
+                      <div
+                        key={member.id}
+                        className={`flex items-center justify-between gap-3 rounded-md px-1.5 py-0.5 text-sm ${shouldEmphasizeCurrentUser ? 'bg-[color:color-mix(in_srgb,var(--app-surface-strong)_40%,transparent)]' : ''}`}
+                      >
+                        <span className="inline-flex min-w-0 flex-1 items-center gap-1.5 font-medium">
                         <UserAvatar
                           user={member}
                           className="inline-flex h-5 w-5 items-center justify-center overflow-hidden rounded-full bg-[var(--app-surface-strong)] ring-1 ring-black/35"
                           imageClassName="h-full w-full object-cover"
                           initialsClassName="text-[9px] font-semibold text-[var(--text-secondary)]"
                         />
-                        {getUserDisplayName(member)}
-                      </span>
-                      <span className={`font-semibold ${getBalanceAmountClass(member.balance)}`}>
-                        {member.balance < 0 ? '-' : ''}
-                        {formatCurrency(Math.abs(member.balance), { precise: true })}
-                      </span>
-                    </div>
-                  ))}
+                          <span className="truncate">{getUserDisplayName(member)}</span>
+                        </span>
+                        <span className={`shrink-0 tabular-nums font-semibold ${getBalanceAmountClass(member.balance)}`}>
+                          {member.balance < 0 ? '-' : ''}
+                          {formatCurrency(Math.abs(member.balance), { precise: true })}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </article>
               <article className="rounded-lg border p-4" style={{ background: theme.bgSoft, borderColor: theme.borderSoft }}>
@@ -1310,7 +1317,7 @@ export default function GroupView() {
                     const CategoryIcon = getCategoryIcon(category.icon);
                     return (
                       <div key={`${category.name}-${category.icon}`} className="flex items-center justify-between gap-3 text-sm">
-                        <span className="inline-flex items-center gap-1.5 text-[var(--text-secondary)]">
+                        <span className="inline-flex items-center gap-1.5 text-[var(--text-primary)]">
                           <CategoryIcon className="h-4 w-4" />
                           {category.name}
                         </span>
