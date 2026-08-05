@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, BarChart3 } from 'lucide-react';
 import { get } from '../api/client.js';
+import UserAvatar from '../components/UserAvatar.jsx';
 import { formatCurrency } from '../lib/format.js';
 import { getThemeForGroup } from '../lib/groupTheme.js';
 import { getUserDisplayName } from '../lib/users.js';
@@ -1016,9 +1017,12 @@ export default function GroupStatistics() {
                 </span>
               ) : null}
               <div className="flex items-center gap-3">
-                <div className="grid h-11 w-11 place-items-center rounded-full bg-[var(--app-surface-muted)] text-sm font-semibold text-[var(--text-secondary)]">
-                  {getUserInitials(member)}
-                </div>
+                <UserAvatar
+                  user={member}
+                  className="grid h-11 w-11 place-items-center overflow-hidden rounded-full bg-[var(--app-surface-muted)]"
+                  imageClassName="h-full w-full object-cover"
+                  initialsClassName="text-sm font-semibold text-[var(--text-secondary)]"
+                />
                 <h2 className="m-0 text-lg font-semibold">{getUserDisplayName(member)}</h2>
               </div>
               <div className="mt-3 space-y-1.5 text-sm">

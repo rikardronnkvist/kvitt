@@ -3,6 +3,7 @@ import { z } from 'zod';
 import authMiddleware from '../middleware/auth.js';
 import { db } from '../db/database.js';
 import { getSubscriptionsForUsers, sendPushNotification, isConfigured } from '../utils/push.js';
+import { toAvatarUrl } from '../utils/avatar.js';
 import { logActivity, resolveRequestIp } from '../utils/activity-log.js';
 
 const router = express.Router();
@@ -68,6 +69,7 @@ function parseExpenseRows(rows) {
         paid_by_user_id: row.paid_by_user_id,
         paid_by_full_name: row.paid_by_full_name,
         paid_by_initials: row.paid_by_initials || null,
+        paid_by_avatar_url: toAvatarUrl(row.paid_by_avatar_path, row.paid_by_avatar_version),
         category_id: row.category_id ?? null,
         category_name: row.category_name ?? null,
         category_icon: row.category_icon ?? null,
@@ -83,6 +85,7 @@ function parseExpenseRows(rows) {
         user_id: row.split_user_id,
         full_name: row.split_full_name,
         initials: row.split_initials || null,
+        avatar_url: toAvatarUrl(row.split_avatar_path, row.split_avatar_version),
         amount_owed: Math.round(Number(row.amount_owed)),
       });
     }
@@ -191,9 +194,13 @@ router.get('/:groupId', (req, res) => {
            c.icon AS category_icon,
            payer.full_name AS paid_by_full_name,
            payer.initials AS paid_by_initials,
+            payer.avatar_path AS paid_by_avatar_path,
+            payer.avatar_version AS paid_by_avatar_version,
            es.id AS split_id, es.user_id AS split_user_id, es.amount_owed,
            split_user.full_name AS split_full_name,
-           split_user.initials AS split_initials
+            split_user.initials AS split_initials,
+            split_user.avatar_path AS split_avatar_path,
+            split_user.avatar_version AS split_avatar_version
     FROM expenses e
     LEFT JOIN expense_categories c ON c.id = e.category_id
     JOIN users payer ON payer.id = e.paid_by_user_id
@@ -336,9 +343,13 @@ router.post('/:groupId', (req, res) => {
            c.icon AS category_icon,
            payer.full_name AS paid_by_full_name,
            payer.initials AS paid_by_initials,
+            payer.avatar_path AS paid_by_avatar_path,
+            payer.avatar_version AS paid_by_avatar_version,
            es.id AS split_id, es.user_id AS split_user_id, es.amount_owed,
            split_user.full_name AS split_full_name,
-           split_user.initials AS split_initials
+            split_user.initials AS split_initials,
+            split_user.avatar_path AS split_avatar_path,
+            split_user.avatar_version AS split_avatar_version
     FROM expenses e
     LEFT JOIN expense_categories c ON c.id = e.category_id
     JOIN users payer ON payer.id = e.paid_by_user_id
@@ -469,9 +480,13 @@ router.put('/:groupId/:expenseId', (req, res) => {
            c.icon AS category_icon,
            payer.full_name AS paid_by_full_name,
            payer.initials AS paid_by_initials,
+            payer.avatar_path AS paid_by_avatar_path,
+            payer.avatar_version AS paid_by_avatar_version,
            es.id AS split_id, es.user_id AS split_user_id, es.amount_owed,
            split_user.full_name AS split_full_name,
-           split_user.initials AS split_initials
+            split_user.initials AS split_initials,
+            split_user.avatar_path AS split_avatar_path,
+            split_user.avatar_version AS split_avatar_version
     FROM expenses e
     LEFT JOIN expense_categories c ON c.id = e.category_id
     JOIN users payer ON payer.id = e.paid_by_user_id

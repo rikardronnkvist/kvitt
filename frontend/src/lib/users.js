@@ -16,6 +16,11 @@ export function getUserSearchLabel(user) {
   return getUserDisplayName(user);
 }
 
+export function getUserAvatarUrl(user) {
+  const avatarUrl = typeof user?.avatar_url === 'string' ? user.avatar_url.trim() : '';
+  return avatarUrl || null;
+}
+
 export function getUserInitials(user) {
   if (user?.initials?.trim().length === 2) {
     return user.initials.trim().toUpperCase();

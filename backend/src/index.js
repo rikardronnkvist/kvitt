@@ -13,8 +13,10 @@ import settlementRoutes from './routes/settlements.js';
 import adminRoutes from './routes/admin.js';
 import inviteRoutes from './routes/invites.js';
 import pushRoutes from './routes/push.js';
+import { avatarDirectory, ensureAvatarDirectory } from './utils/avatar.js';
 
 initializeDatabase();
+ensureAvatarDirectory();
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
@@ -107,7 +109,14 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
-app.use(express.json());
+app.use(express.json({ limit: '2mb' }));
+app.use('/uploads/avatars', express.static(avatarDirectory, {
+  dotfiles: 'deny',
+  index: false,
+  redirect: false,
+  etag: true,
+  maxAge: '30d',
+}));
 
 app.get('/healthz', (_req, res) => {
   res.json({ status: 'ok' });

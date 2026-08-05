@@ -1,11 +1,17 @@
 import { getCategoryIcon } from '../lib/expenseCategories.js';
 import { formatCurrency, formatDateTime } from '../lib/format.js';
 import { getUserDisplayName, getUserInitials } from '../lib/users.js';
+import UserAvatar from './UserAvatar.jsx';
 
 export default function ExpenseItem({ expense, onEdit, readOnly = false }) {
   const uniqueParticipants = Array.from(
     new Map(
-      [{ user_id: expense.paid_by_user_id, full_name: expense.paid_by_full_name, initials: expense.paid_by_initials }, ...expense.splits].map((item) => [
+      [{
+        user_id: expense.paid_by_user_id,
+        full_name: expense.paid_by_full_name,
+        initials: expense.paid_by_initials,
+        avatar_url: expense.paid_by_avatar_url,
+      }, ...expense.splits].map((item) => [
         item.user_id,
         item,
       ]),
@@ -15,7 +21,11 @@ export default function ExpenseItem({ expense, onEdit, readOnly = false }) {
     const initialsB = getUserInitials(b);
     return initialsA.localeCompare(initialsB, 'sv');
   });
-  const payer = { full_name: expense.paid_by_full_name, initials: expense.paid_by_initials };
+  const payer = {
+    full_name: expense.paid_by_full_name,
+    initials: expense.paid_by_initials,
+    avatar_url: expense.paid_by_avatar_url,
+  };
   const CategoryIcon = getCategoryIcon(expense.category_icon);
 
   const handleKeyDown = (event) => {
@@ -38,9 +48,13 @@ export default function ExpenseItem({ expense, onEdit, readOnly = false }) {
       onKeyDown={readOnly ? undefined : handleKeyDown}
     >
       <div className="flex items-center gap-3">
-        <div title={getUserDisplayName(payer)} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-[var(--app-surface-muted)] text-sm font-semibold text-[var(--text-primary)]">
-          {getUserInitials(payer)}
-        </div>
+        <UserAvatar
+          user={payer}
+          title={getUserDisplayName(payer)}
+          className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--app-surface-muted)] ring-1 ring-black/35"
+          imageClassName="h-full w-full object-cover"
+          initialsClassName="text-sm font-semibold text-[var(--text-primary)]"
+        />
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex items-center gap-2 overflow-hidden">
             <CategoryIcon className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
@@ -54,9 +68,12 @@ export default function ExpenseItem({ expense, onEdit, readOnly = false }) {
                 title={getUserDisplayName(participant)}
                 className="inline-flex items-center justify-center px-0.5 py-0.5 text-xs font-medium text-[var(--text-secondary)]"
               >
-                <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[9px] font-semibold text-[var(--text-primary)]">
-                  {getUserInitials(participant)}
-                </span>
+                <UserAvatar
+                  user={participant}
+                  className="flex h-5 w-5 items-center justify-center overflow-hidden rounded-full bg-[var(--app-surface-strong)] ring-1 ring-black/35"
+                  imageClassName="h-full w-full object-cover"
+                  initialsClassName="text-[9px] font-semibold text-[var(--text-primary)]"
+                />
               </span>
             ))}
           </div>

@@ -16,6 +16,8 @@ import { formatDateTime } from '../lib/format.js';
 import { formatSwedishPhone, sanitizePhoneInput } from '../lib/phone.js';
 import { isPushSupported, isIosNonStandalone, subscribeToPush, unsubscribeFromPush, getSubscriptionState } from '../lib/pushNotifications.js';
 import { t } from '../lib/i18n.js';
+import AvatarCropperModal from './AvatarCropperModal.jsx';
+import UserAvatar from './UserAvatar.jsx';
 
 function getSecureRandomIndex(length) {
   if (!Number.isInteger(length) || length <= 0) {
@@ -300,6 +302,8 @@ function EditProfileModal({
   profileSaving,
   setEditingProfile,
   setProfileForm,
+  onSelectAvatarFile,
+  onRemoveAvatar,
   onSubmit,
 }) {
   if (!editingProfile) {
@@ -334,7 +338,7 @@ function EditProfileModal({
                 onBlur={(event) => setProfileForm((formState) => ({ ...formState, phone: formatSwedishPhone(event.target.value) }))}
                 placeholder={t('auth.phonePlaceholder')}
                 autoComplete="tel"
-                pattern="[\\d+\-\\s]*"
+                pattern="[\d+\-\s]*"
               />
             </label>
             <label className="field-label">
@@ -348,6 +352,36 @@ function EditProfileModal({
                 maxLength={2}
               />
             </label>
+            <div className="space-y-2">
+              <p className="field-label m-0">{t('shell.avatarLabel')}</p>
+              <p className="m-0 text-xs text-[var(--text-secondary)]">{t('shell.avatarHint')}</p>
+              <div className="flex items-center gap-3">
+                <UserAvatar
+                  user={{
+                    full_name: profileForm.full_name,
+                    initials: profileForm.initials,
+                    avatar_url: profileForm.avatar_preview_url,
+                  }}
+                  className="grid h-14 w-14 place-items-center overflow-hidden rounded-full border border-[var(--border-subtle)] bg-[var(--app-surface-muted)]"
+                  imageClassName="h-full w-full object-cover"
+                  initialsClassName="text-sm font-semibold text-[var(--text-primary)]"
+                />
+                <label className="btn-secondary cursor-pointer">
+                  {profileForm.avatar_preview_url ? t('shell.avatarReplace') : t('shell.avatarUpload')}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={onSelectAvatarFile}
+                  />
+                </label>
+                {profileForm.avatar_preview_url ? (
+                  <button type="button" className="btn-secondary" onClick={onRemoveAvatar}>
+                    {t('shell.avatarRemove')}
+                  </button>
+                ) : null}
+              </div>
+            </div>
             {profileError ? (
               <p className="m-0 rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{profileError}</p>
             ) : null}
@@ -541,9 +575,18 @@ export default function AppShell() {
   const [newGroupTheme, setNewGroupTheme] = useState(GROUP_THEMES[0].id);
   const [groupError, setGroupError] = useState('');
   const [groupSaving, setGroupSaving] = useState(false);
-  const [profileForm, setProfileForm] = useState({ full_name: '', phone: '', initials: '' });
+  const [profileForm, setProfileForm] = useState({
+    full_name: '',
+    phone: '',
+    initials: '',
+    avatar_data_url: '',
+    avatar_preview_url: '',
+    avatar_remove: false,
+  });
   const [profileError, setProfileError] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
+  const [avatarCropOpen, setAvatarCropOpen] = useState(false);
+  const [avatarCropSource, setAvatarCropSource] = useState('');
   const [passkeys, setPasskeys] = useState([]);
   const [passkeysLoading, setPasskeysLoading] = useState(false);
   const [passkeysSaving, setPasskeysSaving] = useState(false);
@@ -606,10 +649,72 @@ export default function AppShell() {
   };
 
   const openEditProfile = () => {
-    setProfileForm({ full_name: user?.full_name || '', phone: formatSwedishPhone(user?.phone || ''), initials: user?.initials || '' });
+    setProfileForm({
+      full_name: user?.full_name || '',
+      phone: formatSwedishPhone(user?.phone || ''),
+      initials: user?.initials || '',
+      avatar_data_url: '',
+      avatar_preview_url: user?.avatar_url || '',
+      avatar_remove: false,
+    });
     setProfileError('');
     setDropdownOpen(false);
     setEditingProfile(true);
+  };
+
+  const handleSelectAvatarFile = (event) => {
+    const [file] = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (!file) {
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      setProfileError(t('shell.avatarOnlyImages'));
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      if (!result) {
+        setProfileError(t('shell.avatarReadFailed'));
+        return;
+      }
+      setProfileError('');
+      setAvatarCropSource(result);
+      setAvatarCropOpen(true);
+    };
+    reader.onerror = () => setProfileError(t('shell.avatarReadFailed'));
+    reader.readAsDataURL(file);
+  };
+
+  const handleConfirmAvatarCrop = (avatarDataUrl) => {
+    setProfileForm((formState) => ({
+      ...formState,
+      avatar_data_url: avatarDataUrl,
+      avatar_preview_url: avatarDataUrl,
+      avatar_remove: false,
+    }));
+    setAvatarCropOpen(false);
+    setAvatarCropSource('');
+  };
+
+  const handleRemoveAvatar = () => {
+    if (!window.confirm(t('shell.avatarRemoveConfirm'))) {
+      return;
+    }
+    setProfileForm((formState) => ({
+      ...formState,
+      avatar_data_url: '',
+      avatar_preview_url: '',
+      avatar_remove: true,
+    }));
+    setProfileError('');
+  };
+
+  const handleCloseAvatarCrop = () => {
+    setAvatarCropOpen(false);
+    setAvatarCropSource('');
   };
 
   const openCreateGroup = async () => {
@@ -705,6 +810,12 @@ export default function AppShell() {
         phone: formatSwedishPhone(profileForm.phone),
         initials: trimmedInitials.length === 2 ? trimmedInitials : '',
       };
+      if (profileForm.avatar_data_url) {
+        body.avatar_data_url = profileForm.avatar_data_url;
+      }
+      if (profileForm.avatar_remove) {
+        body.avatar_remove = true;
+      }
       const data = await put('/api/auth/profile', body);
       localStorage.setItem('token', data.token);
       setUser((prev) => ({ ...prev, ...data.user }));
@@ -818,7 +929,17 @@ export default function AppShell() {
         profileSaving={profileSaving}
         setEditingProfile={setEditingProfile}
         setProfileForm={setProfileForm}
+        onSelectAvatarFile={handleSelectAvatarFile}
+        onRemoveAvatar={handleRemoveAvatar}
         onSubmit={handleSaveProfile}
+      />
+
+      <AvatarCropperModal
+        open={avatarCropOpen}
+        imageSource={avatarCropSource}
+        onClose={handleCloseAvatarCrop}
+        onConfirm={handleConfirmAvatarCrop}
+        setError={setProfileError}
       />
 
       <PasskeysModal

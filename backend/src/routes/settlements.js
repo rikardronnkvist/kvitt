@@ -3,6 +3,7 @@ import { z } from 'zod';
 import authMiddleware from '../middleware/auth.js';
 import { db } from '../db/database.js';
 import { calculateBalances } from '../utils/balance.js';
+import { toAvatarUrl } from '../utils/avatar.js';
 import { logActivity, resolveRequestIp } from '../utils/activity-log.js';
 
 const router = express.Router();
@@ -89,16 +90,34 @@ router.get('/:groupId', (req, res) => {
   const settlements = db.prepare(`
     SELECT s.id, s.group_id, s.payer_id, s.receiver_id, s.amount, s.settled_at,
            payer.full_name AS payer_full_name,
-           receiver.full_name AS receiver_full_name
+           payer.initials AS payer_initials,
+           payer.avatar_path AS payer_avatar_path,
+           payer.avatar_version AS payer_avatar_version,
+           receiver.full_name AS receiver_full_name,
+           receiver.initials AS receiver_initials,
+           receiver.avatar_path AS receiver_avatar_path,
+           receiver.avatar_version AS receiver_avatar_version
     FROM settlements s
     JOIN users payer ON payer.id = s.payer_id
     JOIN users receiver ON receiver.id = s.receiver_id
     WHERE s.group_id = ?
     ORDER BY s.settled_at DESC, s.id DESC
-  `).all(groupId).map((settlement) => ({
-    ...settlement,
-    amount: Math.round(Number(settlement.amount)),
-  }));
+  `).all(groupId).map((settlement) => {
+    const {
+      payer_avatar_path: payerAvatarPath,
+      payer_avatar_version: payerAvatarVersion,
+      receiver_avatar_path: receiverAvatarPath,
+      receiver_avatar_version: receiverAvatarVersion,
+      ...rest
+    } = settlement;
+
+    return {
+      ...rest,
+      amount: Math.round(Number(rest.amount)),
+      payer_avatar_url: toAvatarUrl(payerAvatarPath, payerAvatarVersion),
+      receiver_avatar_url: toAvatarUrl(receiverAvatarPath, receiverAvatarVersion),
+    };
+  });
 
   return res.json(settlements);
 });
@@ -161,14 +180,33 @@ router.post('/:groupId', (req, res) => {
   const settlement = db.prepare(`
     SELECT s.id, s.group_id, s.payer_id, s.receiver_id, s.amount, s.settled_at,
            payer.full_name AS payer_full_name,
-           receiver.full_name AS receiver_full_name
+           payer.initials AS payer_initials,
+           payer.avatar_path AS payer_avatar_path,
+           payer.avatar_version AS payer_avatar_version,
+           receiver.full_name AS receiver_full_name,
+           receiver.initials AS receiver_initials,
+           receiver.avatar_path AS receiver_avatar_path,
+           receiver.avatar_version AS receiver_avatar_version
     FROM settlements s
     JOIN users payer ON payer.id = s.payer_id
     JOIN users receiver ON receiver.id = s.receiver_id
     WHERE s.id = ?
   `).get(result.lastInsertRowid);
 
-  return res.status(201).json({ ...settlement, amount: Math.round(Number(settlement.amount)) });
+  const {
+    payer_avatar_path: createdPayerAvatarPath,
+    payer_avatar_version: createdPayerAvatarVersion,
+    receiver_avatar_path: createdReceiverAvatarPath,
+    receiver_avatar_version: createdReceiverAvatarVersion,
+    ...createdSettlement
+  } = settlement;
+
+  return res.status(201).json({
+    ...createdSettlement,
+    amount: Math.round(Number(createdSettlement.amount)),
+    payer_avatar_url: toAvatarUrl(createdPayerAvatarPath, createdPayerAvatarVersion),
+    receiver_avatar_url: toAvatarUrl(createdReceiverAvatarPath, createdReceiverAvatarVersion),
+  });
 });
 
 router.put('/:groupId/:settlementId', (req, res) => {
@@ -243,14 +281,33 @@ router.put('/:groupId/:settlementId', (req, res) => {
   const settlement = db.prepare(`
     SELECT s.id, s.group_id, s.payer_id, s.receiver_id, s.amount, s.settled_at,
            payer.full_name AS payer_full_name,
-           receiver.full_name AS receiver_full_name
+           payer.initials AS payer_initials,
+           payer.avatar_path AS payer_avatar_path,
+           payer.avatar_version AS payer_avatar_version,
+           receiver.full_name AS receiver_full_name,
+           receiver.initials AS receiver_initials,
+           receiver.avatar_path AS receiver_avatar_path,
+           receiver.avatar_version AS receiver_avatar_version
     FROM settlements s
     JOIN users payer ON payer.id = s.payer_id
     JOIN users receiver ON receiver.id = s.receiver_id
     WHERE s.id = ?
   `).get(settlementId);
 
-  return res.json({ ...settlement, amount: Math.round(Number(settlement.amount)) });
+  const {
+    payer_avatar_path: updatedPayerAvatarPath,
+    payer_avatar_version: updatedPayerAvatarVersion,
+    receiver_avatar_path: updatedReceiverAvatarPath,
+    receiver_avatar_version: updatedReceiverAvatarVersion,
+    ...updatedSettlement
+  } = settlement;
+
+  return res.json({
+    ...updatedSettlement,
+    amount: Math.round(Number(updatedSettlement.amount)),
+    payer_avatar_url: toAvatarUrl(updatedPayerAvatarPath, updatedPayerAvatarVersion),
+    receiver_avatar_url: toAvatarUrl(updatedReceiverAvatarPath, updatedReceiverAvatarVersion),
+  });
 });
 
 router.delete('/:groupId/:settlementId', (req, res) => {

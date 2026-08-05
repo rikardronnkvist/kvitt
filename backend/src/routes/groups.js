@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import authMiddleware from '../middleware/auth.js';
 import { db } from '../db/database.js';
 import { calculateMemberBalances } from '../utils/balance.js';
+import { toAvatarUrl } from '../utils/avatar.js';
 import { createUniqueSlug, slugifyGroupName } from '../utils/slug.js';
 import { logActivity, resolveRequestIp } from '../utils/activity-log.js';
 
@@ -179,7 +180,7 @@ router.get('/:id', requireMembership, (req, res) => {
   }
 
   const members = db.prepare(`
-    SELECT u.id, u.full_name, u.phone, u.is_placeholder, gm.joined_at,
+    SELECT u.id, u.full_name, u.phone, u.initials, u.avatar_path, u.avatar_version, u.is_placeholder, gm.joined_at,
       CASE WHEN EXISTS (
         SELECT 1 FROM expenses e WHERE e.group_id = gm.group_id AND e.paid_by_user_id = u.id
         UNION ALL
@@ -193,7 +194,20 @@ router.get('/:id', requireMembership, (req, res) => {
     ORDER BY COALESCE(NULLIF(TRIM(u.full_name), ''), CAST(u.id AS TEXT)) COLLATE NOCASE
   `).all(groupId);
 
-  return res.json({ ...group, members });
+  return res.json({
+    ...group,
+    members: members.map((member) => {
+      const {
+        avatar_path: avatarPath,
+        avatar_version: avatarVersion,
+        ...rest
+      } = member;
+      return {
+        ...rest,
+        avatar_url: toAvatarUrl(avatarPath, avatarVersion),
+      };
+    }),
+  });
 });
 
 router.get('/:id/activity', requireMembership, (req, res) => {

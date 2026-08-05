@@ -9,13 +9,14 @@ import NewSettlementModal from '../components/NewSettlementModal.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import ModalShell from '../components/ModalShell.jsx';
 import InviteQrCodeModal from '../components/InviteQrCodeModal.jsx';
+import UserAvatar from '../components/UserAvatar.jsx';
 import { del, get, patch, post } from '../api/client.js';
 import { computeMemberBalances } from '../lib/balances.js';
 import { getCategoryIcon } from '../lib/expenseCategories.js';
 import { formatCurrency, formatDateTime, formatMonthYear } from '../lib/format.js';
 import { buildInviteUrl } from '../lib/inviteToken.js';
 import { getCurrentUserId } from '../lib/session.js';
-import { getUserDisplayName, getUserInitials } from '../lib/users.js';
+import { getUserDisplayName } from '../lib/users.js';
 import { GROUP_THEMES, getThemeForGroup } from '../lib/groupTheme.js';
 
 const INITIAL_TIMELINE_VISIBLE_COUNT = 25;
@@ -98,8 +99,16 @@ function GroupSkeleton() {
 }
 
 function SettlementItem({ settlement, onEdit, readOnly = false }) {
-  const payerUser = { full_name: settlement.payer_full_name || settlement.payer_display_name };
-  const receiverUser = { full_name: settlement.receiver_full_name || settlement.receiver_display_name };
+  const payerUser = {
+    full_name: settlement.payer_full_name || settlement.payer_display_name,
+    initials: settlement.payer_initials,
+    avatar_url: settlement.payer_avatar_url,
+  };
+  const receiverUser = {
+    full_name: settlement.receiver_full_name || settlement.receiver_display_name,
+    initials: settlement.receiver_initials,
+    avatar_url: settlement.receiver_avatar_url,
+  };
 
   const handleKeyDown = (event) => {
     if (readOnly) return;
@@ -135,9 +144,12 @@ function SettlementItem({ settlement, onEdit, readOnly = false }) {
                 title={settlement.payer_display_name}
                 className="inline-flex items-center justify-center px-0.5 py-0.5 text-xs font-medium text-[var(--text-secondary)]"
               >
-                <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[9px] font-semibold text-[var(--text-primary)]">
-                  {getUserInitials(payerUser)}
-                </span>
+                  <UserAvatar
+                    user={payerUser}
+                    className="flex h-5 w-5 items-center justify-center overflow-hidden rounded-full bg-[var(--app-surface-strong)] ring-1 ring-black/35"
+                    imageClassName="h-full w-full object-cover"
+                    initialsClassName="text-[9px] font-semibold text-[var(--text-primary)]"
+                  />
               </span>
             </span>
             <span className="inline-flex items-center gap-1.5">
@@ -145,9 +157,12 @@ function SettlementItem({ settlement, onEdit, readOnly = false }) {
                 title={settlement.receiver_display_name}
                 className="inline-flex items-center justify-center px-0.5 py-0.5 text-xs font-medium text-[var(--text-secondary)]"
               >
-                <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[9px] font-semibold text-[var(--text-primary)]">
-                  {getUserInitials(receiverUser)}
-                </span>
+                <UserAvatar
+                  user={receiverUser}
+                  className="flex h-5 w-5 items-center justify-center overflow-hidden rounded-full bg-[var(--app-surface-strong)] ring-1 ring-black/35"
+                  imageClassName="h-full w-full object-cover"
+                  initialsClassName="text-[9px] font-semibold text-[var(--text-primary)]"
+                />
               </span>
             </span>
           </div>
@@ -1273,9 +1288,12 @@ export default function GroupView() {
                   {memberBalancesAscending.map((member) => (
                     <div key={member.id} className="flex items-center justify-between gap-3 text-sm">
                       <span className="inline-flex items-center gap-1.5 font-medium">
-                        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[9px] font-semibold text-[var(--text-secondary)]">
-                          {getUserInitials(member)}
-                        </span>
+                        <UserAvatar
+                          user={member}
+                          className="inline-flex h-5 w-5 items-center justify-center overflow-hidden rounded-full bg-[var(--app-surface-strong)] ring-1 ring-black/35"
+                          imageClassName="h-full w-full object-cover"
+                          initialsClassName="text-[9px] font-semibold text-[var(--text-secondary)]"
+                        />
                         {getUserDisplayName(member)}
                       </span>
                       <span className={`font-semibold ${getBalanceAmountClass(member.balance)}`}>

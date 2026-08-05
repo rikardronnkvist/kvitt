@@ -12,6 +12,7 @@ import { getFrontendPublicOrigin } from '../utils/public-origin.js';
 import { createUniqueSlug, slugifyGroupName } from '../utils/slug.js';
 import { calculateMemberBalances } from '../utils/balance.js';
 import { resolveRequestIp, tryLogActivity } from '../utils/activity-log.js';
+import { toAvatarUrl } from '../utils/avatar.js';
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -282,7 +283,7 @@ router.post('/registration-access/reset', (req, res) => {
 
 router.get('/users', (_req, res) => {
   const users = db.prepare(`
-    SELECT u.id, u.is_admin, u.full_name, u.created_at,
+    SELECT u.id, u.is_admin, u.full_name, u.initials, u.avatar_path, u.avatar_version, u.created_at,
            COUNT(DISTINCT gm.group_id) AS group_count,
            COUNT(DISTINCT p.id) AS passkey_count
     FROM users u
@@ -293,10 +294,14 @@ router.get('/users', (_req, res) => {
   `).all();
 
   return res.json(users.map((user) => ({
-    ...user,
+    id: user.id,
+    full_name: user.full_name,
+    initials: user.initials,
+    created_at: user.created_at,
     is_admin: Boolean(user.is_admin),
     group_count: Number(user.group_count),
     passkey_count: Number(user.passkey_count),
+    avatar_url: toAvatarUrl(user.avatar_path, user.avatar_version),
   })));
 });
 
@@ -421,18 +426,25 @@ router.put('/users/:id', (req, res) => {
   });
 
   const updated = db.prepare(`
-    SELECT u.id, u.is_admin, u.full_name, u.created_at,
-           COUNT(gm.group_id) AS group_count
+    SELECT u.id, u.is_admin, u.full_name, u.initials, u.avatar_path, u.avatar_version, u.created_at,
+           COUNT(DISTINCT gm.group_id) AS group_count,
+           COUNT(DISTINCT p.id) AS passkey_count
     FROM users u
     LEFT JOIN group_members gm ON gm.user_id = u.id
+    LEFT JOIN passkeys p ON p.user_id = u.id
     WHERE u.id = ?
     GROUP BY u.id
   `).get(userId);
 
   return res.json({
-    ...updated,
+    id: updated.id,
+    full_name: updated.full_name,
+    initials: updated.initials,
+    created_at: updated.created_at,
     is_admin: Boolean(updated.is_admin),
     group_count: Number(updated.group_count),
+    passkey_count: Number(updated.passkey_count),
+    avatar_url: toAvatarUrl(updated.avatar_path, updated.avatar_version),
   });
 });
 

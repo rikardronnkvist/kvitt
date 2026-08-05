@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Archive, Check, History, Link2, RefreshCw, RotateCcw, Settings, Tags, Trash2, Users, UsersRound } from 'lucide-react';
 import { get, post, put, del } from '../api/client.js';
+import UserAvatar from '../components/UserAvatar.jsx';
 import { CATEGORY_ICON_OPTIONS, getCategoryIcon } from '../lib/expenseCategories.js';
 import { GROUP_THEMES, getThemeForGroup } from '../lib/groupTheme.js';
 import { getUserDisplayName } from '../lib/users.js';
@@ -275,6 +276,13 @@ function AdminUserRow({
   return (
     <div className="flex flex-col">
       <div className="flex items-center gap-x-3 px-4 py-2">
+        <UserAvatar
+          user={user}
+          title={getUserDisplayName(user)}
+          className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-[var(--app-surface-strong)] ring-1 ring-black/35"
+          imageClassName="h-full w-full object-cover"
+          initialsClassName="text-xs font-semibold text-[var(--text-primary)]"
+        />
         <input
           className="min-w-0 flex-1"
           value={draft.full_name || ''}

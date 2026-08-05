@@ -38,6 +38,8 @@ function getUserSelectExpressions(hasColumn) {
     selectFullName: hasColumn('full_name') ? 'full_name' : 'NULL',
     selectPhone: hasColumn('phone') ? 'NULLIF(phone, \'\')' : 'NULL',
     selectInitials: hasColumn('initials') ? 'initials' : 'NULL',
+    selectAvatarPath: hasColumn('avatar_path') ? 'avatar_path' : 'NULL',
+    selectAvatarVersion: hasColumn('avatar_version') ? 'COALESCE(avatar_version, 0)' : '0',
     selectUserHandle: hasColumn('user_handle')
       ? 'COALESCE(NULLIF(user_handle, \'\'), \'legacy-\' || id)'
       : '\'legacy-\' || id',
@@ -53,6 +55,8 @@ function migrateUsersTableForPasskeys(expressions) {
     selectFullName,
     selectPhone,
     selectInitials,
+    selectAvatarPath,
+    selectAvatarVersion,
     selectUserHandle,
   } = expressions;
 
@@ -68,12 +72,14 @@ function migrateUsersTableForPasskeys(expressions) {
         full_name TEXT,
         phone TEXT,
         initials TEXT,
+        avatar_path TEXT,
+        avatar_version INTEGER NOT NULL DEFAULT 0,
         user_handle TEXT UNIQUE NOT NULL
       );
     `);
 
     db.exec(`
-      INSERT INTO users_new (id, email, password_hash, created_at, is_admin, full_name, phone, initials, user_handle)
+      INSERT INTO users_new (id, email, password_hash, created_at, is_admin, full_name, phone, initials, avatar_path, avatar_version, user_handle)
       SELECT
         id,
         ${selectEmail},
@@ -83,6 +89,8 @@ function migrateUsersTableForPasskeys(expressions) {
         ${selectFullName},
         ${selectPhone},
         ${selectInitials},
+        ${selectAvatarPath},
+        ${selectAvatarVersion},
         ${selectUserHandle}
       FROM users;
     `);
@@ -129,6 +137,8 @@ function ensureUsersSchemaForPasskeys() {
       password_hash TEXT NOT NULL,
       full_name TEXT,
       phone TEXT,
+      avatar_path TEXT,
+      avatar_version INTEGER NOT NULL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
@@ -137,7 +147,7 @@ function ensureUsersSchemaForPasskeys() {
   const getColumn = (name) => userColumns.find((column) => column.name === name);
   const hasColumn = (name) => Boolean(getColumn(name));
 
-  const hasTargetColumns = ['email', 'password_hash', 'created_at', 'is_admin', 'full_name', 'phone', 'initials', 'user_handle']
+  const hasTargetColumns = ['email', 'password_hash', 'created_at', 'is_admin', 'full_name', 'phone', 'initials', 'avatar_path', 'avatar_version', 'user_handle']
     .every((name) => hasColumn(name));
   const hasNullableEmail = hasColumn('email') && getColumn('email').notnull === 0;
   const hasNullablePassword = hasColumn('password_hash') && getColumn('password_hash').notnull === 0;
@@ -301,6 +311,13 @@ function ensureUsersTableColumns() {
   if (!tableHasColumn(userColumns, 'initials')) {
     db.exec('ALTER TABLE users ADD COLUMN initials TEXT');
   }
+  if (!tableHasColumn(userColumns, 'avatar_path')) {
+    db.exec('ALTER TABLE users ADD COLUMN avatar_path TEXT');
+  }
+  if (!tableHasColumn(userColumns, 'avatar_version')) {
+    db.exec('ALTER TABLE users ADD COLUMN avatar_version INTEGER NOT NULL DEFAULT 0');
+  }
+  db.exec('UPDATE users SET avatar_version = 0 WHERE avatar_version IS NULL OR avatar_version < 0');
   if (!tableHasColumn(userColumns, 'user_handle')) {
     db.exec('ALTER TABLE users ADD COLUMN user_handle TEXT');
   }
