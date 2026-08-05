@@ -1,7 +1,7 @@
 FROM node:24-alpine AS builder
 WORKDIR /app
 RUN apk add --no-cache python3 make g++
-COPY package.json package-lock.json ./
+COPY package-lock.json package.json ./
 RUN npm ci --ignore-scripts
 RUN npm_config_build_from_source=true npm rebuild better-sqlite3
 COPY . .
