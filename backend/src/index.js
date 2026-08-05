@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import { initializeDatabase } from './db/database.js';
 import { getRegistrationAccessToken } from './utils/settings.js';
 import { getFrontendPublicOrigin } from './utils/public-origin.js';
+import { isDevboxEnabled } from './utils/devbox-mode.js';
 import authRoutes from './routes/auth.js';
 import groupRoutes from './routes/groups.js';
 import expenseRoutes from './routes/expenses.js';
@@ -138,7 +139,10 @@ app.use((error, _req, res, _next) => {
 });
 
 app.listen(port, () => {
+  const isDevMode = isDevboxEnabled();
+
   console.log(`Kvitt backend listening on port ${port}`);
+  console.log(`Backend mode: ${isDevMode ? 'development' : 'production'}`);
   const registrationUrl = getRegistrationUrl();
   if (registrationUrl) {
     console.log(`Registration URL: ${registrationUrl}`);

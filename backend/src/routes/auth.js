@@ -5,9 +5,11 @@ import requireAuth from '../middleware/auth.js';
 import passkeyRoutes from '../auth/passkey.routes.js';
 import { getAuthUserById, signToken } from '../auth/token.js';
 import { resolveRequestIp, tryLogActivity } from '../utils/activity-log.js';
+import { isDevboxEnabled } from '../utils/devbox-mode.js';
 
 const router = express.Router();
-const isDevboxMode = process.env.DEVBOX === 'true';
+
+const isDevboxMode = isDevboxEnabled();
 
 const devboxLoginSchema = z.object({
   user_id: z.coerce.number().int().positive(),

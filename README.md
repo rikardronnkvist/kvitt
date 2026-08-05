@@ -42,7 +42,6 @@ Use `main-<run_number>` for immutable CI deployments and `v*` tags for release d
 | `PASSKEY_RP_ID` | `backend` | `localhost` | WebAuthn relying party ID. Use your domain in production. |
 | `PASSKEY_RP_NAME` | `backend` | `Kvitt` | Displayed relying party name for passkey prompts. |
 | `PASSKEY_ORIGIN` | `backend` | `http://localhost:5173` | Allowed WebAuthn origin(s), comma-separated if needed. |
-| `DEVBOX` | `backend` | `false` | Enables devbox-only quick-login endpoints and user picker on login screen. |
 | `KVITT_LANGUAGE` | `frontend` (runtime env) | `sv-se` | Active UI language served via runtime config. Current supported value is `sv-se`. |
 | `VITE_LANGUAGE` | `frontend` (build env / local dev) | `sv-se` | Build-time fallback language used in local Vite development. |
 | `VITE_TAGLINE` | `frontend` (build arg or runtime env) | `Dela kostnader, bli kvitt` | Tagline shown on the login page and in the app header. |
@@ -121,7 +120,7 @@ npm run dev
 ```
 
 The backend starts on `http://localhost:3000` and the frontend Vite dev server starts on `http://localhost:5173`, proxying `/api` requests to the backend.
-Local npm dev/start scripts now default to `DEVBOX=true`.
+Devbox quick-login endpoints are enabled automatically when the backend is started with `npm run dev` (watch mode).
 
 Alternatively, run each in a separate terminal:
 
