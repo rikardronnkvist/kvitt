@@ -265,7 +265,7 @@ async function addPlaceholderMember({ placeholderName, setAddingPlaceholder, set
   try {
     await post(`/api/groups/${groupSlug}/members/placeholder`, { display_name: name });
     setPlaceholderName('');
-    await loadData();
+    await loadData({ silent: true });
   } catch (err) {
     setError(err.message);
   } finally {
