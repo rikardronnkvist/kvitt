@@ -2,6 +2,13 @@ import { t } from '../lib/i18n.js';
 
 const getToken = () => localStorage.getItem('token');
 
+function buildSafeUrl(url) {
+  if (typeof url !== 'string' || !url.startsWith('/')) {
+    throw new Error(t('common.genericError'));
+  }
+  return url;
+}
+
 function redirectToLogin() {
   localStorage.removeItem('token');
   if (window.location.pathname !== '/login') {
@@ -17,7 +24,7 @@ async function request(url, options = {}, responseType = 'json') {
     ...options.headers,
   };
 
-  const response = await fetch(url, { ...options, headers });
+  const response = await fetch(buildSafeUrl(url), { ...options, headers });
 
   if (response.status === 401) {
     redirectToLogin();

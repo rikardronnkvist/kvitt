@@ -427,7 +427,7 @@ export function deleteUserPasskey(userId, passkeyId, currentPasskeyId, context =
     throw createHttpError(400, 'Logga in igen med passkey innan du tar bort en passkey.');
   }
 
-  if (currentPasskeyId && Number(currentPasskeyId) === Number(passkeyId)) {
+  if (Number(currentPasskeyId) === Number(passkeyId)) {
     throw createHttpError(400, 'Du kan inte ta bort passkeyn som används i den här sessionen.');
   }
 

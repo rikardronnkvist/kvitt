@@ -4,7 +4,7 @@ import { ArrowLeft, BarChart3 } from 'lucide-react';
 import { get } from '../api/client.js';
 import { formatCurrency } from '../lib/format.js';
 import { getThemeForGroup } from '../lib/groupTheme.js';
-import { getUserDisplayName, getUserInitials } from '../lib/users.js';
+import { getUserDisplayName } from '../lib/users.js';
 
 const PIE_COLORS = ['#0F766E', '#4F6D8A', '#B25D3D', '#5F7D4E', '#6E4E73', '#B38A2E', '#5C6B73'];
 const TIMELINE_GRANULARITY_OPTIONS = [
