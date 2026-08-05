@@ -11,6 +11,10 @@ export function isPushSupported() {
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 }
 
+export function isServiceWorkerSupported() {
+  return 'serviceWorker' in navigator;
+}
+
 // iOS Safari only delivers push in standalone (PWA) mode
 export function isIosNonStandalone() {
   const isIos = /iP(hone|od|ad)/.test(navigator.userAgent)
@@ -21,7 +25,7 @@ export function isIosNonStandalone() {
 }
 
 export async function registerServiceWorker() {
-  if (!isPushSupported()) return null;
+  if (!isServiceWorkerSupported()) return null;
   return navigator.serviceWorker.register('/sw.js');
 }
 
