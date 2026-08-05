@@ -81,6 +81,7 @@ export function createExpenseForm({ members, categories = [], currentUserId, exp
       return [member.id, split?.amount_owed != null ? String(Math.round(split.amount_owed)) : ''];
     }),
   );
+  const customPercentages = Object.fromEntries(members.map((member) => [member.id, '']));
 
   return {
     title: expense?.title || '',
@@ -91,18 +92,41 @@ export function createExpenseForm({ members, categories = [], currentUserId, exp
     notes: expense?.notes || '',
     occurred_at: toLocalDateTimeInputValue(expense?.occurred_at || expense?.created_at),
     distance_mil: '',
-    split_type: expense && !hasEqualSplits(expense.amount, expense.splits) ? 'custom' : 'equal',
+    split_type: expense && !hasEqualSplits(expense.amount, expense.splits)
+      ? 'custom'
+      : expense && expense.splits.length < members.length
+        ? 'equal'
+        : 'all_equal',
     included_users: includedUsers,
     custom_amounts: customAmounts,
+    custom_percentages: customPercentages,
   };
 }
 
 export function getSplitSummary(form, members) {
   const amount = Number(form.amount);
-  const selectedMembers = getSelectedMembers(members, form.included_users);
+  const selectedMembers = form.split_type === 'all_equal'
+    ? members
+    : getSelectedMembers(members, form.included_users);
   const hasValidAmount = Number.isInteger(amount) && amount > 0;
   const equalSplits = hasValidAmount ? buildEqualSplits(amount, selectedMembers) : [];
   const customTotal = selectedMembers.reduce((sum, member) => sum + Number(form.custom_amounts[member.id] || 0), 0);
+  const percentTotal = members.reduce((sum, member) => sum + Number(form.custom_percentages?.[member.id] || 0), 0);
+  const percentSplits = hasValidAmount && percentTotal > 0
+    ? (() => {
+        const raw = members.map((member) => ({
+          user_id: member.id,
+          amount_owed: Math.floor(amount * Number(form.custom_percentages?.[member.id] || 0) / 100),
+        }));
+        const diff = amount - raw.reduce((s, r) => s + r.amount_owed, 0);
+        // distribute remainder to the first members with a non-zero percentage
+        let rem = diff;
+        return raw.map((r) => {
+          if (rem > 0 && r.amount_owed > 0) { rem--; return { ...r, amount_owed: r.amount_owed + 1 }; }
+          return r;
+        });
+      })()
+    : [];
 
   return {
     amount,
@@ -111,11 +135,14 @@ export function getSplitSummary(form, members) {
     equalSplits,
     customTotal,
     customDifference: hasValidAmount ? amount - customTotal : null,
+    percentTotal,
+    percentSplits,
+    percentDifference: 100 - percentTotal,
   };
 }
 
 export function buildExpensePayload(form, members) {
-  const { amount, selectedMembers, customDifference } = getSplitSummary(form, members);
+  const { amount, selectedMembers, customDifference, percentDifference, percentSplits } = getSplitSummary(form, members);
   const categoryId = Number(form.category_id);
 
   if (!selectedMembers.length) {
@@ -131,7 +158,15 @@ export function buildExpensePayload(form, members) {
   }
 
   let splits;
-  if (form.split_type === 'custom') {
+  if (form.split_type === 'percent') {
+    if (percentDifference !== 0) {
+      throw new Error(t('expenseForm.customSharesMustMatch'));
+    }
+    splits = percentSplits.filter((s) => s.amount_owed > 0);
+    if (!splits.length) {
+      throw new Error(t('expenseForm.selectOneMember'));
+    }
+  } else if (form.split_type === 'custom') { // eslint-disable-line no-lonely-if
     splits = selectedMembers.map((member) => {
       const owed = Number(form.custom_amounts[member.id]);
       if (!Number.isInteger(owed) || owed <= 0) {

@@ -1,25 +1,71 @@
-import { ReceiptText, SplitSquareVertical } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Banknote, ChevronDown, Columns4, Percent, SquareSplitHorizontal } from 'lucide-react';
 import { buildExpensePayload, getSplitSummary } from '../lib/expenseForm.js';
 import { getCategoryIcon } from '../lib/expenseCategories.js';
 import { formatCurrency } from '../lib/format.js';
 import { getUserDisplayName } from '../lib/users.js';
 import MemberDropdown from './MemberDropdown.jsx';
+import UserAvatar from './UserAvatar.jsx';
 import DateTimePicker from './DateTimePicker.jsx';
 
-function SplitTypeButton({ active, children, onClick }) {
+const SPLIT_TYPE_OPTIONS = [
+  { value: 'all_equal', label: 'Alla delar lika', Icon: SquareSplitHorizontal },
+  { value: 'equal', label: 'Delas mellan några', Icon: Columns4 },
+  { value: 'custom', label: 'Egna belopp', Icon: Banknote },
+  { value: 'percent', label: 'Egna procent', Icon: Percent },
+];
+
+function SplitTypeDropdown({ value, onChange, membersCount }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const selected = SPLIT_TYPE_OPTIONS.find((o) => o.value === value);
+  const getLabel = (optValue, label) => optValue === 'all_equal' ? `Alla ${membersCount} delar lika` : label;
+
+  useEffect(() => {
+    if (!open) return;
+    function handleOutside(event) {
+      if (!ref.current?.contains(event.target)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [open]);
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        'flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-medium transition',
-        active
-          ? 'border-[var(--accent)] bg-[color:color-mix(in_srgb,var(--accent)_8%,transparent)] text-[var(--text-primary)]'
-          : 'border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-[var(--text-secondary)] hover:bg-[var(--app-surface-muted)]',
-      ].join(' ')}
-    >
-      {children}
-    </button>
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label="Fördelningstyp"
+        onClick={() => setOpen((p) => !p)}
+        className="flex w-full items-center gap-2 rounded-[var(--radius-field)] border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-[0.95rem] py-[0.875rem] text-left text-[length:inherit] transition focus:border-[var(--accent)] focus:outline-none focus:ring-[3px] focus:ring-[color-mix(in_srgb,var(--accent)_16%,transparent)]"
+      >
+        {selected && <selected.Icon className="h-4 w-4 shrink-0 text-[var(--text-secondary)]" aria-hidden="true" />}
+        <span className="flex-1 truncate">{selected ? getLabel(selected.value, selected.label) : ''}</span>
+        <ChevronDown className="h-4 w-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
+      </button>
+      {open && (
+        <ul role="listbox" aria-label="Fördelningstyp" className="absolute z-10 mt-1 w-full overflow-hidden rounded-[var(--radius-field)] border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] py-1 shadow-lg">
+          {SPLIT_TYPE_OPTIONS.map(({ value: optValue, label, Icon }) => (
+            <li
+              key={optValue}
+              role="option"
+              aria-selected={optValue === value}
+              onClick={() => { onChange(optValue); setOpen(false); }}
+              className={[
+                'flex cursor-pointer items-center gap-2 px-3 py-2 text-sm transition',
+                optValue === value
+                  ? 'bg-[color-mix(in_srgb,var(--accent)_8%,transparent)] text-[var(--text-primary)]'
+                  : 'text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]',
+              ].join(' ')}
+            >
+              <Icon className="h-4 w-4 shrink-0 text-[var(--text-secondary)]" aria-hidden="true" />
+              {getLabel(optValue, label)}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -155,72 +201,191 @@ function CategorySelector({ categories, form, setForm, mileageRate }) {
 
 function SplitDetailsPanel({
   form,
+  amount,
   equalSplits,
   members,
   selectedMembers,
   customDifference,
   customTotal,
   hasValidAmount,
+  percentTotal,
+  percentSplits,
+  percentDifference,
   setForm,
 }) {
-  if (form.split_type === 'equal') {
+  if (form.split_type === 'percent') {
+    const diffLabel = percentDifference === 0
+      ? 'Summerar 100%'
+      : `${percentDifference > 0 ? 'Återstår' : 'Över'} ${Math.abs(percentDifference)}%`;
+    const diffClass = percentDifference === 0 ? 'amount-positive' : 'amount-negative';
     return (
-      <div className="space-y-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
-        <div className="flex items-center gap-2">
-          <ReceiptText className="h-4 w-4 text-[var(--text-secondary)]" />
-          <p className="m-0 text-sm font-medium">Förhandsvisning</p>
-        </div>
-        <div className="space-y-2">
-          {equalSplits.map((split) => {
-            const member = members.find((item) => item.id === split.user_id);
+      <div className="space-y-4 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
+        <div className="space-y-3">
+          {members.map((member) => {
+            const computed = percentSplits.find((s) => s.user_id === member.id);
             return (
-              <div key={split.user_id} className="flex items-center justify-between gap-3 text-sm">
-                <span className="text-[var(--text-secondary)]">{member ? getUserDisplayName(member) : 'Okänd användare'}</span>
-                <span className="font-medium amount-neutral">{formatCurrency(split.amount_owed, { precise: true })}</span>
+              <div key={member.id} className="flex items-center gap-3">
+                <UserAvatar
+                  user={member}
+                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--app-surface-strong)] text-xs font-semibold text-[var(--text-secondary)] ring-1 ring-[var(--border-subtle)]"
+                  initialsClassName=""
+                  imageClassName="h-full w-full object-cover"
+                />
+                <span className="flex-1 truncate text-sm">{getUserDisplayName(member)}</span>
+                <div className="relative w-28 shrink-0">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    value={form.custom_percentages?.[member.id] || ''}
+                    onChange={(event) => setForm((previous) => {
+                      const raw = sanitizeIntegerInput(event.target.value);
+                      const clamped = raw === '' ? '' : String(Math.min(100, Math.max(0, Number(raw))));
+                      return {
+                        ...previous,
+                        custom_percentages: { ...previous.custom_percentages, [member.id]: clamped },
+                      };
+                    })}
+                    placeholder="0"
+                    style={{ paddingRight: '2.2rem' }}
+                  />
+                  <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-[var(--text-muted)]">%</span>
+                </div>
+                <span className="w-16 shrink-0 text-right text-sm font-medium amount-neutral">
+                  {computed && computed.amount_owed > 0
+                    ? formatCurrency(computed.amount_owed, { precise: true })
+                    : <span className="text-[var(--text-muted)]">—</span>}
+                </span>
               </div>
             );
           })}
-          {!equalSplits.length ? <p className="m-0 text-sm text-[var(--text-muted)]">Ange ett belopp för att se fördelningen.</p> : null}
         </div>
+        <div className="flex items-center gap-3 border-t border-[var(--border-subtle)] pt-3 text-sm">
+          <span className="flex-1 text-[var(--text-secondary)]">
+            Totalt
+            {percentTotal > 0 && percentDifference !== 0 && (
+              <span className={`ml-2 ${diffClass}`}>({diffLabel})</span>
+            )}
+          </span>
+          <span className="w-28 shrink-0 text-right font-medium amount-neutral">{percentTotal}%</span>
+          <span className="w-16 shrink-0 text-right font-medium amount-neutral">
+            {percentSplits.length > 0
+              ? formatCurrency(percentSplits.reduce((s, r) => s + r.amount_owed, 0), { precise: true })
+              : <span className="text-[var(--text-muted)]">—</span>}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  if (form.split_type === 'equal' || form.split_type === 'all_equal') {
+    return (
+      <div className="space-y-4 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
+        <div className="space-y-3">
+          {members.map((member) => {
+            const split = equalSplits.find((s) => s.user_id === member.id);
+            const isIncluded = split != null;
+            const equalTotal = equalSplits.reduce((s, r) => s + r.amount_owed, 0);
+            const pct = isIncluded && equalTotal > 0 ? Math.round(split.amount_owed / equalTotal * 100) : null;
+            const checked = form.included_users[member.id] !== false;
+            return (
+              <div key={member.id} className="flex min-h-[3.375rem] items-center gap-3">
+                <UserAvatar
+                  user={member}
+                  className="inline-flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--app-surface-strong)] text-xs font-semibold text-[var(--text-secondary)] ring-1 ring-[var(--border-subtle)]"
+                  initialsClassName=""
+                  imageClassName="h-full w-full object-cover"
+                />
+                <span className={`flex-1 truncate text-sm ${isIncluded ? '' : 'text-[var(--text-muted)]'}`}>{getUserDisplayName(member)}</span>
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={(event) => setForm((previous) => {
+                    const next = { ...previous.included_users, [member.id]: event.target.checked };
+                    const anyChecked = members.some((m) => next[m.id] !== false);
+                    if (!anyChecked) return previous;
+                    return { ...previous, included_users: next };
+                  })}
+                />
+                <span className={`w-28 shrink-0 text-right text-sm font-medium ${isIncluded ? 'amount-neutral' : 'text-[var(--text-muted)]'}`}>
+                  {isIncluded ? formatCurrency(split.amount_owed, { precise: true }) : '0 kr'}
+                </span>
+                <span className={`w-16 shrink-0 text-right text-sm font-medium ${isIncluded ? 'amount-neutral' : 'text-[var(--text-muted)]'}`}>
+                  {pct != null ? `${pct}%` : isIncluded ? '' : '0%'}
+                </span>
+              </div>
+            );
+          })}
+          {!equalSplits.length && null}
+        </div>
+        {equalSplits.length > 0 && (
+          <div className="flex items-center gap-3 border-t border-[var(--border-subtle)] pt-3 text-sm">
+            <span className="flex-1 text-[var(--text-secondary)]">Totalt</span>
+            <span className="w-28 shrink-0 text-right font-medium amount-neutral">
+              {formatCurrency(equalSplits.reduce((s, r) => s + r.amount_owed, 0), { precise: true })}
+            </span>
+            <span className="w-16 shrink-0 text-right font-medium amount-neutral">100%</span>
+          </div>
+        )}
       </div>
     );
   }
 
   return (
     <div className="space-y-4 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
-      <div className="flex items-center justify-between gap-3 text-sm">
-        <span className="font-medium">Egen fördelning</span>
-        <span className={[
-          'font-medium',
-          getCustomDifferenceClass(hasValidAmount, customDifference),
-        ].join(' ')}>
-          {getCustomDifferenceText(hasValidAmount, customDifference)}
-        </span>
-      </div>
       <div className="space-y-3">
-        {selectedMembers.map((member) => (
-          <label key={member.id} className="field-label">
-            {getUserDisplayName(member)}
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              value={form.custom_amounts[member.id] || ''}
-              onChange={(event) => setForm((previous) => ({
-                ...previous,
-                custom_amounts: {
-                  ...previous.custom_amounts,
-                  [member.id]: sanitizeIntegerInput(event.target.value),
-                },
-              }))}
-              placeholder="0"
+        {selectedMembers.map((member) => {
+          const owed = Number(form.custom_amounts[member.id] || 0);
+          const pct = hasValidAmount && owed > 0 ? Math.round(owed / amount * 100) : null;
+          return (
+          <div key={member.id} className="flex items-center gap-3">
+            <UserAvatar
+              user={member}
+              className="inline-flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--app-surface-strong)] text-xs font-semibold text-[var(--text-secondary)] ring-1 ring-[var(--border-subtle)]"
+              initialsClassName=""
+              imageClassName="h-full w-full object-cover"
             />
-          </label>
-        ))}
+            <span className="flex-1 truncate text-sm">{getUserDisplayName(member)}</span>
+            <div className="relative w-28 shrink-0">
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={form.custom_amounts[member.id] || ''}
+                onChange={(event) => setForm((previous) => ({
+                  ...previous,
+                  custom_amounts: {
+                    ...previous.custom_amounts,
+                    [member.id]: sanitizeIntegerInput(event.target.value),
+                  },
+                }))}
+                placeholder="0"
+                style={{ paddingRight: '2.4rem' }}
+              />
+              <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-[var(--text-muted)]">kr</span>
+            </div>
+            <span className="w-16 shrink-0 text-right text-sm font-medium amount-neutral">
+              {pct != null ? `${pct}%` : <span className="text-[var(--text-muted)]">—</span>}
+            </span>
+          </div>
+          );
+        })}
       </div>
-      <div className="flex items-center justify-between gap-3 border-t border-[var(--border-subtle)] pt-3 text-sm">
-        <span className="text-[var(--text-secondary)]">Summa</span>
-        <span className="font-medium amount-neutral">{formatCurrency(customTotal, { precise: true })}</span>
+      <div className="flex items-center gap-3 border-t border-[var(--border-subtle)] pt-3 text-sm">
+        <span className="flex-1 text-[var(--text-secondary)]">
+          Totalt
+          {hasValidAmount && customDifference !== 0 && (
+            <span className={`ml-2 ${getCustomDifferenceClass(hasValidAmount, customDifference)}`}>
+              ({getCustomDifferenceText(hasValidAmount, customDifference)})
+            </span>
+          )}
+        </span>
+        <span className="w-28 shrink-0 text-right font-medium amount-neutral">
+          {formatCurrency(customTotal, { precise: true })}
+        </span>
+        <span className="w-16 shrink-0 text-right font-medium amount-neutral">
+          {hasValidAmount && customTotal > 0 ? `${Math.round(customTotal / amount * 100)}%` : <span className="text-[var(--text-muted)]">—</span>}
+        </span>
       </div>
     </div>
   );
@@ -240,9 +405,18 @@ export default function ExpenseFormFields({
   onError,
   submitLabel,
 }) {
-  const { selectedMembers, equalSplits, customTotal, customDifference, hasValidAmount } = getSplitSummary(form, members);
+  const { amount, selectedMembers, equalSplits, customTotal, customDifference, hasValidAmount, percentTotal, percentSplits, percentDifference } = getSplitSummary(form, members);
   const selectedCategory = categories.find((category) => String(category.id) === String(form.category_id));
   const isCarTripCategory = selectedCategory?.icon === 'car';
+  const sharesValid = form.split_type === 'custom'
+    ? !hasValidAmount || customDifference === 0
+    : form.split_type === 'percent'
+      ? percentDifference === 0
+      : true;
+  const formValid = form.title.trim() !== ''
+    && hasValidAmount
+    && form.paid_by_user_id !== ''
+    && sharesValid;
 
   function handleCancel() {
     onCancel();
@@ -262,9 +436,8 @@ export default function ExpenseFormFields({
     <form className="space-y-6" onSubmit={handleSubmit}>
       <CategorySelector categories={categories} form={form} setForm={setForm} mileageRate={mileageRate} />
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className="field-label md:col-span-2">
-            <span>Titel</span>
+      <div className="grid gap-4 md:grid-cols-4">
+        <label className="field-label md:col-span-4">
           <input
             value={form.title}
             onChange={(event) => setForm((previous) => ({ ...previous, title: event.target.value }))}
@@ -276,39 +449,66 @@ export default function ExpenseFormFields({
         </label>
 
         {isCarTripCategory ? (
-          <label className="field-label">
-            <span>Antal mil <span className="text-[var(--text-muted)] font-normal">({mileageRate} kr/mil)</span></span>
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              value={form.distance_mil || ''}
-              onChange={(event) => {
-                const distanceMil = sanitizeIntegerInput(event.target.value);
-                setForm((previous) => getDistanceMilUpdate(previous, distanceMil, mileageRate));
-              }}
-              placeholder="0"
-            />
-          </label>
-        ) : null}
-
-        <label className="field-label">
+          <>
+            <label className="field-label md:col-span-1">
+              <span>Antal mil <span className="text-[var(--text-muted)] font-normal">({mileageRate} kr/mil)</span></span>
+              <div className="relative">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={form.distance_mil || ''}
+                  onChange={(event) => {
+                    const distanceMil = sanitizeIntegerInput(event.target.value);
+                    setForm((previous) => getDistanceMilUpdate(previous, distanceMil, mileageRate));
+                  }}
+                  placeholder="0"
+                  style={{ paddingRight: '2.6rem' }}
+                />
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-[var(--text-muted)]">mil</span>
+              </div>
+            </label>
+            <label className="field-label md:col-span-1">
+              <span>Belopp</span>
+              <div className="relative">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={form.amount}
+                  onChange={(event) => {
+                    const amountValue = sanitizeIntegerInput(event.target.value);
+                    setForm((previous) => getAmountUpdate(previous, amountValue, isCarTripCategory, mileageRate));
+                  }}
+                  placeholder="0"
+                  required
+                  style={{ paddingRight: '2.4rem' }}
+                />
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-[var(--text-muted)]">kr</span>
+              </div>
+            </label>
+          </>
+        ) : (
+          <label className="field-label md:col-span-2">
             <span>Belopp</span>
-          <input
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            value={form.amount}
-            onChange={(event) => {
-              const amountValue = sanitizeIntegerInput(event.target.value);
-              setForm((previous) => getAmountUpdate(previous, amountValue, isCarTripCategory, mileageRate));
-            }}
-            placeholder="0"
-            required
-          />
-        </label>
-
-        {!isCarTripCategory ? <div className="hidden md:block" aria-hidden="true" /> : null}
+            <div className="relative">
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={form.amount}
+                onChange={(event) => {
+                  const amountValue = sanitizeIntegerInput(event.target.value);
+                  setForm((previous) => getAmountUpdate(previous, amountValue, isCarTripCategory, mileageRate));
+                }}
+                placeholder="0"
+                required
+                style={{ paddingRight: '2.4rem' }}
+              />
+              <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-[var(--text-muted)]">kr</span>
+            </div>
+          </label>
+        )}
 
         <label className="field-label md:col-span-2">
           <span>Betald av</span>
@@ -321,7 +521,7 @@ export default function ExpenseFormFields({
           />
         </label>
 
-        <label className="field-label md:col-span-2">
+        <label className="field-label md:col-span-4">
           <span>Datum och tid för utlägget</span>
           <DateTimePicker
             value={form.occurred_at}
@@ -329,7 +529,7 @@ export default function ExpenseFormFields({
           />
         </label>
 
-        <label className="field-label md:col-span-2">
+        <label className="field-label md:col-span-4">
           <span>Anteckningar</span>
           <textarea
             rows="3"
@@ -340,69 +540,28 @@ export default function ExpenseFormFields({
       </div>
 
       <div className="surface-card space-y-4 p-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <SplitSquareVertical className="h-4 w-4 text-[var(--text-secondary)]" />
-            <h3 className="m-0 text-base font-semibold">Dela utgiften</h3>
-          </div>
-          <p className="m-0 text-sm text-[var(--text-secondary)]">Välj vilka som ska dela kostnaden och hur den ska fördelas.</p>
-        </div>
+        <h3 className="m-0 text-base font-semibold">Dela utgiften</h3>
 
-        <div className="flex flex-col gap-3 md:flex-row">
-          <SplitTypeButton
-            active={form.split_type === 'equal'}
-            onClick={() => setForm((previous) => ({ ...previous, split_type: 'equal' }))}
-          >
-            Lika delar
-          </SplitTypeButton>
-          <SplitTypeButton
-            active={form.split_type === 'custom'}
-            onClick={() => setForm((previous) => ({ ...previous, split_type: 'custom' }))}
-          >
-            Egna belopp
-          </SplitTypeButton>
-        </div>
+        <SplitTypeDropdown
+          value={form.split_type}
+          onChange={(v) => setForm((previous) => ({ ...previous, split_type: v }))}
+          membersCount={members.length}
+        />
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          {members.map((member) => {
-            const checked = form.included_users[member.id] !== false;
-            return (
-              <label
-                key={member.id}
-                className={[
-                  'flex min-h-11 items-center gap-3 rounded-lg border px-3 py-3 transition',
-                  checked
-                    ? 'border-[var(--border-strong)] bg-[var(--app-surface-muted)]'
-                    : 'border-[var(--border-subtle)] bg-[var(--app-surface-strong)]',
-                ].join(' ')}
-              >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={(event) => setForm((previous) => ({
-                    ...previous,
-                    included_users: {
-                      ...previous.included_users,
-                      [member.id]: event.target.checked,
-                    },
-                  }))}
-                />
-                <span className="text-sm font-medium">{getUserDisplayName(member)}</span>
-              </label>
-            );
-          })}
-        </div>
-
-        <SplitDetailsPanel
+        {form.split_type !== 'all_equal' && <SplitDetailsPanel
           form={form}
+          amount={amount}
           equalSplits={equalSplits}
           members={members}
           selectedMembers={selectedMembers}
           customDifference={customDifference}
           customTotal={customTotal}
           hasValidAmount={hasValidAmount}
+          percentTotal={percentTotal}
+          percentSplits={percentSplits}
+          percentDifference={percentDifference}
           setForm={setForm}
-        />
+        />}
       </div>
 
       {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
@@ -413,7 +572,7 @@ export default function ExpenseFormFields({
           <button type="button" className="btn-secondary w-full sm:w-auto" onClick={handleCancel} disabled={saving}>
             Avbryt
           </button>
-          <button type="submit" className="btn-primary w-full sm:w-auto" disabled={saving}>
+          <button type="submit" className="btn-primary w-full sm:w-auto" disabled={saving || !formValid}>
             {saving ? 'Sparar...' : submitLabel}
           </button>
         </div>
