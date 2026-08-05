@@ -1,13 +1,12 @@
 FROM node:24-alpine AS builder
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm install -g npm@12.0.2 && npm ci
+RUN npm ci
 COPY . .
 
 FROM node:24-alpine
 WORKDIR /app
 RUN mkdir -p /app/data
-RUN npm install -g npm@12.0.2
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/package.json .
