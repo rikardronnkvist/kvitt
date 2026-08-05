@@ -73,7 +73,7 @@ function decodeAvatarDataUrl(avatarDataUrl) {
   }
 
   const dimensions = readPngDimensions(pngBuffer);
-  if (!dimensions || !dimensions.width || !dimensions.height) {
+  if (!dimensions?.width || !dimensions?.height) {
     return { error: 'Profilbilden kunde inte valideras.' };
   }
   if (dimensions.width > MAX_AVATAR_DIMENSION || dimensions.height > MAX_AVATAR_DIMENSION) {
@@ -89,6 +89,42 @@ function saveAvatarImage({ userId, pngBuffer }) {
   const outputPath = getAvatarFilePath(fileName);
   fs.writeFileSync(outputPath, pngBuffer, { flag: 'wx' });
   return fileName;
+}
+
+function updateAvatarForProfile({ userId, currentUser, avatarRemove, decodedAvatar }) {
+  let avatarPath = currentUser.avatar_path || null;
+  let avatarVersion = Number(currentUser.avatar_version) || 0;
+  let avatarCleanupPath = null;
+
+  if (avatarRemove) {
+    avatarPath = null;
+    if (currentUser.avatar_path) {
+      avatarVersion += 1;
+      avatarCleanupPath = currentUser.avatar_path;
+    }
+
+    return { avatarPath, avatarVersion, avatarCleanupPath };
+  }
+
+  if (decodedAvatar?.pngBuffer) {
+    const nextAvatarPath = saveAvatarImage({ userId, pngBuffer: decodedAvatar.pngBuffer });
+    avatarPath = nextAvatarPath;
+    avatarVersion += 1;
+    if (currentUser.avatar_path && currentUser.avatar_path !== nextAvatarPath) {
+      avatarCleanupPath = currentUser.avatar_path;
+    }
+  }
+
+  return { avatarPath, avatarVersion, avatarCleanupPath };
+}
+
+function normalizeProfilePhone({ phoneEnabled, phone, currentPhone }) {
+  if (!phoneEnabled) {
+    return currentPhone;
+  }
+
+  const trimmedPhone = phone?.trim();
+  return trimmedPhone?.length ? trimmedPhone : null;
 }
 
 router.use('/passkey', passkeyRoutes);
@@ -184,41 +220,24 @@ router.put('/profile', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Välj antingen att ta bort eller ersätta profilbilden.' });
   }
 
-  let avatarPath = currentUser.avatar_path || null;
-  let avatarVersion = Number(currentUser.avatar_version) || 0;
-  if (avatarRemove) {
-    avatarPath = null;
-    if (currentUser.avatar_path) {
-      avatarVersion += 1;
-      try {
-        fs.rmSync(getAvatarFilePath(currentUser.avatar_path), { force: true });
-      } catch {
-        // ignore file cleanup errors
-      }
-    }
-  } else if (decodedAvatar?.pngBuffer) {
-    const nextAvatarPath = saveAvatarImage({ userId: req.user.id, pngBuffer: decodedAvatar.pngBuffer });
-    avatarPath = nextAvatarPath;
-    avatarVersion += 1;
-    if (currentUser.avatar_path && currentUser.avatar_path !== nextAvatarPath) {
-      try {
-        fs.rmSync(getAvatarFilePath(currentUser.avatar_path), { force: true });
-      } catch {
-        // ignore cleanup errors after successful replacement
-      }
-    }
-  }
-
   const phoneEnabled = getPhoneAndSwishEnabled();
-  const normalizedPhone = phoneEnabled && phone?.trim().length > 0 ? phone.trim() : (phoneEnabled ? null : currentUser.phone);
+  const { avatarPath, avatarVersion, avatarCleanupPath } = updateAvatarForProfile({
+    userId: req.user.id,
+    currentUser,
+    avatarRemove,
+    decodedAvatar,
+  });
+  const normalizedPhone = normalizeProfilePhone({
+    phoneEnabled,
+    phone,
+    currentPhone: currentUser.phone,
+  });
 
   db.prepare('UPDATE users SET full_name = ?, phone = ?, initials = ?, avatar_path = ?, avatar_version = ? WHERE id = ?')
     .run(full_name, normalizedPhone, normalizedInitials, avatarPath, avatarVersion, req.user.id);
 
-  if (avatarRemove) {
-    cleanupUserAvatarFiles(req.user.id, null);
-  } else if (decodedAvatar?.pngBuffer && avatarPath) {
-    cleanupUserAvatarFiles(req.user.id, avatarPath);
+  if (avatarCleanupPath || avatarRemove) {
+    cleanupUserAvatarFiles(req.user.id, avatarCleanupPath);
   }
 
   tryLogActivity({

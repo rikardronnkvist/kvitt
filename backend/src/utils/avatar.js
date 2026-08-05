@@ -5,7 +5,7 @@ const AVATAR_BASE_URL = '/uploads/avatars';
 
 function resolveAvatarDirectory() {
   const configuredDirectory = process.env.AVATAR_STORAGE_PATH;
-  if (configuredDirectory && configuredDirectory.trim()) {
+  if (configuredDirectory?.trim()) {
     return path.resolve(configuredDirectory.trim());
   }
 
