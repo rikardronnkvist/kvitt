@@ -78,40 +78,43 @@ jobs:
               .filter(Boolean);
           }
 
-          function isAllowlistedNoFix(name, visiting = new Set()) {
+          function collectAdvisoryIds(name, visiting = new Set()) {
             if (memo.has(name)) {
               return memo.get(name);
             }
 
             const vulnerability = vulns[name];
-            if (!vulnerability || vulnerability.fixAvailable !== false) {
-              memo.set(name, false);
-              return false;
+            if (vulnerability === undefined) {
+              memo.set(name, []);
+              return [];
             }
 
             const advisoryIds = getAdvisoryIds(vulnerability);
             if (advisoryIds.length > 0) {
-              const allAllowlisted = advisoryIds.every((id) => allow.has(id));
-              memo.set(name, allAllowlisted);
-              return allAllowlisted;
+              memo.set(name, advisoryIds);
+              return advisoryIds;
             }
 
             const referencedPackages = (vulnerability.via || []).filter((item) => typeof item === 'string');
             if (referencedPackages.length === 0 || visiting.has(name)) {
-              memo.set(name, false);
-              return false;
+              memo.set(name, []);
+              return [];
             }
 
             visiting.add(name);
-            const allReferencedAllowlisted = referencedPackages.every((dep) => isAllowlistedNoFix(dep, visiting));
+            const collected = referencedPackages.flatMap((dep) => collectAdvisoryIds(dep, visiting));
             visiting.delete(name);
 
-            memo.set(name, allReferencedAllowlisted);
-            return allReferencedAllowlisted;
+            const unique = [...new Set(collected)];
+            memo.set(name, unique);
+            return unique;
           }
 
           const blocking = Object.entries(vulns).filter(([name, vulnerability]) => (
-            severityGate.has(vulnerability.severity) && !isAllowlistedNoFix(name)
+            severityGate.has(vulnerability.severity) && (() => {
+              const advisoryIds = collectAdvisoryIds(name);
+              return advisoryIds.length === 0 || advisoryIds.every((id) => allow.has(id)) === false;
+            })()
           ));
 
           if (blocking.length) {
