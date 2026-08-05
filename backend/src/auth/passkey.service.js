@@ -9,7 +9,7 @@ import { db } from '../db/database.js';
 import { challengeStore } from './challenge-store.js';
 import { getWebAuthnConfig } from './webauthn.config.js';
 import { getAuthUserById, signToken } from './token.js';
-import { isValidInviteToken, isValidRegistrationAccessToken } from '../utils/settings.js';
+import { getPhoneAndSwishEnabled, isValidInviteToken, isValidRegistrationAccessToken } from '../utils/settings.js';
 import { logActivity, tryLogActivity } from '../utils/activity-log.js';
 
 function createHttpError(status, message) {
@@ -184,7 +184,7 @@ export async function createRegistrationOptions(displayName, phone, registration
     challenge: options.challenge,
     userHandle,
     displayName,
-    phone: phone && phone.trim().length > 0 ? phone.trim() : null,
+    phone: getPhoneAndSwishEnabled() && phone && phone.trim().length > 0 ? phone.trim() : null,
     expiresAt: Date.now() + config.challengeTtlMs,
   });
 

@@ -7,6 +7,7 @@ Kvitt is a self-hosted bill-splitting web application for small groups, trips, h
 - Group creation and membership management
 - Expense tracking with equal or manual splits
 - Balance calculation with settlement support
+- Environment-driven phone/Swish settings with configurable phone number format
 - Docker-based self-hosted deployment
 
 ### Quick start with Docker Compose
@@ -45,6 +46,8 @@ Use `main-<run_number>` for immutable CI deployments and `v*` tags for release d
 | `KVITT_LANGUAGE` | `frontend` (runtime env) | `sv-se` | Active UI language served via runtime config. Current supported value is `sv-se`. |
 | `VITE_LANGUAGE` | `frontend` (build env / local dev) | `sv-se` | Build-time fallback language used in local Vite development. |
 | `VITE_TAGLINE` | `frontend` (build arg or runtime env) | `Dela kostnader, bli kvitt` | Tagline shown on the login page and in the app header. |
+| `KVITT_PHONE_ENABLED` | `backend` and `frontend` runtime env | `true` | Enables or disables phone number collection and Swish suggestions. |
+| `KVITT_PHONE_FORMAT` | `backend` and `frontend` runtime env | `swedish` | Phone display format. Supported values: `swedish`, `international`, `national`. |
 | `VAPID_PUBLIC_KEY` | `backend` | _(none)_ | VAPID public key for Web Push notifications. Leave empty to disable push. |
 | `VAPID_PRIVATE_KEY` | `backend` | _(none)_ | VAPID private key. Keep this secret. |
 | `VAPID_CONTACT_EMAIL` | `backend` | `admin@mydomain.se` | Contact email sent in VAPID headers. Change to a real address in production. |
@@ -93,6 +96,13 @@ VAPID_CONTACT_EMAIL=you@mydomain.se
 ### Registration access control
 - New account registration requires an admin-managed invite URL (`/register?<token>`).
 - Admins can view, rotate, and copy the active registration link in the admin panel.
+
+### Phone numbers and Swish
+- Phone numbers are controlled by `KVITT_PHONE_ENABLED` and are enabled by default.
+- The display format is controlled by `KVITT_PHONE_FORMAT`.
+- The same settings are used for profile phone input, registration phone input, and Swish suggestions.
+- Set the same values in the backend environment and the frontend runtime environment if you want the frontend config to match immediately on load.
+- Swish payment suggestions are hidden automatically when phone handling is disabled.
 
 ### Database backup
 The SQLite database is stored in the named Docker volume `kvitt_data`.

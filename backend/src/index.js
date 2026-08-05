@@ -3,7 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { initializeDatabase } from './db/database.js';
-import { getRegistrationAccessToken } from './utils/settings.js';
+import { getPublicSettings, getRegistrationAccessToken } from './utils/settings.js';
 import { getFrontendPublicOrigin } from './utils/public-origin.js';
 import { isDevboxEnabled } from './utils/devbox-mode.js';
 import authRoutes from './routes/auth.js';
@@ -125,6 +125,10 @@ app.get('/healthz', (_req, res) => {
 app.get(['/register', '/register/*'], (req, res) => {
   const safeQuery = getSafeRegisterQuery(req.originalUrl);
   return res.redirect(302, `${getFrontendPublicOrigin()}/register${safeQuery}`);
+});
+
+app.get('/api/settings', (_req, res) => {
+  return res.json(getPublicSettings());
 });
 
 app.use('/api/auth', authRateLimit, authRoutes);

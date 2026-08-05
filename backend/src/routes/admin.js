@@ -3,11 +3,7 @@ import express from 'express';
 import { z } from 'zod';
 import authMiddleware from '../middleware/auth.js';
 import { db } from '../db/database.js';
-import {
-  getRegistrationAccessToken,
-  resetRegistrationAccessToken,
-  setRegistrationAccessToken,
-} from '../utils/settings.js';
+import { getRegistrationAccessToken, resetRegistrationAccessToken, setRegistrationAccessToken } from '../utils/settings.js';
 import { getFrontendPublicOrigin } from '../utils/public-origin.js';
 import { createUniqueSlug, slugifyGroupName } from '../utils/slug.js';
 import { calculateMemberBalances } from '../utils/balance.js';

@@ -5,6 +5,7 @@ import MemberDropdown from './MemberDropdown.jsx';
 import ModalShell from './ModalShell.jsx';
 import { getUserDisplayName } from '../lib/users.js';
 import DateTimePicker from './DateTimePicker.jsx';
+import { useAppSettings } from '../hooks/useAppSettings.js';
 
 function toLocalDateTimeInputValue(input) {
   const date = input ? new Date(input) : new Date();
@@ -60,6 +61,7 @@ export default function NewSettlementModal({
   onClose,
   onSuccess,
 }) {
+  const { settings: appSettings } = useAppSettings();
   const defaultPayerId = members.some((member) => String(member.id) === String(currentUserId)) ? String(currentUserId) : '';
 
   const [formData, setFormData] = useState({
@@ -97,7 +99,7 @@ export default function NewSettlementModal({
     [parsedAmount],
   );
   const isReceiverCurrentUser = String(selectedReceiver?.id ?? '') === String(currentUserId ?? '');
-  const showSwishSection = Boolean(formData.receiver_id && receiverSwishPhone);
+  const showSwishSection = appSettings.phone_enabled && Boolean(formData.receiver_id && receiverSwishPhone);
   const canSwish = Boolean(swishLink && formData.payer_id && formData.receiver_id && !isReceiverCurrentUser);
 
   const handleClose = () => {

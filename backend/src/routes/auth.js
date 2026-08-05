@@ -9,6 +9,7 @@ import { getAuthUserById, signToken } from '../auth/token.js';
 import { resolveRequestIp, tryLogActivity } from '../utils/activity-log.js';
 import { cleanupUserAvatarFiles, getAvatarFilePath } from '../utils/avatar.js';
 import { isDevboxEnabled } from '../utils/devbox-mode.js';
+import { getPhoneAndSwishEnabled } from '../utils/settings.js';
 
 const router = express.Router();
 
@@ -169,7 +170,6 @@ router.put('/profile', requireAuth, async (req, res) => {
     avatar_remove: avatarRemove,
   } = parsed.data;
   const normalizedInitials = initials?.trim().length === 2 ? initials.trim().toUpperCase() : null;
-  const normalizedPhone = phone?.trim().length > 0 ? phone.trim() : null;
   const currentUser = db.prepare('SELECT id, is_admin, full_name, phone, initials, avatar_path, avatar_version FROM users WHERE id = ?').get(req.user.id);
 
   if (!currentUser) {
@@ -208,6 +208,9 @@ router.put('/profile', requireAuth, async (req, res) => {
       }
     }
   }
+
+  const phoneEnabled = getPhoneAndSwishEnabled();
+  const normalizedPhone = phoneEnabled && phone?.trim().length > 0 ? phone.trim() : (phoneEnabled ? null : currentUser.phone);
 
   db.prepare('UPDATE users SET full_name = ?, phone = ?, initials = ?, avatar_path = ?, avatar_version = ? WHERE id = ?')
     .run(full_name, normalizedPhone, normalizedInitials, avatarPath, avatarVersion, req.user.id);

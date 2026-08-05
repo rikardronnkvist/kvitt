@@ -5,7 +5,8 @@ import { get, post } from '../api/client.js';
 import PasskeyButton from '../components/PasskeyButton.jsx';
 import InviteQrScannerModal from '../components/InviteQrScannerModal.jsx';
 import { usePasskeyAuth } from '../hooks/usePasskeyAuth.js';
-import { formatSwedishPhone, sanitizePhoneInput } from '../lib/phone.js';
+import { formatPhoneNumber, getPhonePlaceholder, sanitizePhoneInput } from '../lib/phone.js';
+import { useAppSettings } from '../hooks/useAppSettings.js';
 import { PENDING_INVITE_TOKEN_KEY } from './InvitePage.jsx';
 import { t } from '../lib/i18n.js';
 
@@ -188,6 +189,8 @@ function RegisterSection({
   hasValidRegistrationToken,
   registerForm,
   setRegisterForm,
+  phoneEnabled,
+  phoneFormat,
   isBusy,
   hasValidRegisterName,
   passkeyLoading,
@@ -210,20 +213,22 @@ function RegisterSection({
           minLength={3}
         />
       </label>
-      <label className="field-label">
-        {t('auth.phoneLabel')}
-        <input
-          name="phone"
-          type="tel"
-          value={registerForm.phone}
-          onChange={(event) => setRegisterForm((previous) => ({ ...previous, phone: sanitizePhoneInput(event.target.value) }))}
-          onBlur={(event) => setRegisterForm((previous) => ({ ...previous, phone: formatSwedishPhone(event.target.value) }))}
-          disabled={!hasValidRegistrationToken}
-          placeholder={t('auth.phonePlaceholder')}
-          autoComplete="tel"
-          pattern="[\d+\-\s]*"
-        />
-      </label>
+      {phoneEnabled ? (
+        <label className="field-label">
+          {t('auth.phoneLabel')}
+          <input
+            name="phone"
+            type="tel"
+            value={registerForm.phone}
+            onChange={(event) => setRegisterForm((previous) => ({ ...previous, phone: sanitizePhoneInput(event.target.value) }))}
+            onBlur={(event) => setRegisterForm((previous) => ({ ...previous, phone: formatPhoneNumber(event.target.value, phoneFormat) }))}
+            disabled={!hasValidRegistrationToken}
+            placeholder={getPhonePlaceholder(phoneFormat)}
+            autoComplete="tel"
+            pattern="[\d+\-\s]*"
+          />
+        </label>
+      ) : null}
       <div className="space-y-4">
         <PasskeyButton
           label={t('auth.signupPasskey')}
@@ -317,6 +322,7 @@ function AuthFooter({ isRegisterMode, hasRegistrationToken, registrationToken })
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { settings: appSettings } = useAppSettings();
   const isRegisterRoute = useMemo(() => location.pathname === '/register', [location.pathname]);
   const registrationToken = useMemo(() => parseRegistrationToken(location.search), [location.search]);
   const [registerForm, setRegisterForm] = useState(registerInitialState);
@@ -347,7 +353,11 @@ export default function Login() {
       return;
     }
 
-    await handlePasskeySignup(displayName, formatSwedishPhone(registerForm.phone), registrationToken);
+    await handlePasskeySignup(
+      displayName,
+      appSettings.phone_enabled ? formatPhoneNumber(registerForm.phone, appSettings.phone_format) : '',
+      registrationToken,
+    );
   };
 
   const handleDevboxUserLogin = async (userId) => {
@@ -392,6 +402,8 @@ export default function Login() {
               hasValidRegistrationToken={hasValidRegistrationToken}
               registerForm={registerForm}
               setRegisterForm={setRegisterForm}
+              phoneEnabled={appSettings.phone_enabled}
+              phoneFormat={appSettings.phone_format}
               isBusy={isBusy}
               hasValidRegisterName={hasValidRegisterName}
               passkeyLoading={passkeyLoading}

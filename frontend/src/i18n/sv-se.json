@@ -19,7 +19,7 @@
     "registerLinkInvalid": "Ogiltig registreringslänk. Be en administratör om en ny länk.",
     "nameMinChars": "Ange minst 3 tecken i namnet.",
     "fullName": "För och efternamn",
-    "phoneLabel": "Telefonnummer (för enklare Swish'ar)",
+    "phoneLabel": "Telefonnummer",
     "phonePlaceholder": "T.ex. +46-70-123 45 67",
     "signupPasskey": "Skapa konto med Passkey",
     "loginPasskey": "Logga in med Passkey",

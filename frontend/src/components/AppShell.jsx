@@ -13,11 +13,12 @@ import {
   renameMyPasskey,
 } from '../auth/passkey.js';
 import { formatDateTime } from '../lib/format.js';
-import { formatSwedishPhone, sanitizePhoneInput } from '../lib/phone.js';
+import { formatPhoneNumber, getPhonePlaceholder, sanitizePhoneInput } from '../lib/phone.js';
 import { isPushSupported, isIosNonStandalone, subscribeToPush, unsubscribeFromPush, getSubscriptionState } from '../lib/pushNotifications.js';
 import { t } from '../lib/i18n.js';
 import AvatarCropperModal from './AvatarCropperModal.jsx';
 import UserAvatar from './UserAvatar.jsx';
+import { useAppSettings } from '../hooks/useAppSettings.js';
 
 function getSecureRandomIndex(length) {
   if (!Number.isInteger(length) || length <= 0) {
@@ -300,6 +301,8 @@ function EditProfileModal({
   profileForm,
   profileError,
   profileSaving,
+  phoneEnabled,
+  phoneFormat,
   setEditingProfile,
   setProfileForm,
   onSelectAvatarFile,
@@ -329,18 +332,20 @@ function EditProfileModal({
                 autoComplete="name"
               />
             </label>
-            <label className="field-label">
-              {t('auth.phoneLabel')}
-              <input
-                type="tel"
-                value={profileForm.phone}
-                onChange={(event) => setProfileForm((formState) => ({ ...formState, phone: sanitizePhoneInput(event.target.value) }))}
-                onBlur={(event) => setProfileForm((formState) => ({ ...formState, phone: formatSwedishPhone(event.target.value) }))}
-                placeholder={t('auth.phonePlaceholder')}
-                autoComplete="tel"
-                pattern="[\d+\-\s]*"
-              />
-            </label>
+            {phoneEnabled ? (
+              <label className="field-label">
+                {t('auth.phoneLabel')}
+                <input
+                  type="tel"
+                  value={profileForm.phone}
+                  onChange={(event) => setProfileForm((formState) => ({ ...formState, phone: sanitizePhoneInput(event.target.value) }))}
+                  onBlur={(event) => setProfileForm((formState) => ({ ...formState, phone: formatPhoneNumber(event.target.value, phoneFormat) }))}
+                  placeholder={getPhonePlaceholder(phoneFormat)}
+                  autoComplete="tel"
+                  pattern="[\d+\-\s]*"
+                />
+              </label>
+            ) : null}
             <label className="field-label">
               <span>{t('shell.initials')} <span className="text-[var(--text-muted)] font-normal">{t('shell.initialsOptionalHint')}</span></span>
               <input
@@ -567,6 +572,7 @@ function PasskeysModal({
 
 export default function AppShell() {
   const navigate = useNavigate();
+  const { settings: appSettings } = useAppSettings();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
   const [creatingGroup, setCreatingGroup] = useState(false);
@@ -651,7 +657,7 @@ export default function AppShell() {
   const openEditProfile = () => {
     setProfileForm({
       full_name: user?.full_name || '',
-      phone: formatSwedishPhone(user?.phone || ''),
+      phone: formatPhoneNumber(user?.phone || '', appSettings.phone_format),
       initials: user?.initials || '',
       avatar_data_url: '',
       avatar_preview_url: user?.avatar_url || '',
@@ -807,9 +813,11 @@ export default function AppShell() {
       const trimmedInitials = profileForm.initials.trim();
       const body = {
         full_name: profileForm.full_name,
-        phone: formatSwedishPhone(profileForm.phone),
         initials: trimmedInitials.length === 2 ? trimmedInitials : '',
       };
+      if (appSettings.phone_enabled) {
+        body.phone = formatPhoneNumber(profileForm.phone, appSettings.phone_format);
+      }
       if (profileForm.avatar_data_url) {
         body.avatar_data_url = profileForm.avatar_data_url;
       }
@@ -927,6 +935,8 @@ export default function AppShell() {
         profileForm={profileForm}
         profileError={profileError}
         profileSaving={profileSaving}
+                  phoneEnabled={appSettings.phone_enabled}
+                  phoneFormat={appSettings.phone_format}
         setEditingProfile={setEditingProfile}
         setProfileForm={setProfileForm}
         onSelectAvatarFile={handleSelectAvatarFile}
