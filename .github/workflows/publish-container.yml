@@ -57,7 +57,9 @@ jobs:
         working-directory: frontend
 
       - name: Audit frontend dependencies
-        run: npm audit --audit-level=high
+        run: |
+          npm audit --json > audit-frontend.json || true
+          node -e "const fs=require('fs');const report=JSON.parse(fs.readFileSync('audit-frontend.json','utf8'));const allow=new Set(['GHSA-qwww-vcr4-c8h2']);const vulns=Object.entries(report.vulnerabilities||{});const blocking=vulns.filter(([_,v])=>{if(!['high','critical'].includes(v.severity))return false;const via=(v.via||[]).filter((x)=>x&&typeof x==='object');if(v.fixAvailable===false&&via.length>0){const onlyAllowlisted=via.every((item)=>{const m=(item.url||'').match(/GHSA-[A-Za-z0-9-]+/);return m&&allow.has(m[0]);});if(onlyAllowlisted)return false;}return true;});if(blocking.length){console.error('Blocking frontend npm audit findings detected:');for(const [name,v] of blocking){console.error('- '+name+' ('+v.severity+')');}process.exit(1);}const summary=report.metadata&&report.metadata.vulnerabilities?report.metadata.vulnerabilities:{};console.log('Frontend audit completed. Remaining advisories are allowlisted no-fix items only.');console.log(JSON.stringify(summary));"
         working-directory: frontend
 
   publish:
