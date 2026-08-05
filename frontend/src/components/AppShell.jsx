@@ -19,6 +19,7 @@ import { t } from '../lib/i18n.js';
 import AvatarCropperModal from './AvatarCropperModal.jsx';
 import UserAvatar from './UserAvatar.jsx';
 import { useAppSettings } from '../hooks/useAppSettings.js';
+import { useThemePreference } from '../hooks/useThemePreference.js';
 
 function getSecureRandomIndex(length) {
   if (!Number.isInteger(length) || length <= 0) {
@@ -299,12 +300,14 @@ function CreateGroupModal({
 function EditProfileModal({
   editingProfile,
   profileForm,
+  profileThemePreference,
   profileError,
   profileSaving,
   phoneEnabled,
   phoneFormat,
   setEditingProfile,
   setProfileForm,
+  setProfileThemePreference,
   onSelectAvatarFile,
   onRemoveAvatar,
   onSubmit,
@@ -356,6 +359,17 @@ function EditProfileModal({
                 autoComplete="off"
                 maxLength={2}
               />
+            </label>
+            <label className="field-label">
+              {t('shell.appearanceTheme')}
+              <select
+                value={profileThemePreference}
+                onChange={(event) => setProfileThemePreference(event.target.value)}
+              >
+                <option value="system">{t('shell.themeSystem')}</option>
+                <option value="light">{t('shell.themeLight')}</option>
+                <option value="dark">{t('shell.themeDark')}</option>
+              </select>
             </label>
             <div className="space-y-2">
               <p className="field-label m-0">{t('shell.avatarLabel')}</p>
@@ -573,6 +587,7 @@ function PasskeysModal({
 export default function AppShell() {
   const navigate = useNavigate();
   const { settings: appSettings } = useAppSettings();
+  const { themePreference, setThemePreference } = useThemePreference();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
   const [creatingGroup, setCreatingGroup] = useState(false);
@@ -591,6 +606,7 @@ export default function AppShell() {
   });
   const [profileError, setProfileError] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
+  const [profileThemePreference, setProfileThemePreference] = useState('system');
   const [avatarCropOpen, setAvatarCropOpen] = useState(false);
   const [avatarCropSource, setAvatarCropSource] = useState('');
   const [passkeys, setPasskeys] = useState([]);
@@ -663,6 +679,7 @@ export default function AppShell() {
       avatar_preview_url: user?.avatar_url || '',
       avatar_remove: false,
     });
+    setProfileThemePreference(themePreference);
     setProfileError('');
     setDropdownOpen(false);
     setEditingProfile(true);
@@ -827,6 +844,7 @@ export default function AppShell() {
       const data = await put('/api/auth/profile', body);
       localStorage.setItem('token', data.token);
       setUser((prev) => ({ ...prev, ...data.user }));
+      setThemePreference(profileThemePreference);
       setEditingProfile(false);
     } catch (err) {
       setProfileError(err.message || t('common.somethingWentWrong'));
@@ -933,12 +951,14 @@ export default function AppShell() {
       <EditProfileModal
         editingProfile={editingProfile}
         profileForm={profileForm}
+        profileThemePreference={profileThemePreference}
         profileError={profileError}
         profileSaving={profileSaving}
-                  phoneEnabled={appSettings.phone_enabled}
-                  phoneFormat={appSettings.phone_format}
+        phoneEnabled={appSettings.phone_enabled}
+        phoneFormat={appSettings.phone_format}
         setEditingProfile={setEditingProfile}
         setProfileForm={setProfileForm}
+        setProfileThemePreference={setProfileThemePreference}
         onSelectAvatarFile={handleSelectAvatarFile}
         onRemoveAvatar={handleRemoveAvatar}
         onSubmit={handleSaveProfile}

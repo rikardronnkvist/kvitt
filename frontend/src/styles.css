@@ -31,6 +31,23 @@
   --overlay: rgba(17, 24, 39, 0.42);
 }
 
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --app-bg: #111718;
+  --app-surface: rgba(21, 29, 31, 0.86);
+  --app-surface-strong: #182123;
+  --app-surface-muted: #1f2a2d;
+  --app-surface-inset: #263338;
+  --text-primary: #edf4f3;
+  --text-secondary: #b7c4c2;
+  --text-muted: #8b9c99;
+  --border-subtle: rgba(237, 244, 243, 0.1);
+  --border-strong: rgba(237, 244, 243, 0.18);
+  --overlay: rgba(3, 6, 7, 0.7);
+  --shadow-soft: 0 12px 32px rgba(0, 0, 0, 0.28);
+  --shadow-strong: 0 20px 48px rgba(0, 0, 0, 0.4);
+}
+
 * {
   box-sizing: border-box;
 }
