@@ -111,5 +111,29 @@
   "users": {
     "userWithId": "Användare {id}",
     "unknownUser": "Okänd användare"
+  },
+  "about": {
+    "title": "Kvitt",
+    "logoAlt": "Kvitt",
+    "intro": "Kvitt är en app för att dela kostnader i grupp – perfekt för resor, delat boende eller gemensamma inköp. Lägg till utgifter, se vem som är skyldig vad och registrera betalningar för att hålla koll på ekonomin i dina grupper.",
+    "loginHeading": "Inloggning",
+    "loginIntro": "Kvitt använder passkeys för inloggning – inget lösenord krävs. Passkeys är säkrade med din enhets biometri eller PIN.",
+    "loginVaultPrefix": "För att inte tappa åtkomsten till ditt konto rekommenderar vi att du sparar dina passkeys i ett lösenordsvalv, till exempel",
+    "loginVaultIcloud": "iCloud Nyckelring",
+    "loginVaultGoogle": "Google Password Manager",
+    "loginVaultOr": "eller",
+    "loginVaultBitwarden": "Bitwarden",
+    "loginVaultSuffix": "På så vis kan du logga in från flera enheter och återfå åtkomst om du byter telefon och/eller dator.",
+    "pwaHeading": "Installera Kvitt som app på iPhone",
+    "pwaIntro": "För bästa upplevelse på iOS rekommenderar vi att du lägger till Kvitt på hemskärmen. Då öppnas Kvitt som en app och push-notiser fungerar bättre.",
+    "stepLabel": "Steg {number}:",
+    "pwaStep1Alt": "Steg 1: öppna Kvitt i Safari",
+    "pwaStep1Text": "Öppna Kvitt i Safari och tryck på de tre punkterna.",
+    "pwaStep2Alt": "Steg 2: tryck på dela-knappen i Safari",
+    "pwaStep2Text": "Tryck på Dela-knappen.",
+    "pwaStep3Alt": "Steg 3: välj Lägg till på hemskärm",
+    "pwaStep3Text": "Välj Lägg till på hemskärm (du kan behöva scrolla ner en bit för att hitta detta val).",
+    "pwaStep4Alt": "Steg 4: bekräfta genom att trycka på Lägg till",
+    "pwaStep4Text": "Bekräfta med Lägg till uppe till höger."
   }
 }
