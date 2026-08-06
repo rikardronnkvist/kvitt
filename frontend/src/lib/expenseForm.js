@@ -64,13 +64,16 @@ function hasEqualSplits(amount, splits) {
   return splits.every((split, index) => Number(split.amount_owed) === Number(expected[index].amount_owed));
 }
 
-export function createExpenseForm({ members, categories = [], currentUserId, expense, defaultPaidByUserId }) {
-  const fallbackPayerId = members.some((member) => String(member.id) === currentUserId)
+function deriveSplitType(expense, members) {
+  if (expense && !hasEqualSplits(expense.amount, expense.splits)) return 'custom';
+  if (expense && expense.splits.length < members.length) return 'equal';
+  return 'all_equal';
+}
+
+export function createExpenseForm({ members, categories = [], currentUserId, expense }) {
+  const defaultPayerId = members.some((member) => String(member.id) === currentUserId)
     ? currentUserId
     : String(expense?.paid_by_user_id || members[0]?.id || '');
-  const defaultPayerId = defaultPaidByUserId != null && defaultPaidByUserId !== ''
-    ? String(defaultPaidByUserId)
-    : fallbackPayerId;
 
   const includedUsers = Object.fromEntries(
     members.map((member) => [
@@ -95,11 +98,7 @@ export function createExpenseForm({ members, categories = [], currentUserId, exp
     notes: expense?.notes || '',
     occurred_at: toLocalDateTimeInputValue(expense?.occurred_at || expense?.created_at),
     distance_mil: '',
-    split_type: expense && !hasEqualSplits(expense.amount, expense.splits)
-      ? 'custom'
-      : expense && expense.splits.length < members.length
-        ? 'equal'
-        : 'all_equal',
+    split_type: deriveSplitType(expense, members),
     included_users: includedUsers,
     custom_amounts: customAmounts,
     custom_percentages: customPercentages,

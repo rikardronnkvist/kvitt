@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { applyThemePreference, getStoredThemePreference } from '../lib/theme.js';
 
 export function useThemePreference() {
-  const [themePreference, setThemePreferenceState] = useState(() => getStoredThemePreference());
+  const [themePreference, setThemePreference] = useState(() => getStoredThemePreference());
 
   useEffect(() => {
     applyThemePreference(themePreference);
@@ -23,10 +23,6 @@ export function useThemePreference() {
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
-
-  const setThemePreference = (nextPreference) => {
-    setThemePreferenceState(nextPreference);
-  };
 
   return { themePreference, setThemePreference };
 }

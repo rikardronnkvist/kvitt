@@ -4,23 +4,27 @@ import { buildExpensePayload, getSplitSummary } from '../lib/expenseForm.js';
 import { getCategoryIcon } from '../lib/expenseCategories.js';
 import { formatCurrency } from '../lib/format.js';
 import { getUserDisplayName } from '../lib/users.js';
-import { t } from '../lib/i18n.js';
 import MemberDropdown from './MemberDropdown.jsx';
 import UserAvatar from './UserAvatar.jsx';
 import DateTimePicker from './DateTimePicker.jsx';
 
 const SPLIT_TYPE_OPTIONS = [
-  { value: 'all_equal', label: t('expenseFormUi.splitAllEqual'), Icon: SquareSplitHorizontal },
-  { value: 'equal', label: t('expenseFormUi.splitSomeEqual'), Icon: Columns4 },
-  { value: 'custom', label: t('expenseFormUi.splitCustomAmount'), Icon: Banknote },
-  { value: 'percent', label: t('expenseFormUi.splitCustomPercent'), Icon: Percent },
+  { value: 'all_equal', label: 'Alla delar lika', Icon: SquareSplitHorizontal },
+  { value: 'equal', label: 'Delas mellan några', Icon: Columns4 },
+  { value: 'custom', label: 'Egna belopp', Icon: Banknote },
+  { value: 'percent', label: 'Egna procent', Icon: Percent },
 ];
+
+function getEqualPctLabel(pct, isIncluded) {
+  if (pct != null) return `${pct}%`;
+  return isIncluded ? '' : '0%';
+}
 
 function SplitTypeDropdown({ value, onChange, membersCount }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const selected = SPLIT_TYPE_OPTIONS.find((o) => o.value === value);
-  const getLabel = (optValue, label) => (optValue === 'all_equal' ? t('expenseFormUi.splitAllEqualWithCount', { count: membersCount }) : label);
+  const getLabel = (optValue, label) => optValue === 'all_equal' ? `Alla ${membersCount} delar lika` : label;
 
   useEffect(() => {
     if (!open) return;
@@ -37,7 +41,7 @@ function SplitTypeDropdown({ value, onChange, membersCount }) {
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label={t('expenseFormUi.splitTypeAria')}
+        aria-label="Fördelningstyp"
         onClick={() => setOpen((p) => !p)}
         className="flex w-full items-center gap-2 rounded-[var(--radius-field)] border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-[0.95rem] py-[0.875rem] text-left text-[length:inherit] transition focus:border-[var(--accent)] focus:outline-none focus:ring-[3px] focus:ring-[color-mix(in_srgb,var(--accent)_16%,transparent)]"
       >
@@ -46,7 +50,7 @@ function SplitTypeDropdown({ value, onChange, membersCount }) {
         <ChevronDown className="h-4 w-4 shrink-0 text-[var(--text-muted)]" aria-hidden="true" />
       </button>
       {open && (
-        <ul role="listbox" aria-label={t('expenseFormUi.splitTypeAria')} className="absolute z-10 mt-1 w-full overflow-hidden rounded-[var(--radius-field)] border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] py-1 shadow-lg">
+        <ul role="listbox" aria-label="Fördelningstyp" className="absolute z-10 mt-1 w-full overflow-hidden rounded-[var(--radius-field)] border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] py-1 shadow-lg">
           {SPLIT_TYPE_OPTIONS.map(({ value: optValue, label, Icon }) => (
             <li
               key={optValue}
@@ -152,15 +156,12 @@ function getAmountUpdate(previous, amountValue, isCarTripCategory, mileageRate) 
 
 function getCustomDifferenceText(hasValidAmount, customDifference) {
   if (!hasValidAmount) {
-    return t('expenseFormUi.enterTotalAmountFirst');
+    return 'Ange totalbelopp först';
   }
   if (customDifference === 0) {
-    return t('expenseFormUi.sumsCorrectly');
+    return 'Summerar korrekt';
   }
-  return t('expenseFormUi.remainingOrOverAmount', {
-    direction: customDifference > 0 ? t('expenseFormUi.remaining') : t('expenseFormUi.over'),
-    amount: formatCurrency(Math.abs(customDifference), { precise: true }),
-  });
+  return `${customDifference > 0 ? 'Återstår' : 'Över'} ${formatCurrency(Math.abs(customDifference), { precise: true })}`;
 }
 
 function getCustomDifferenceClass(hasValidAmount, customDifference) {
@@ -173,7 +174,7 @@ function getCustomDifferenceClass(hasValidAmount, customDifference) {
 function CategorySelector({ categories, form, setForm, mileageRate }) {
   return (
     <div className="space-y-2">
-      <p className="section-eyebrow">{t('expenseFormUi.category')}</p>
+      <p className="section-eyebrow">Kategori</p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-6">
         {categories.map((category) => {
           const Icon = getCategoryIcon(category.icon);
@@ -219,11 +220,8 @@ function SplitDetailsPanel({
 }) {
   if (form.split_type === 'percent') {
     const diffLabel = percentDifference === 0
-      ? t('expenseFormUi.sumsOneHundredPercent')
-      : t('expenseFormUi.remainingOrOverPercent', {
-        direction: percentDifference > 0 ? t('expenseFormUi.remaining') : t('expenseFormUi.over'),
-        percent: Math.abs(percentDifference),
-      });
+      ? 'Summerar 100%'
+      : `${percentDifference > 0 ? 'Återstår' : 'Över'} ${Math.abs(percentDifference)}%`;
     const diffClass = percentDifference === 0 ? 'amount-positive' : 'amount-negative';
     return (
       <div className="space-y-4 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
@@ -269,7 +267,7 @@ function SplitDetailsPanel({
         </div>
         <div className="flex items-start gap-3 border-t border-[var(--border-subtle)] pt-3 text-sm">
           <span className="flex-1 text-[var(--text-secondary)]">
-            {t('expenseFormUi.total')}
+            Totalt
             {percentTotal > 0 && percentDifference !== 0 && (
               <span className={`block text-xs ${diffClass}`}>{diffLabel}</span>
             )}
@@ -295,6 +293,7 @@ function SplitDetailsPanel({
             const equalTotal = equalSplits.reduce((s, r) => s + r.amount_owed, 0);
             const pct = isIncluded && equalTotal > 0 ? Math.round(split.amount_owed / equalTotal * 100) : null;
             const checked = form.included_users[member.id] !== false;
+            const pctLabel = getEqualPctLabel(pct, isIncluded);
             return (
               <div key={member.id} className="flex min-h-[3.375rem] items-center gap-3">
                 <UserAvatar
@@ -318,7 +317,7 @@ function SplitDetailsPanel({
                   {isIncluded ? formatCurrency(split.amount_owed, { precise: true }) : '0 kr'}
                 </span>
                 <span className={`w-10 sm:w-14 shrink-0 text-right text-sm font-medium ${isIncluded ? 'amount-neutral' : 'text-[var(--text-muted)]'}`}>
-                  {pct != null ? `${pct}%` : isIncluded ? '' : '0%'}
+                    {pctLabel}
                 </span>
               </div>
             );
@@ -327,7 +326,7 @@ function SplitDetailsPanel({
         </div>
         {equalSplits.length > 0 && (
           <div className="flex items-center gap-3 border-t border-[var(--border-subtle)] pt-3 text-sm">
-            <span className="flex-1 text-[var(--text-secondary)]">{t('expenseFormUi.total')}</span>
+            <span className="flex-1 text-[var(--text-secondary)]">Totalt</span>
             <span className="w-16 sm:w-24 shrink-0 text-right font-medium amount-neutral">
               {formatCurrency(equalSplits.reduce((s, r) => s + r.amount_owed, 0), { precise: true })}
             </span>
@@ -370,7 +369,9 @@ function SplitDetailsPanel({
               <span className="pointer-events-none absolute inset-y-0 right-3 hidden sm:flex items-center text-sm text-[var(--text-muted)]">kr</span>
             </div>
             <span className="w-10 sm:w-14 shrink-0 text-right text-sm font-medium amount-neutral">
-              {pct != null ? `${pct}%` : <span className="text-[var(--text-muted)]">—</span>}
+              {pct != null
+                ? `${pct}%`
+                : <span className="text-[var(--text-muted)]">—</span>}
             </span>
           </div>
           );
@@ -378,7 +379,7 @@ function SplitDetailsPanel({
       </div>
       <div className="flex items-start gap-3 border-t border-[var(--border-subtle)] pt-3 text-sm">
         <span className="flex-1 text-[var(--text-secondary)]">
-          {t('expenseFormUi.total')}
+          Totalt
           {hasValidAmount && customDifference !== 0 && (
             <span className={`block text-xs ${getCustomDifferenceClass(hasValidAmount, customDifference)}`}>
               {getCustomDifferenceText(hasValidAmount, customDifference)}
@@ -413,11 +414,12 @@ export default function ExpenseFormFields({
   const { amount, selectedMembers, equalSplits, customTotal, customDifference, hasValidAmount, percentTotal, percentSplits, percentDifference } = getSplitSummary(form, members);
   const selectedCategory = categories.find((category) => String(category.id) === String(form.category_id));
   const isCarTripCategory = selectedCategory?.icon === 'car';
-  const sharesValid = form.split_type === 'custom'
-    ? !hasValidAmount || customDifference === 0
-    : form.split_type === 'percent'
-      ? percentDifference === 0
-      : true;
+  let sharesValid = true;
+  if (form.split_type === 'custom') {
+    sharesValid = !hasValidAmount || customDifference === 0;
+  } else if (form.split_type === 'percent') {
+    sharesValid = percentDifference === 0;
+  }
   const formValid = form.title.trim() !== ''
     && hasValidAmount
     && form.paid_by_user_id !== ''
@@ -443,10 +445,11 @@ export default function ExpenseFormFields({
 
       <div className="grid gap-4 md:grid-cols-4">
         <label className="field-label md:col-span-4">
+          <span className="sr-only">Titel</span>
           <input
             value={form.title}
             onChange={(event) => setForm((previous) => ({ ...previous, title: event.target.value }))}
-            placeholder={t('expenseFormUi.titlePlaceholder')}
+            placeholder="Till exempel middag eller hotell"
             readOnly={isCarTripCategory}
             style={isCarTripCategory ? { background: 'var(--app-surface-muted)', color: 'var(--text-muted)', cursor: 'not-allowed' } : undefined}
             required
@@ -456,7 +459,7 @@ export default function ExpenseFormFields({
         {isCarTripCategory ? (
           <>
             <label className="field-label md:col-span-1">
-              <span>{t('expenseFormUi.distanceMil')} <span className="text-[var(--text-muted)] font-normal">({t('expenseFormUi.currencyPerMil', { rate: mileageRate })})</span></span>
+              <span>Antal mil <span className="text-[var(--text-muted)] font-normal">({mileageRate} kr/mil)</span></span>
               <div className="relative">
                 <input
                   type="text"
@@ -474,7 +477,7 @@ export default function ExpenseFormFields({
               </div>
             </label>
             <label className="field-label md:col-span-1">
-              <span>{t('expenseFormUi.amount')}</span>
+              <span>Belopp</span>
               <div className="relative">
                 <input
                   type="text"
@@ -490,13 +493,13 @@ export default function ExpenseFormFields({
                   required
                   style={{ paddingRight: '2.4rem' }}
                 />
-                  <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-[var(--text-muted)]">kr</span>
+                  <span className="pointer-events-none absolute inset-y-0 right-3 hidden sm:flex items-center text-sm text-[var(--text-muted)]">%</span>
               </div>
             </label>
           </>
         ) : (
           <label className="field-label md:col-span-2">
-            <span>{t('expenseFormUi.amount')}</span>
+            <span>Belopp</span>
             <div className="relative">
               <input
                 type="text"
@@ -518,18 +521,18 @@ export default function ExpenseFormFields({
         )}
 
         <label className="field-label md:col-span-2">
-          <span>{t('expenseFormUi.paidBy')}</span>
+          <span>Betald av</span>
           <MemberDropdown
             value={form.paid_by_user_id}
             options={members}
-            placeholder={t('expenseFormUi.selectPayer')}
+            placeholder="Välj betalare"
             onChange={(selectedValue) => setForm((previous) => ({ ...previous, paid_by_user_id: selectedValue }))}
-            ariaLabel={t('expenseFormUi.selectWhoPaid')}
+            ariaLabel="Välj vem som betalade"
           />
         </label>
 
         <label className="field-label md:col-span-4">
-          <span>{t('expenseFormUi.occurredAt')}</span>
+          <span>Datum och tid för utlägget</span>
           <DateTimePicker
             value={form.occurred_at}
             onChange={(value) => setForm((previous) => ({ ...previous, occurred_at: value }))}
@@ -537,7 +540,7 @@ export default function ExpenseFormFields({
         </label>
 
         <label className="field-label md:col-span-4">
-          <span>{t('expenseFormUi.notes')}</span>
+          <span>Anteckningar</span>
           <textarea
             rows="3"
             value={form.notes}
@@ -547,7 +550,7 @@ export default function ExpenseFormFields({
       </div>
 
       <div className="surface-card space-y-4 p-4">
-        <h3 className="m-0 text-base font-semibold">{t('expenseFormUi.splitExpense')}</h3>
+        <h3 className="m-0 text-base font-semibold">Dela utgiften</h3>
 
         <SplitTypeDropdown
           value={form.split_type}
@@ -574,13 +577,13 @@ export default function ExpenseFormFields({
       {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>{onDelete ? <button type="button" className="btn-danger w-full sm:w-auto" onClick={onDelete} disabled={saving}>{t('common.delete')}</button> : null}</div>
+        <div>{onDelete ? <button type="button" className="btn-danger w-full sm:w-auto" onClick={onDelete} disabled={saving}>Ta bort</button> : null}</div>
         <div className="flex flex-col gap-3 sm:flex-row">
           <button type="button" className="btn-secondary w-full sm:w-auto" onClick={handleCancel} disabled={saving}>
-            {t('common.cancel')}
+            Avbryt
           </button>
           <button type="submit" className="btn-primary w-full sm:w-auto" disabled={saving || !formValid}>
-            {saving ? t('shell.saving') : submitLabel}
+            {saving ? 'Sparar...' : submitLabel}
           </button>
         </div>
       </div>
