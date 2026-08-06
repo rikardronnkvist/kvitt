@@ -8,6 +8,52 @@ import DateTimePicker from './DateTimePicker.jsx';
 import { useAppSettings } from '../hooks/useAppSettings.js';
 import { t } from '../lib/i18n.js';
 
+const DEFAULT_PAYMENT_LINK_CONFIG = Object.freeze({
+  base_link: 'https://app.swish.nu/1/p/sw/',
+  query_params: Object.freeze({
+    phone: 'sw',
+    amount: 'amt',
+    message: 'msg',
+  }),
+});
+
+function readPaymentLinkConfig() {
+  const rawConfig = import.meta.env.VITE_PAYMENT_LINK_CONFIG;
+  if (!rawConfig) {
+    return DEFAULT_PAYMENT_LINK_CONFIG;
+  }
+
+  try {
+    const parsed = JSON.parse(rawConfig);
+    const baseLink = typeof parsed?.base_link === 'string' && parsed.base_link.trim()
+      ? parsed.base_link.trim()
+      : DEFAULT_PAYMENT_LINK_CONFIG.base_link;
+
+    const queryParams = parsed?.query_params && typeof parsed.query_params === 'object'
+      ? parsed.query_params
+      : {};
+
+    return {
+      base_link: baseLink,
+      query_params: {
+        phone: typeof queryParams.phone === 'string' && queryParams.phone.trim()
+          ? queryParams.phone.trim()
+          : DEFAULT_PAYMENT_LINK_CONFIG.query_params.phone,
+        amount: typeof queryParams.amount === 'string' && queryParams.amount.trim()
+          ? queryParams.amount.trim()
+          : DEFAULT_PAYMENT_LINK_CONFIG.query_params.amount,
+        message: typeof queryParams.message === 'string' && queryParams.message.trim()
+          ? queryParams.message.trim()
+          : DEFAULT_PAYMENT_LINK_CONFIG.query_params.message,
+      },
+    };
+  } catch {
+    return DEFAULT_PAYMENT_LINK_CONFIG;
+  }
+}
+
+const PAYMENT_LINK_CONFIG = readPaymentLinkConfig();
+
 function toLocalDateTimeInputValue(input) {
   const date = input ? new Date(input) : new Date();
   const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
@@ -15,7 +61,7 @@ function toLocalDateTimeInputValue(input) {
   return `${safeDate.getFullYear()}-${pad(safeDate.getMonth() + 1)}-${pad(safeDate.getDate())}T${pad(safeDate.getHours())}:${pad(safeDate.getMinutes())}`;
 }
 
-function normalizeSwishPhone(phone) {
+function normalizePaymentPhone(phone) {
   if (!phone) return null;
   const digits = String(phone).replace(/[^\d+]/g, '');
   if (!digits) return null;
@@ -35,7 +81,7 @@ function normalizeSwishPhone(phone) {
   return null;
 }
 
-function formatSwishAmount(amount) {
+function formatPaymentAmount(amount) {
   return String(Math.round(amount));
 }
 
@@ -43,14 +89,24 @@ function sanitizeIntegerInput(value) {
   return String(value ?? '').replace(/\D/g, '');
 }
 
-function buildSwishLink({ phone, amount, message }) {
-  const swishPhone = normalizeSwishPhone(phone);
-  if (!swishPhone || !Number.isInteger(amount) || amount <= 0) {
+function buildPaymentLink({ phone, amount, message }) {
+  const paymentPhone = normalizePaymentPhone(phone);
+  if (!paymentPhone || !Number.isInteger(amount) || amount <= 0) {
     return null;
   }
-  const encodedMessage = encodeURIComponent(message.slice(0, 50));
-  const swishAmount = formatSwishAmount(amount);
-  return `https://app.swish.nu/1/p/sw/?sw=${swishPhone}&amt=${swishAmount}&msg=${encodedMessage}`;
+  const paymentAmount = formatPaymentAmount(amount);
+
+  let url;
+  try {
+    url = new URL(PAYMENT_LINK_CONFIG.base_link);
+  } catch {
+    url = new URL(DEFAULT_PAYMENT_LINK_CONFIG.base_link);
+  }
+
+  url.searchParams.set(PAYMENT_LINK_CONFIG.query_params.phone, paymentPhone);
+  url.searchParams.set(PAYMENT_LINK_CONFIG.query_params.amount, paymentAmount);
+  url.searchParams.set(PAYMENT_LINK_CONFIG.query_params.message, message.slice(0, 50));
+  return url.toString();
 }
 
 export default function NewSettlementModal({
@@ -83,25 +139,25 @@ export default function NewSettlementModal({
     [members, formData.receiver_id],
   );
   const parsedAmount = Number(formData.amount);
-  const receiverSwishPhone = useMemo(
-    () => normalizeSwishPhone(selectedReceiver?.phone || null),
+  const receiverPaymentPhone = useMemo(
+    () => normalizePaymentPhone(selectedReceiver?.phone || null),
     [selectedReceiver],
   );
-  const swishLink = useMemo(
-    () => buildSwishLink({
-      phone: receiverSwishPhone,
+  const paymentLink = useMemo(
+    () => buildPaymentLink({
+      phone: receiverPaymentPhone,
       amount: parsedAmount,
       message: t('settlementModals.swishMessage', { groupName: groupName || t('settlementModals.unknownGroup') }),
     }),
-    [receiverSwishPhone, parsedAmount, groupName],
+    [receiverPaymentPhone, parsedAmount, groupName],
   );
-  const swishAmountText = useMemo(
-    () => (Number.isInteger(parsedAmount) && parsedAmount > 0 ? formatSwishAmount(parsedAmount) : null),
+  const paymentAmountText = useMemo(
+    () => (Number.isInteger(parsedAmount) && parsedAmount > 0 ? formatPaymentAmount(parsedAmount) : null),
     [parsedAmount],
   );
   const isReceiverCurrentUser = String(selectedReceiver?.id ?? '') === String(currentUserId ?? '');
-  const showSwishSection = appSettings.phone_enabled && Boolean(formData.receiver_id && receiverSwishPhone);
-  const canSwish = Boolean(swishLink && formData.payer_id && formData.receiver_id && !isReceiverCurrentUser);
+  const showPaymentSection = appSettings.phone_enabled && Boolean(formData.receiver_id && receiverPaymentPhone);
+  const canStartPayment = Boolean(paymentLink && formData.payer_id && formData.receiver_id && !isReceiverCurrentUser);
 
   const handleClose = () => {
     const isDirty = formData.amount !== '' || formData.receiver_id !== '';
@@ -247,17 +303,17 @@ export default function NewSettlementModal({
           />
         </label>
 
-        {showSwishSection ? (
+        {showPaymentSection ? (
           <div className="space-y-2">
-            {canSwish ? (
+            {canStartPayment ? (
               <a
-                href={swishLink}
+                href={paymentLink}
                 className="btn-secondary w-full justify-center gap-2"
                 target="_blank"
                 rel="noopener noreferrer"
               >
                 <img src="/swish.png" alt="" className="h-5 w-5" aria-hidden="true" />
-                {t('settlementModals.swishTo', { amount: swishAmountText, name: getUserDisplayName(selectedReceiver) })}
+                {t('settlementModals.swishTo', { amount: paymentAmountText, name: getUserDisplayName(selectedReceiver) })}
               </a>
             ) : (
               <button type="button" className="btn-secondary w-full justify-center gap-2" disabled>
@@ -265,7 +321,7 @@ export default function NewSettlementModal({
                 {t('settlementModals.swishToName', { name: getUserDisplayName(selectedReceiver) })}
               </button>
             )}
-            {!canSwish ? (
+            {!canStartPayment ? (
               <p className="m-0 text-xs text-[var(--text-muted)]">
                 {isReceiverCurrentUser ? t('settlementModals.swishSelf') : t('settlementModals.swishNeedsAmount')}
               </p>
