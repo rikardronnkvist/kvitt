@@ -6,7 +6,7 @@ function buildSafeUrl(url) {
   if (typeof url !== 'string' || !url.startsWith('/')) {
     throw new Error(t('common.genericError'));
   }
-  return url;
+  return new URL(url, window.location.origin).toString();
 }
 
 function redirectToLogin() {

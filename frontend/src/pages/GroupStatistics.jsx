@@ -32,12 +32,6 @@ function hexToRgba(hex, alpha) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-function toTimestamp(value) {
-  if (!value) return Number.NaN;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? Number.NaN : parsed.getTime();
-}
-
 function formatShortSek(value) {
   const amount = Number(value) || 0;
   return `${Math.round(amount).toLocaleString('sv-SE')} kr`;

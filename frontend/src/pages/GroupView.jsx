@@ -18,7 +18,6 @@ import { buildInviteUrl } from '../lib/inviteToken.js';
 import { getCurrentUserId } from '../lib/session.js';
 import { getUserDisplayName } from '../lib/users.js';
 import { GROUP_THEMES, getThemeForGroup } from '../lib/groupTheme.js';
-import { t } from '../lib/i18n.js';
 
 const INITIAL_TIMELINE_VISIBLE_COUNT = 25;
 const TIMELINE_LOAD_STEP = 25;
@@ -137,10 +136,7 @@ function SettlementItem({ settlement, onEdit, readOnly = false }) {
         <div>
           <h3 className="m-0 flex items-center gap-1.5 text-base font-semibold">
             <HandCoins className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
-            {t('groupView.settlementFromTo', {
-              from: settlement.payer_display_name,
-              to: settlement.receiver_display_name,
-            })}
+            Kvittat: från {settlement.payer_display_name} till {settlement.receiver_display_name}
           </h3>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5">
@@ -204,7 +200,7 @@ async function ensureInviteToken({ inviteToken, inviteExpiresAt, groupSlug, setI
 }
 
 async function revokeInvite({ groupSlug, setInviteToken, setInviteExpiresAt, setError }) {
-  if (!window.confirm(t('groupView.confirmRevokeInvite'))) return;
+  if (!window.confirm('Är du säker? Befintlig länk slutar fungera direkt.')) return;
   try {
     await del(`/api/groups/${groupSlug}/invite`);
     setInviteToken(null);
@@ -222,7 +218,7 @@ async function copyInviteLink({ ensureInvite, setInviteCopied, setError }) {
     setInviteCopied(true);
     setTimeout(() => setInviteCopied(false), 2000);
   } catch (err) {
-    setError(err.message || t('groupView.copyInviteFailed'));
+    setError(err.message || 'Kunde inte kopiera inbjudningslänken.');
   }
 }
 
@@ -234,8 +230,8 @@ async function shareInvite({ ensureInvite, groupName, setInviteCopied, setInvite
 
     if (navigator.share) {
       await navigator.share({
-        title: t('groupView.shareInviteTitle', { groupName: groupName || t('groupView.groupFallback') }),
-        text: t('groupView.shareInviteText'),
+        title: `Gå med i ${groupName || 'gruppen'}`,
+        text: 'Gå med i vår grupp på Kvitt',
         url,
       });
       return;
@@ -246,7 +242,7 @@ async function shareInvite({ ensureInvite, groupName, setInviteCopied, setInvite
     setTimeout(() => setInviteCopied(false), 2000);
   } catch (err) {
     if (err?.name !== 'AbortError') {
-      setError(err.message || t('groupView.shareInviteFailed'));
+      setError(err.message || 'Kunde inte dela inbjudan.');
     }
   } finally {
     setInviteSharing(false);
@@ -258,7 +254,7 @@ async function openInviteQr({ ensureInvite, setIsInviteQrOpen, setError }) {
     await ensureInvite();
     setIsInviteQrOpen(true);
   } catch (err) {
-    setError(err.message || t('groupView.createInviteQrFailed'));
+    setError(err.message || 'Kunde inte skapa QR-kod för inbjudan.');
   }
 }
 
@@ -279,7 +275,7 @@ async function addPlaceholderMember({ placeholderName, setAddingPlaceholder, set
 
 async function removeGroupMember({ isArchived, groupSlug, userId, loadData, setError }) {
   if (isArchived) {
-    setError(t('groupView.groupArchivedReadOnly'));
+    setError('Gruppen är arkiverad och skrivskyddad.');
     return;
   }
   try {
@@ -292,7 +288,7 @@ async function removeGroupMember({ isArchived, groupSlug, userId, loadData, setE
 
 async function updateGroupTheme({ isArchived, groupSlug, themeId, setGroup, setError }) {
   if (isArchived) {
-    setError(t('groupView.groupArchivedReadOnly'));
+    setError('Gruppen är arkiverad och skrivskyddad.');
     return;
   }
   try {
@@ -305,12 +301,12 @@ async function updateGroupTheme({ isArchived, groupSlug, themeId, setGroup, setE
 
 async function updateGroupMileageRate({ isArchived, mileageRateDraft, groupSlug, setGroup, setMileageRateDraft, setError }) {
   if (isArchived) {
-    setError(t('groupView.groupArchivedReadOnly'));
+    setError('Gruppen är arkiverad och skrivskyddad.');
     return;
   }
   const parsed = Number(mileageRateDraft);
   if (!Number.isFinite(parsed) || parsed <= 0) {
-    setError(t('groupView.mileageMustBePositive'));
+    setError('Milkostnad måste vara större än 0.');
     return;
   }
   try {
@@ -325,12 +321,12 @@ async function updateGroupMileageRate({ isArchived, mileageRateDraft, groupSlug,
 
 async function renameGroup({ isArchived, groupNameDraft, currentGroupName, groupSlug, slug, navigate, setRenamingGroup, setGroup, setGroupNameDraft, setError }) {
   if (isArchived) {
-    setError(t('groupView.groupArchivedReadOnly'));
+    setError('Gruppen är arkiverad och skrivskyddad.');
     return;
   }
   const trimmedName = groupNameDraft.trim();
   if (!trimmedName) {
-    setError(t('groupView.groupNameRequired'));
+    setError('Gruppnamn måste anges.');
     return;
   }
   if (trimmedName === currentGroupName.trim()) {
@@ -355,7 +351,7 @@ async function renameGroup({ isArchived, groupNameDraft, currentGroupName, group
 
 async function deleteExpenseEntry({ isArchived, expenseId, setExpenses, loadData, setError }) {
   if (isArchived) {
-    setError(t('groupView.groupArchivedReadOnly'));
+    setError('Gruppen är arkiverad och skrivskyddad.');
     return;
   }
   try {
@@ -369,7 +365,7 @@ async function deleteExpenseEntry({ isArchived, expenseId, setExpenses, loadData
 
 function saveExpenseEntry({ isArchived, updated, setExpenses, loadData, setError }) {
   if (isArchived) {
-    setError(t('groupView.groupArchivedReadOnly'));
+    setError('Gruppen är arkiverad och skrivskyddad.');
     return;
   }
   setExpenses((previous) => previous.map((expense) => (expense.id === updated.id ? updated : expense)));
@@ -378,7 +374,7 @@ function saveExpenseEntry({ isArchived, updated, setExpenses, loadData, setError
 
 function saveSettlementEntry({ isArchived, updated, setSettlements, loadData, setError }) {
   if (isArchived) {
-    setError(t('groupView.groupArchivedReadOnly'));
+    setError('Gruppen är arkiverad och skrivskyddad.');
     return;
   }
   setSettlements((previous) => previous.map((settlement) => (settlement.id === updated.id ? updated : settlement)));
@@ -387,7 +383,7 @@ function saveSettlementEntry({ isArchived, updated, setSettlements, loadData, se
 
 async function deleteSettlementEntry({ isArchived, settlementId, setSettlements, loadData, setError }) {
   if (isArchived) {
-    setError(t('groupView.groupArchivedReadOnly'));
+    setError('Gruppen är arkiverad och skrivskyddad.');
     return;
   }
   setSettlements((previous) => previous.filter((settlement) => settlement.id !== settlementId));
@@ -399,7 +395,7 @@ async function archiveGroup({ canArchiveGroup, groupSlug, setGroup, setIsSetting
   if (!canArchiveGroup) {
     return;
   }
-  if (!window.confirm(t('groupView.confirmArchiveGroup'))) {
+  if (!window.confirm('Är du säker på att du vill arkivera gruppen? Gruppen blir skrivskyddad.')) {
     return;
   }
 
@@ -421,7 +417,7 @@ async function unarchiveGroup({ isGroupOwner, isArchived, groupActionSaving, gro
   if (!isGroupOwner || !isArchived || groupActionSaving) {
     return;
   }
-  if (!window.confirm(t('groupView.confirmUnarchiveGroup'))) {
+  if (!window.confirm('Är du säker på att du vill återaktivera gruppen?')) {
     return;
   }
 
@@ -441,7 +437,7 @@ async function deleteGroupPermanently({ isGroupOwner, groupActionSaving, groupSl
   if (!isGroupOwner || groupActionSaving) {
     return;
   }
-  if (!window.confirm(t('groupView.confirmDeleteGroupPermanently'))) {
+  if (!window.confirm('Är du säker på att du vill radera gruppen permanent? Detta kan inte ångras.')) {
     return;
   }
 
@@ -474,35 +470,35 @@ function GroupActionButtons({
       {!isArchived ? (
         <button type="button" className="btn-primary" style={{ background: theme.base, borderColor: theme.base }} onClick={onAddExpense} disabled={members.length < 2}>
           <Plus className="h-4 w-4" />
-          {t('groupView.addExpense')}
+          Lägg till utgift
         </button>
       ) : null}
       {!isArchived ? (
         <button type="button" className="btn-secondary" onClick={onAddSettlement}>
           <HandCoins className="h-4 w-4" />
-          {t('groupView.addSettlement')}
+          Kvitta skuld
         </button>
       ) : null}
       <button type="button" className="btn-secondary" onClick={() => navigate(`/groups/${groupSlug}/statistics`)}>
         <BarChart3 className="h-4 w-4" />
-        {t('groupView.statistics')}
+        Statistik
       </button>
       {isGroupOwner && !isArchived ? (
         <button type="button" className="btn-secondary" onClick={onOpenSettings}>
           <Settings className="h-4 w-4" />
-          {t('groupView.settings')}
+          Inställningar
         </button>
       ) : null}
       {isGroupOwner && isArchived ? (
         <button type="button" className="btn-secondary" onClick={onUnarchive} disabled={groupActionSaving}>
           <RotateCcw className="h-4 w-4" />
-          {t('groupView.unarchive')}
+          Återaktivera
         </button>
       ) : null}
       {isGroupOwner && isArchived ? (
         <button type="button" className="btn-danger" onClick={onDeleteGroup} disabled={groupActionSaving}>
           <Trash2 className="h-4 w-4" />
-          {t('groupView.deleteGroup')}
+          Radera grupp
         </button>
       ) : null}
     </div>
@@ -518,20 +514,8 @@ function buildTimelineElements({ visibleTimeline, monthlyTotals, theme, isArchiv
       currentMonthKey = monthKey;
       const totals = monthlyTotals.get(monthKey) || { totalSpent: 0, expenseCount: 0, settlementTotal: 0, settlementCount: 0 };
       const parts = [];
-      if (totals.expenseCount > 0) {
-        parts.push(t('groupView.monthlySummaryPart', {
-          count: totals.expenseCount,
-          noun: totals.expenseCount === 1 ? t('groupView.expenseSingular') : t('groupView.expensePlural'),
-          total: formatCurrency(totals.totalSpent, { precise: true }),
-        }));
-      }
-      if (totals.settlementCount > 0) {
-        parts.push(t('groupView.monthlySummaryPart', {
-          count: totals.settlementCount,
-          noun: totals.settlementCount === 1 ? t('groupView.settlementSingular') : t('groupView.settlementPlural'),
-          total: formatCurrency(totals.settlementTotal, { precise: true }),
-        }));
-      }
+      if (totals.expenseCount > 0) parts.push(`${totals.expenseCount} ${totals.expenseCount === 1 ? 'utgift' : 'utgifter'}, totalt ${formatCurrency(totals.totalSpent, { precise: true })}`);
+      if (totals.settlementCount > 0) parts.push(`${totals.settlementCount} ${totals.settlementCount === 1 ? 'kvittning' : 'kvittningar'}, totalt ${formatCurrency(totals.settlementTotal, { precise: true })}`);
       result.push(
         <div key={`month-${monthKey}`} className="flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-5 py-2">
           <span className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">{formatMonthYear(new Date(item.activityTimestamp))}</span>
@@ -561,8 +545,8 @@ function TimelineSection({ timeline, visibleTimeline, monthlyTotals, theme, isAr
         <div className="p-5">
           <EmptyState
             icon={Coins}
-            title={t('groupView.emptyTimelineTitle')}
-            description={t('groupView.emptyTimelineDescription')}
+            title="Ingen aktivitet ännu"
+            description="Lägg till medlemmar i gruppen och börja sedan att registrera utgifter..."
           />
         </div>
       </section>
@@ -587,7 +571,7 @@ function TimelineSection({ timeline, visibleTimeline, monthlyTotals, theme, isAr
               className="btn-secondary"
               onClick={() => setVisibleTimelineCount((previous) => previous + TIMELINE_LOAD_STEP)}
             >
-              {t('groupView.loadMoreEvents')}
+              Ladda fler händelser
             </button>
           </div>
         ) : null}
@@ -639,38 +623,38 @@ function GroupSettingsModal({
     if (isOwner) {
       return (
         <span className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border-subtle)] px-4 text-sm font-medium text-[var(--text-secondary)]">
-          {t('groupView.owner')}
+          Ägare
         </span>
       );
     }
 
     if (member.has_activity) {
       return (
-        <span className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border-subtle)] px-4 text-sm font-medium text-[var(--text-secondary)]" title={t('groupView.memberHasTransactionsTitle')}>
-          {t('groupView.memberHasTransactions')}
+        <span className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border-subtle)] px-4 text-sm font-medium text-[var(--text-secondary)]" title="Har utgifter eller kvittningar i gruppen">
+          Har transaktioner
         </span>
       );
     }
 
     return (
       <button type="button" className="btn-danger" onClick={() => handleRemoveMember(member.id)} disabled={isArchived}>
-        {t('common.delete')}
+        Ta bort
       </button>
     );
   };
 
   return (
     <ModalShell
-      title={t('groupView.groupSettingsTitle')}
-      description={isArchived ? t('groupView.groupArchivedReadOnly') : null}
+      title="Gruppinställningar"
+      description={isArchived ? 'Gruppen är arkiverad och skrivskyddad.' : null}
       onClose={onClose}
     >
       <div className="divide-y divide-[var(--border-subtle)]">
         <div className="space-y-4 pb-6">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">{t('groupView.settings')}</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">Inställningar</h3>
           <div className="space-y-3">
             <label className="field-label">
-                <span>{t('shell.groupName')}</span>
+                <span>Gruppnamn</span>
               <input
                 type="text"
                 value={groupNameDraft}
@@ -690,11 +674,11 @@ function GroupSettingsModal({
               onClick={handleRenameGroup}
               disabled={isArchived || renamingGroup || !groupNameDraft.trim() || groupNameDraft.trim() === (group?.name || '').trim()}
             >
-              {t('groupView.renameGroup')}
+              Byt gruppnamn
             </button>
           </div>
           <div className="space-y-3">
-            <p className="field-label">{t('shell.theme')}</p>
+            <p className="field-label">Färgtema</p>
             <div className="flex flex-wrap gap-2">
               {GROUP_THEMES.map((themeOption) => {
                 const isActive = (group?.theme_color ?? null) === themeOption.id
@@ -722,7 +706,7 @@ function GroupSettingsModal({
           </div>
           <div className="space-y-3">
             <label className="field-label">
-                <span>{t('groupView.mileageRateLabel')}</span>
+                <span>Milkostnad för Bil (kr/mil)</span>
               <input
                 type="text"
                 inputMode="numeric"
@@ -733,13 +717,13 @@ function GroupSettingsModal({
               />
             </label>
             <button type="button" className="btn-secondary" onClick={handleUpdateMileageRate} disabled={isArchived}>
-              {t('groupView.saveMileageRate')}
+              Spara milkostnad
             </button>
           </div>
         </div>
 
         <div className="space-y-4 py-6">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">{t('groupView.inviteLinkTitle')}</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">Inbjudningslänk</h3>
           {inviteToken ? (
             <>
               <div className="flex flex-wrap gap-2">
@@ -750,49 +734,49 @@ function GroupSettingsModal({
                 />
                 <button type="button" className="btn-secondary shrink-0" onClick={handleShareInvite} disabled={inviteSharing}>
                   <SendHorizontal className="h-4 w-4" />
-                  {inviteSharing ? t('groupView.sharing') : t('groupView.share')}
+                  {inviteSharing ? 'Delar...' : 'Dela'}
                 </button>
                 <button type="button" className="btn-secondary shrink-0" onClick={handleCopyInviteLink}>
                   <Copy className="h-4 w-4" />
-                  {inviteCopied ? t('groupView.copied') : t('groupView.copy')}
+                  {inviteCopied ? 'Kopierad!' : 'Kopiera'}
                 </button>
               </div>
               {inviteExpiresAt && (
                 <p className="m-0 text-xs text-[var(--text-muted)]">
-                  {t('groupView.expiresAt', { date: new Date(inviteExpiresAt).toLocaleDateString('sv-SE') })}
+                  Gäller till {new Date(inviteExpiresAt).toLocaleDateString('sv-SE')}
                 </p>
               )}
               <div className="flex flex-wrap gap-2">
                 <button type="button" className="btn-secondary" onClick={handleOpenInviteQr}>
                   <Link2 className="h-4 w-4" />
-                  {t('groupView.showQr')}
+                  Visa QR
                 </button>
                 <button type="button" className="btn-secondary" onClick={handleGenerateInvite} disabled={inviteLoading}>
                   <RefreshCw className="h-4 w-4" />
-                  {t('groupView.newLink')}
+                  Ny länk
                 </button>
                 <button type="button" className="btn-danger" onClick={handleRevokeInvite}>
-                  {t('groupView.deleteLink')}
+                  Ta bort länk
                 </button>
               </div>
             </>
           ) : (
             <>
               <p className="m-0 text-sm text-[var(--text-secondary)]">
-                {t('groupView.inviteHelp')}
+                Skapa en länk att dela. Alla med länken kan gå med i gruppen. Länken gäller i 30 dagar.
               </p>
               <div className="flex flex-wrap gap-2">
                 <button type="button" className="btn-primary" onClick={handleGenerateInvite} disabled={inviteLoading || isArchived}>
                   <Link2 className="h-4 w-4" />
-                  {t('groupView.createInviteLink')}
+                  Skapa inbjudningslänk
                 </button>
                 <button type="button" className="btn-secondary" onClick={handleShareInvite} disabled={inviteSharing || inviteLoading || isArchived}>
                   <SendHorizontal className="h-4 w-4" />
-                  {inviteSharing ? t('groupView.sharing') : t('groupView.createAndShare')}
+                  {inviteSharing ? 'Delar...' : 'Skapa och dela'}
                 </button>
                 <button type="button" className="btn-secondary" onClick={handleOpenInviteQr} disabled={inviteLoading || isArchived}>
                   <Link2 className="h-4 w-4" />
-                  {t('groupView.createAndShowQr')}
+                  Skapa och visa QR
                 </button>
               </div>
             </>
@@ -800,14 +784,14 @@ function GroupSettingsModal({
         </div>
 
         <div className="space-y-4 pt-6">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">{t('groupView.membersTitle')}</h3>
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-[var(--text-muted)]">Medlemmar</h3>
           <div className="space-y-2">
             {members.map((member) => (
               <div key={member.id} className="flex flex-col gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="m-0 text-sm font-medium">{getUserDisplayName(member)}</p>
                   {member.is_placeholder ? (
-                    <p className="m-0 text-xs text-[var(--text-muted)]">{t('groupView.notConnected')}</p>
+                    <p className="m-0 text-xs text-[var(--text-muted)]">Ej ansluten</p>
                   ) : null}
                 </div>
                 {renderMemberAction(member)}
@@ -817,16 +801,16 @@ function GroupSettingsModal({
 
           {!isArchived && (
             <div className="space-y-3">
-              <p className="field-label">{t('groupView.addPlaceholderTitle')}</p>
+              <p className="field-label">Lägg till person i förväg</p>
               <p className="m-0 text-sm text-[var(--text-secondary)]">
-                {t('groupView.addPlaceholderDescription')}
+                Lägg till namn på personer som ännu inte har skapat konto - du kan dela kostnader med dem direkt.
               </p>
               <div className="flex gap-2">
                 <input
                   value={placeholderName}
                   onChange={(event) => setPlaceholderName(event.target.value)}
                   onKeyDown={(event) => event.key === 'Enter' && handleAddPlaceholder()}
-                  placeholder={t('auth.fullName')}
+                  placeholder="Fullständigt namn"
                   disabled={addingPlaceholder}
                   className="flex-1"
                 />
@@ -837,7 +821,7 @@ function GroupSettingsModal({
                   disabled={!placeholderName.trim() || addingPlaceholder}
                 >
                   <UserPlus className="h-4 w-4" />
-                  {t('groupView.add')}
+                  Lägg till
                 </button>
               </div>
             </div>
@@ -846,12 +830,12 @@ function GroupSettingsModal({
           {isGroupOwner && !isArchived ? (
             <div className="space-y-3 border-t border-[var(--border-subtle)] pt-4">
               <p className="m-0 text-sm text-[var(--text-secondary)]">
-                {t('groupView.archiveGroupHelp')}
-                {!canArchiveGroup ? ` ${t('groupView.archiveGroupBlocked')}` : ''}
+                Arkivera gruppen för att göra den skrivskyddad.
+                {!canArchiveGroup && ' Alla medlemmar måste ha balans 0 innan du kan arkivera.'}
               </p>
               <button type="button" className="btn-danger" onClick={handleArchiveGroup} disabled={!canArchiveGroup}>
                 <Archive className="h-4 w-4" />
-                {t('groupView.archiveGroup')}
+                Arkivera grupp
               </button>
             </div>
           ) : null}
@@ -885,7 +869,6 @@ export default function GroupView() {
   const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [editingSettlementId, setEditingSettlementId] = useState(null);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
-  const [defaultExpensePayerId, setDefaultExpensePayerId] = useState('');
   const [isAddingSettlement, setIsAddingSettlement] = useState(false);
   const [visibleTimelineCount, setVisibleTimelineCount] = useState(INITIAL_TIMELINE_VISIBLE_COUNT);
   const [groupActionSaving, setGroupActionSaving] = useState(false);
@@ -1072,17 +1055,6 @@ export default function GroupView() {
     () => [...memberBalances].sort((a, b) => Number(a.balance) - Number(b.balance)),
     [memberBalances],
   );
-  const canQuickAddExpenseFromBalance = !isArchived && members.length >= 2;
-  const showBalanceBars = memberBalancesAscending.length >= 3;
-    const openExpenseModal = useCallback((paidByUserId = '') => {
-      setDefaultExpensePayerId(String(paidByUserId || ''));
-      setIsAddingExpense(true);
-    }, []);
-
-  const maxAbsoluteBalance = useMemo(
-    () => memberBalances.reduce((maxValue, member) => Math.max(maxValue, Math.abs(Number(member.balance) || 0)), 0),
-    [memberBalances],
-  );
   const canArchiveGroup = isGroupOwner && !isArchived && memberBalances.every((member) => Number(member.balance) === 0);
   const inviteUrl = useMemo(() => {
     if (!inviteToken) return '';
@@ -1108,8 +1080,8 @@ export default function GroupView() {
 
     const totals = new Map();
     for (const expense of expenses) {
-      const key = `${expense.category_name || t('groupView.otherCategory')}|${expense.category_icon || 'shapes'}`;
-      const current = totals.get(key) || { name: expense.category_name || t('groupView.otherCategory'), icon: expense.category_icon || 'shapes', amount: 0 };
+      const key = `${expense.category_name || 'Övrigt'}|${expense.category_icon || 'shapes'}`;
+      const current = totals.get(key) || { name: expense.category_name || 'Övrigt', icon: expense.category_icon || 'shapes', amount: 0 };
       current.amount += Number(expense.amount || 0);
       totals.set(key, current);
     }
@@ -1300,7 +1272,7 @@ export default function GroupView() {
                 theme={theme}
                 members={members}
                 groupActionSaving={groupActionSaving}
-                onAddExpense={() => openExpenseModal()}
+                onAddExpense={() => setIsAddingExpense(true)}
                 onAddSettlement={() => setIsAddingSettlement(true)}
                 onOpenSettings={() => setIsSettingsOpen(true)}
                 onUnarchive={handleUnarchiveGroup}
@@ -1309,79 +1281,34 @@ export default function GroupView() {
               />
             </div>
 
-            <div className="grid gap-4 md:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
-              <article
-                className="overflow-hidden rounded-[1.75rem] border px-2 py-3 sm:px-4 sm:py-4"
-                style={{
-                  background: theme.bgSoft,
-                  borderColor: theme.borderSoft,
-                  boxShadow: '0 18px 42px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
-                }}
-              >
-                <p className="section-eyebrow text-[color:color-mix(in_srgb,var(--text-muted)_88%,white)]">Balans</p>
-                <div className="relative mt-2 sm:mt-2.5">
-                  {showBalanceBars ? (
-                    <div
-                      aria-hidden="true"
-                      className="pointer-events-none absolute bottom-3 top-3 w-px -translate-x-1/2 rounded-full bg-[color:color-mix(in_srgb,var(--text-primary)_12%,transparent)] left-[calc(50%+(6rem-4rem)/2)] sm:left-[calc(50%+(8.75rem-5.5rem)/2)]"
-                    />
-                  ) : null}
-                  <div className="space-y-px">
+            <div className="grid gap-4 md:grid-cols-2">
+              <article className="rounded-lg border p-4" style={{ background: theme.bgSoft, borderColor: theme.borderSoft }}>
+                <p className="section-eyebrow">Balans</p>
+                <div className="mt-2 space-y-0.5">
                   {memberBalancesAscending.map((member) => {
                     const isCurrentUser = Number(member.id) === Number(currentUserId);
                     const shouldEmphasizeCurrentUser = memberBalancesAscending.length > 3 && isCurrentUser;
-                    const numericBalance = Number(member.balance) || 0;
-                    const absoluteBalance = Math.abs(numericBalance);
-                    const balanceWidth = maxAbsoluteBalance > 0 && absoluteBalance > 0
-                      ? `max(${((absoluteBalance / maxAbsoluteBalance) * 100).toFixed(1)}%, 0.85rem)`
-                      : '0%';
                     return (
-                      <button
+                      <div
                         key={member.id}
-                        type="button"
-                        disabled={!canQuickAddExpenseFromBalance}
-                        onClick={() => openExpenseModal(member.id)}
-                        className={`grid w-full ${showBalanceBars ? 'grid-cols-[6rem_minmax(0,1fr)_4rem] sm:grid-cols-[8.75rem_minmax(0,1fr)_5.5rem]' : 'grid-cols-[minmax(0,1fr)_4rem] sm:grid-cols-[minmax(0,1fr)_5.5rem]'} items-center gap-1 rounded-lg px-1 py-0 text-left text-sm sm:gap-1.5 sm:px-2 ${canQuickAddExpenseFromBalance ? 'cursor-pointer transition hover:bg-[color:color-mix(in_srgb,var(--app-surface-strong)_35%,white)] focus:outline-none focus-visible:bg-[color:color-mix(in_srgb,var(--app-surface-strong)_35%,white)]' : 'cursor-default'} ${shouldEmphasizeCurrentUser ? '-mx-2 px-3 bg-[color:color-mix(in_srgb,var(--app-surface-strong)_55%,white)] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--text-primary)_8%,transparent)] sm:mx-0 sm:px-2' : ''}`}
+                        className={`flex items-center justify-between gap-3 rounded-md px-1.5 py-0.5 text-sm ${shouldEmphasizeCurrentUser ? 'bg-[color:color-mix(in_srgb,var(--app-surface-strong)_40%,transparent)]' : ''}`}
                       >
-                        <span className={`inline-flex min-w-0 items-center gap-1.5 text-sm font-medium leading-tight text-[var(--text-primary)] sm:gap-2 ${showBalanceBars ? 'w-[6rem] shrink-0 sm:w-[8.75rem]' : 'w-full'}`}>
-                          <UserAvatar
-                            user={member}
-                            className={`inline-flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--app-surface-strong)] ring-1 ${shouldEmphasizeCurrentUser ? 'ring-[color:color-mix(in_srgb,var(--accent)_55%,black_10%)] shadow-[0_0_0_2px_color-mix(in_srgb,var(--accent)_14%,transparent)]' : 'ring-black/20'}`}
-                            imageClassName="h-full w-full object-cover"
-                            initialsClassName="text-[9px] font-semibold text-[var(--text-secondary)]"
-                          />
-                          <span className="min-w-0 break-words">{getUserDisplayName(member)}</span>
+                        <span className="inline-flex min-w-0 flex-1 items-center gap-1.5 font-medium">
+                        <UserAvatar
+                          user={member}
+                          className="inline-flex h-5 w-5 items-center justify-center overflow-hidden rounded-full bg-[var(--app-surface-strong)] ring-1 ring-black/35"
+                          imageClassName="h-full w-full object-cover"
+                          initialsClassName="text-[9px] font-semibold text-[var(--text-secondary)]"
+                        />
+                          <span className="truncate">{getUserDisplayName(member)}</span>
                         </span>
-                        {showBalanceBars ? (
-                          <div className="relative flex h-6 min-w-0 flex-1 items-center sm:h-7">
-                            <div className="grid h-full w-full grid-cols-2 gap-0">
-                              <div className="relative h-full">
-                                {numericBalance < 0 ? (
-                                  <span
-                                    className="absolute right-0 top-1/2 block h-5 -translate-y-1/2 rounded-l-[5px] rounded-r-none bg-[color:color-mix(in_srgb,var(--danger)_72%,white)] shadow-[0_10px_24px_color-mix(in_srgb,var(--danger)_15%,transparent)]"
-                                    style={{ width: balanceWidth }}
-                                  />
-                                ) : null}
-                              </div>
-                              <div className="relative h-full">
-                                {numericBalance > 0 ? (
-                                  <span
-                                    className="absolute left-0 top-1/2 block h-5 -translate-y-1/2 rounded-l-none rounded-r-[5px] bg-[color:color-mix(in_srgb,var(--success)_82%,white)] shadow-[0_10px_24px_color-mix(in_srgb,var(--success)_18%,transparent)]"
-                                    style={{ width: balanceWidth }}
-                                  />
-                                ) : null}
-                              </div>
-                            </div>
-                          </div>
-                        ) : null}
-                        <span className={`w-[4rem] shrink-0 whitespace-nowrap text-right text-[1rem] tabular-nums font-semibold sm:w-[5.5rem] sm:text-[1.1rem] ${getBalanceAmountClass(member.balance)}`}>
-                          {numericBalance < 0 ? '-' : ''}
-                          {formatCurrency(absoluteBalance, { precise: true })}
+                        <span className={`shrink-0 tabular-nums font-semibold ${getBalanceAmountClass(member.balance)}`}>
+                          {member.balance < 0 ? '-' : ''}
+                          {formatCurrency(Math.abs(member.balance), { precise: true })}
                         </span>
-                      </button>
+                      </div>
                     );
                   })}
-                  </div>
                 </div>
               </article>
               <article className="rounded-lg border p-4" style={{ background: theme.bgSoft, borderColor: theme.borderSoft }}>
@@ -1495,11 +1422,7 @@ export default function GroupView() {
           members={members}
           categories={expenseCategories}
           mileageRate={mileageRate}
-          defaultPaidByUserId={defaultExpensePayerId}
-          onClose={() => {
-            setIsAddingExpense(false);
-            setDefaultExpensePayerId('');
-          }}
+          onClose={() => setIsAddingExpense(false)}
           onSuccess={loadData}
         />
       ) : null}
