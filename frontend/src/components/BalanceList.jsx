@@ -2,7 +2,7 @@ import { ArrowRight } from 'lucide-react';
 import { formatCurrency } from '../lib/format.js';
 import { getUserDisplayName } from '../lib/users.js';
 
-export default function BalanceList({ balances, nested = false, onSelect, isSelected }) {
+export default function BalanceList({ balances, nested = false, onSelect }) {
   if (!balances.length) {
     return <p className="m-0 text-sm text-[var(--text-secondary)]">Inga utestående saldon just nu.</p>;
   }
@@ -33,15 +33,12 @@ export default function BalanceList({ balances, nested = false, onSelect, isSele
         );
 
         if (onSelect) {
-          const selected = typeof isSelected === 'function' ? isSelected(balance) : false;
-
           return (
             <button
               key={key}
               type="button"
               onClick={() => onSelect(balance)}
-              aria-pressed={selected}
-              className={`flex w-full items-center justify-between gap-3 rounded-lg border px-2 py-1.5 text-left text-sm transition ${selected ? 'border-[var(--accent)] bg-[color-mix(in_oklab,var(--accent)_12%,white)] shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--accent)_35%,transparent)]' : 'border-transparent hover:bg-[var(--app-surface-muted)]'}`}
+              className="flex w-full items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-left text-sm transition hover:bg-[var(--app-surface-muted)]"
             >
               {content}
             </button>

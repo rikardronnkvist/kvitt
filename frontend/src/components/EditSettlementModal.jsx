@@ -3,7 +3,6 @@ import { del, put } from '../api/client.js';
 import MemberDropdown from './MemberDropdown.jsx';
 import ModalShell from './ModalShell.jsx';
 import DateTimePicker from './DateTimePicker.jsx';
-import { t } from '../lib/i18n.js';
 
 function sanitizeIntegerInput(value) {
   return String(value ?? '').replace(/\D/g, '');
@@ -75,17 +74,17 @@ export default function EditSettlementModal({ settlement, members, groupId, onCl
     const amount = Number(formData.amount);
 
     if (!Number.isInteger(amount) || amount <= 0) {
-      setError(t('settlementModals.amountMustBePositiveInteger'));
+      setError('Belopp måste vara ett heltal större än 0.');
       return;
     }
 
     if (!formData.payer_id || !formData.receiver_id) {
-      setError(t('settlementModals.selectPayerAndReceiver'));
+      setError('Välj både betalare och mottagare.');
       return;
     }
 
     if (formData.payer_id === formData.receiver_id) {
-      setError(t('settlementModals.payerReceiverMustDiffer'));
+      setError('Betalare och mottagare måste vara olika personer.');
       return;
     }
 
@@ -108,7 +107,7 @@ export default function EditSettlementModal({ settlement, members, groupId, onCl
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(t('settlementModals.editDeleteConfirm'))) {
+    if (!window.confirm('Är du säker på att du vill ta bort denna betalning?')) {
       return;
     }
 
@@ -127,35 +126,35 @@ export default function EditSettlementModal({ settlement, members, groupId, onCl
 
   return (
     <ModalShell
-      title={t('settlementModals.editTitle')}
-      description={t('settlementModals.editDescription')}
+      title="Redigera kvittning"
+      description="Justera mottagare, betalare, belopp eller tidpunkt"
       onClose={onClose}
     >
       <form onSubmit={handleSubmit} className="space-y-5">
         <label className="field-label">
-                <span>{t('settlementModals.payer')}</span>
+                <span>Betalare</span>
           <MemberDropdown
             value={formData.payer_id}
             options={members}
-            placeholder={t('settlementModals.selectPayer')}
+            placeholder="Välj betalare"
             onChange={(selectedValue) => setFormData((previous) => ({ ...previous, payer_id: selectedValue }))}
-            ariaLabel={t('settlementModals.selectPayer')}
+            ariaLabel="Välj betalare"
           />
         </label>
 
         <label className="field-label">
-                <span>{t('settlementModals.receiver')}</span>
+                <span>Mottagare</span>
           <MemberDropdown
             value={formData.receiver_id}
             options={availableReceivers}
-            placeholder={t('settlementModals.selectReceiver')}
+            placeholder="Välj mottagare"
             onChange={(selectedValue) => setFormData((previous) => ({ ...previous, receiver_id: selectedValue }))}
-            ariaLabel={t('settlementModals.selectReceiver')}
+            ariaLabel="Välj mottagare"
           />
         </label>
 
         <label className="field-label">
-                <span>{t('settlementModals.amount')}</span>
+                <span>Belopp</span>
           <input
             type="text"
             inputMode="numeric"
@@ -167,7 +166,7 @@ export default function EditSettlementModal({ settlement, members, groupId, onCl
         </label>
 
         <label className="field-label">
-                <span>{t('settlementModals.settledAt')}</span>
+                <span>Tidpunkt för kvittningen</span>
           <DateTimePicker
             value={formData.settled_at}
             onChange={(value) => setFormData((previous) => ({ ...previous, settled_at: value }))}
@@ -178,14 +177,14 @@ export default function EditSettlementModal({ settlement, members, groupId, onCl
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <button type="button" className="btn-danger" onClick={handleDelete} disabled={saving}>
-            {t('common.delete')}
+            Ta bort
           </button>
           <div className="flex flex-col gap-3 sm:flex-row">
             <button type="button" className="btn-secondary" onClick={onClose} disabled={saving}>
-              {t('common.cancel')}
+              Avbryt
             </button>
             <button type="submit" className="btn-primary" disabled={saving}>
-              {saving ? t('shell.saving') : t('expenseModals.saveChanges')}
+              {saving ? 'Sparar...' : 'Spara ändringar'}
             </button>
           </div>
         </div>
