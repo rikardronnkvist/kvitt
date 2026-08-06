@@ -77,8 +77,10 @@ export default function MemberDropdown({
                 key={member.id}
                 role="option"
                 aria-selected={isActive}
+                tabIndex={0}
                 onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); handleSelect(String(member.id)); }}
                 onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelect(String(member.id)); } }}
                 className={[
                   'flex cursor-pointer items-center gap-2 px-3 py-2 text-sm transition',
                   isActive

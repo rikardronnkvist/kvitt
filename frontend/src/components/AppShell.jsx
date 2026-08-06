@@ -317,7 +317,7 @@ function EditProfileModal({
   }
 
   return (
-    <div className="modal-backdrop app-shell-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setEditingProfile(false); }}>
+    <dialog open className="modal-backdrop app-shell-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) setEditingProfile(false); }}>
       <div className="modal-sheet app-shell-modal-sheet md:w-[420px]">
         <form className="space-y-5 p-5 sm:p-6" onSubmit={onSubmit}>
           <div className="space-y-1">
@@ -415,7 +415,7 @@ function EditProfileModal({
           </div>
         </form>
       </div>
-    </div>
+    </dialog>
   );
 }
 

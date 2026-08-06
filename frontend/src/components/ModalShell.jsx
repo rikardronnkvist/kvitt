@@ -7,7 +7,7 @@ export default function ModalShell({ title, description, onClose, children }) {
   }
 
   return (
-    <div className="modal-backdrop app-shell-modal-backdrop" role="dialog" aria-modal="true" aria-label={title} onClick={handleBackdropClick}>
+    <dialog open className="modal-backdrop app-shell-modal-backdrop" aria-label={title} onClick={handleBackdropClick}>
       <div className="modal-sheet app-shell-modal-sheet">
         <section className="space-y-6">
           <div className="flex items-start justify-between gap-4">
@@ -22,6 +22,6 @@ export default function ModalShell({ title, description, onClose, children }) {
           {children}
         </section>
       </div>
-    </div>
+    </dialog>
   );
 }
