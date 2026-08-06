@@ -495,7 +495,7 @@ export default function ExpenseFormFields({
                   required
                   style={{ paddingRight: '2.4rem' }}
                 />
-                  <span className="pointer-events-none absolute inset-y-0 right-3 hidden sm:flex items-center text-sm text-[var(--text-muted)]">%</span>
+                  <span className="pointer-events-none absolute inset-y-0 right-3 hidden sm:flex items-center text-sm text-[var(--text-muted)]">kr</span>
               </div>
             </label>
           </>
