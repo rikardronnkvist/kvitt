@@ -155,14 +155,18 @@ export default function EditSettlementModal({ settlement, members, groupId, onCl
 
         <label className="field-label">
                 <span>Belopp</span>
-          <input
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            value={formData.amount}
-            onChange={(event) => setFormData((previous) => { const raw = sanitizeIntegerInput(event.target.value); return { ...previous, amount: raw === '' ? '' : String(Math.min(99999, Math.max(1, Number(raw)))) }; })}
-            required
-          />
+          <div className="relative">
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={formData.amount}
+              onChange={(event) => setFormData((previous) => { const raw = sanitizeIntegerInput(event.target.value); return { ...previous, amount: raw === '' ? '' : String(Math.min(99999, Math.max(1, Number(raw)))) }; })}
+              required
+              style={{ paddingRight: '2.4rem' }}
+            />
+            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-[var(--text-muted)]">kr</span>
+          </div>
         </label>
 
         <label className="field-label">
