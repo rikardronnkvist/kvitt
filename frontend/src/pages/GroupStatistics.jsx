@@ -618,18 +618,18 @@ function PieCard({ title, entries }) {
             <button
               key={entry.label}
               type="button"
-              className={`flex items-center justify-between gap-3 rounded-md px-2 py-1.5 text-sm transition ${isActive ? 'bg-[var(--app-surface-muted)]' : ''}`}
+              className={`grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-md px-2 py-1.5 text-sm transition ${isActive ? 'bg-[var(--app-surface-muted)]' : ''}`}
               onMouseEnter={() => setHoveredLabel(entry.label)}
               onMouseLeave={() => setHoveredLabel('')}
               onFocus={() => setHoveredLabel(entry.label)}
               onBlur={() => setHoveredLabel('')}
               onClick={() => setHoveredLabel(entry.label)}
             >
-              <span className="inline-flex items-center gap-2 text-[var(--text-secondary)]">
-                <span className="h-2.5 w-2.5 rounded-full" style={{ background: entry.color }} />
-                {entry.label}
+              <span className="inline-flex min-w-0 items-center gap-2 text-[var(--text-secondary)]">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: entry.color }} />
+                <span className="truncate">{entry.label}</span>
               </span>
-              <span className="font-semibold amount-neutral">{formatCurrency(entry.value, { precise: true })}</span>
+              <span className="min-w-[7ch] whitespace-nowrap text-right font-semibold tabular-nums amount-neutral">{formatCurrency(entry.value, { precise: true })}</span>
             </button>
             );
           }) : (
