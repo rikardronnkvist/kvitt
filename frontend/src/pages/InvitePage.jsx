@@ -4,17 +4,18 @@ import { Users } from 'lucide-react';
 import { post } from '../api/client.js';
 import { parseUser } from '../lib/session.js';
 import { getGroupTheme } from '../lib/groupTheme.js';
+import { t } from '../lib/i18n.js';
 
 export const PENDING_INVITE_TOKEN_KEY = 'pending_invite_token';
 
 function getJoinButtonLabel(joining, hasPlaceholders) {
   if (joining) {
-    return 'Går med…';
+    return t('invitePage.joining');
   }
   if (hasPlaceholders) {
-    return 'Gå med som ny person';
+    return t('invitePage.joinAsNewPerson');
   }
-  return 'Gå med i gruppen';
+  return t('invitePage.joinGroup');
 }
 
 export default function InvitePage() {
@@ -40,7 +41,7 @@ export default function InvitePage() {
         if (!active) return;
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || 'Inbjudningslänken är ogiltig eller har gått ut.');
+          throw new Error(data.error || t('invitePage.invalidOrExpiredInvite'));
         }
         return res.json();
       })
@@ -88,16 +89,16 @@ export default function InvitePage() {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
         <div className="surface-card w-full max-w-md space-y-4 p-8 text-center">
-          <h1 className="text-xl font-semibold">Inbjudningslänken är ogiltig</h1>
+          <h1 className="text-xl font-semibold">{t('invitePage.invalidInviteTitle')}</h1>
           <p className="text-[var(--text-secondary)]">{error}</p>
           {isLoggedIn && (
             <button type="button" className="btn-primary w-full" onClick={() => navigate('/')}>
-              Gå till startsidan
+              {t('invitePage.goHome')}
             </button>
           )}
           {!isLoggedIn && (
             <button type="button" className="btn-primary w-full" onClick={() => navigate('/login')}>
-              Logga in
+              {t('auth.login')}
             </button>
           )}
         </div>
@@ -125,7 +126,7 @@ export default function InvitePage() {
               <Users className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">Du är inbjuden till</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">{t('invitePage.invitedTo')}</p>
               <h1 className="m-0 text-xl font-bold">{group.name}</h1>
             </div>
           </div>
@@ -135,21 +136,21 @@ export default function InvitePage() {
         {!isLoggedIn && (
           <div className="surface-card space-y-4 p-6">
             <p className="text-sm text-[var(--text-secondary)]">
-              Du behöver ett konto för att gå med. Skapa ett nytt eller logga in med ett befintligt.
+              {t('invitePage.loginOrRegisterRequired')}
             </p>
             <button
               type="button"
               className="btn-primary w-full"
               onClick={() => goToAuth('/register')}
             >
-              Skapa konto
+              {t('auth.register')}
             </button>
             <button
               type="button"
               className="btn-secondary w-full"
               onClick={() => goToAuth('/login')}
             >
-              Logga in
+              {t('auth.login')}
             </button>
           </div>
         )}
@@ -160,9 +161,9 @@ export default function InvitePage() {
             {hasPlaceholders && (
               <>
                 <div>
-                  <h2 className="text-base font-semibold">Är du en av dessa?</h2>
+                  <h2 className="text-base font-semibold">{t('invitePage.isThisYouTitle')}</h2>
                   <p className="mt-1 text-sm text-[var(--text-secondary)]">
-                    Välj ditt namn om det redan finns i gruppen, så kopplas dina utgifter ihop.
+                    {t('invitePage.isThisYouDescription')}
                   </p>
                 </div>
                 <ul className="space-y-2">
@@ -185,7 +186,7 @@ export default function InvitePage() {
                 </ul>
                 <div className="flex items-center gap-3">
                   <div className="h-px flex-1 bg-[var(--border-subtle)]" />
-                  <span className="text-xs text-[var(--text-muted)]">eller</span>
+                  <span className="text-xs text-[var(--text-muted)]">{t('invitePage.or')}</span>
                   <div className="h-px flex-1 bg-[var(--border-subtle)]" />
                 </div>
               </>

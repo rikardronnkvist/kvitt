@@ -6,18 +6,19 @@ import UserAvatar from '../components/UserAvatar.jsx';
 import { formatCurrency } from '../lib/format.js';
 import { getThemeForGroup } from '../lib/groupTheme.js';
 import { getUserDisplayName } from '../lib/users.js';
+import { t } from '../lib/i18n.js';
 
 const PIE_COLORS = ['#0F766E', '#4F6D8A', '#B25D3D', '#5F7D4E', '#6E4E73', '#B38A2E', '#5C6B73'];
 const TIMELINE_GRANULARITY_OPTIONS = [
-  { value: 'day', label: 'Dag' },
-  { value: 'week', label: 'Vecka' },
-  { value: 'month', label: 'Månad' },
-  { value: 'year', label: 'År' },
+  { value: 'day', label: t('groupStatistics.day') },
+  { value: 'week', label: t('groupStatistics.week') },
+  { value: 'month', label: t('groupStatistics.month') },
+  { value: 'year', label: t('groupStatistics.year') },
 ];
 const TIMELINE_DATA_OPTIONS = [
-  { value: 'both', label: 'Båda' },
-  { value: 'expenses', label: 'Utgifter' },
-  { value: 'transfers', label: 'Kvittningar' },
+  { value: 'both', label: t('groupStatistics.both') },
+  { value: 'expenses', label: t('groupStatistics.expenses') },
+  { value: 'transfers', label: t('groupStatistics.settlements') },
 ];
 
 function hexToRgba(hex, alpha) {
@@ -68,7 +69,7 @@ function getNiceAxisMax(value, { allowOnePointFive = false } = {}) {
 }
 
 function formatRangeLabel(minDate, maxDate) {
-  if (!minDate || !maxDate) return 'Ingen period';
+  if (!minDate || !maxDate) return t('groupStatistics.noPeriod');
   const toLabel = (dateValue) => {
     const date = new Date(dateValue);
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -220,18 +221,18 @@ function toPieData(entries, { sortByValue = true } = {}) {
 }
 
 function getTimelineAxisLabels(dataMode) {
-  let amountAxisLabel = 'Utgifter + kvittningar';
+  let amountAxisLabel = t('groupStatistics.expensesAndSettlements');
   if (dataMode === 'expenses') {
-    amountAxisLabel = 'Totala utgifter';
+    amountAxisLabel = t('groupStatistics.totalExpenses');
   } else if (dataMode === 'transfers') {
-    amountAxisLabel = 'Totala kvittningar';
+    amountAxisLabel = t('groupStatistics.totalSettlements');
   }
 
-  let countAxisLabel = 'Antal händelser';
+  let countAxisLabel = t('groupStatistics.eventCount');
   if (dataMode === 'expenses') {
-    countAxisLabel = 'Antal utgifter';
+    countAxisLabel = t('groupStatistics.expenseCount');
   } else if (dataMode === 'transfers') {
-    countAxisLabel = 'Antal kvittningar';
+    countAxisLabel = t('groupStatistics.settlementCount');
   }
 
   return { amountAxisLabel, countAxisLabel };
@@ -342,15 +343,15 @@ function TimelineChart({ periods, granularity, onGranularityChange, dataMode, on
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="m-0 hidden text-sm font-semibold sm:block">Tidslinje</p>
+        <p className="m-0 hidden text-sm font-semibold sm:block">{t('groupStatistics.timeline')}</p>
         <div className="flex flex-wrap items-center gap-2">
           <label className="inline-flex items-center gap-2 text-xs text-[var(--text-muted)]">
-            <span>Data:</span>
+            <span>{t('groupStatistics.dataLabel')}</span>
             <select
               className="w-auto min-w-[7rem] rounded-md border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-2 py-1 text-xs text-[var(--text-primary)]"
               value={dataMode}
               onChange={(event) => onDataModeChange(event.target.value)}
-              aria-label="Välj typ av data för tidslinjen"
+              aria-label={t('groupStatistics.selectTimelineDataAria')}
             >
               {TIMELINE_DATA_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
@@ -358,12 +359,12 @@ function TimelineChart({ periods, granularity, onGranularityChange, dataMode, on
             </select>
           </label>
           <label className="inline-flex items-center gap-2 text-xs text-[var(--text-muted)]">
-            <span>Visa:</span>
+            <span>{t('groupStatistics.showLabel')}</span>
             <select
               className="w-auto min-w-[6rem] rounded-md border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-2 py-1 text-xs text-[var(--text-primary)]"
               value={granularity}
               onChange={(event) => onGranularityChange(event.target.value)}
-              aria-label="Välj upplösning för tidslinjen"
+              aria-label={t('groupStatistics.selectTimelineGranularityAria')}
             >
               {TIMELINE_GRANULARITY_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
@@ -385,11 +386,11 @@ function TimelineChart({ periods, granularity, onGranularityChange, dataMode, on
               <span className="inline-flex flex-col items-start gap-1 leading-tight">
                 <span className="inline-flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 rounded-sm bg-[rgba(17,24,39,0.68)]" aria-hidden="true" />
-                  <span>Utgifter</span>
+                  <span>{t('groupStatistics.expenses')}</span>
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 rounded-sm bg-[rgba(15,118,110,0.72)]" aria-hidden="true" />
-                  <span>Kvittningar</span>
+                  <span>{t('groupStatistics.settlements')}</span>
                 </span>
               </span>
             ) : (
@@ -402,7 +403,7 @@ function TimelineChart({ periods, granularity, onGranularityChange, dataMode, on
               </span>
             )}
           </div>
-          <svg viewBox={`0 0 ${width} ${height}`} className="h-[250px] w-full" role="img" aria-label="Utgiftstidslinje med antal utgifter">
+          <svg viewBox={`0 0 ${width} ${height}`} className="h-[250px] w-full" role="img" aria-label={t('groupStatistics.timelineChartAria')}>
             {yTicks.map((tick) => {
               const y = margin.top + (1 - tick) * chartHeight;
               const value = tick * maxAmount;
@@ -632,7 +633,7 @@ function PieCard({ title, entries }) {
             </button>
             );
           }) : (
-            <p className="m-0 text-sm text-[var(--text-secondary)]">Ingen data att visa.</p>
+            <p className="m-0 text-sm text-[var(--text-secondary)]">{t('groupStatistics.noDataToShow')}</p>
           )}
         </div>
       </div>
@@ -960,22 +961,22 @@ export default function GroupStatistics() {
             </div>
             <button type="button" className="btn-secondary" onClick={() => navigate(`/groups/${groupSlug}`)}>
               <ArrowLeft className="h-4 w-4" />
-              Tillbaka till gruppen
+              {t('groupStatistics.backToGroup')}
             </button>
           </div>
 
           {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
 
           <aside className="rounded-lg border p-4" style={{ background: theme.bgSoft, borderColor: theme.borderSoft }}>
-              <p className="m-0 text-sm font-semibold">Översikt</p>
+              <p className="m-0 text-sm font-semibold">{t('groupStatistics.overview')}</p>
               <div className="mt-3 space-y-1.5 text-sm">
                 {[
-                  { label: 'Totalt spenderat', value: formatCurrency(statistics.totalSpent, { precise: true }) },
-                  { label: 'Antal medlemmar', value: `${statistics.membersCount} st` },
-                  { label: 'Antal utgifter', value: `${statistics.expensesCount} st` },
-                  { label: 'Totala utgifter', value: formatCurrency(statistics.totalSpent, { precise: true }) },
-                  { label: 'Antal kvittningar', value: `${statistics.transfersCount} st` },
-                  { label: 'Totala kvittningar', value: formatCurrency(statistics.totalTransfers, { precise: true }) },
+                  { label: t('groupStatistics.totalSpent'), value: formatCurrency(statistics.totalSpent, { precise: true }) },
+                  { label: t('groupStatistics.memberCount'), value: t('groupStatistics.countSuffix', { count: statistics.membersCount }) },
+                  { label: t('groupStatistics.expenseCount'), value: t('groupStatistics.countSuffix', { count: statistics.expensesCount }) },
+                  { label: t('groupStatistics.totalExpenses'), value: formatCurrency(statistics.totalSpent, { precise: true }) },
+                  { label: t('groupStatistics.settlementCount'), value: t('groupStatistics.countSuffix', { count: statistics.transfersCount }) },
+                  { label: t('groupStatistics.totalSettlements'), value: formatCurrency(statistics.totalTransfers, { precise: true }) },
                 ].map((row, index) => (
                   <div
                     key={row.label}
@@ -1007,13 +1008,13 @@ export default function GroupStatistics() {
       </section>
 
       <section className="surface-card p-5">
-        <p className="m-0 text-base font-semibold">Medlemmar</p>
+        <p className="m-0 text-base font-semibold">{t('groupStatistics.members')}</p>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           {statistics.memberRows.map((member) => (
             <article key={member.id} className="relative rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] p-4">
               {Number(member.id) === Number(group?.created_by) ? (
                 <span className="absolute right-4 top-4 inline-flex items-center rounded-full border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-2 py-0.5 text-xs font-medium text-[var(--text-secondary)]">
-                  Ägare
+                  {t('groupView.owner')}
                 </span>
               ) : null}
               <div className="flex items-center gap-3">
@@ -1027,27 +1028,27 @@ export default function GroupStatistics() {
               </div>
               <div className="mt-3 space-y-1.5 text-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-[var(--text-secondary)]">Antal utgifter</span>
-                  <span className="font-semibold">{member.expenseCount} st</span>
+                  <span className="text-[var(--text-secondary)]">{t('groupStatistics.expenseCount')}</span>
+                  <span className="font-semibold">{t('groupStatistics.countSuffix', { count: member.expenseCount })}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[var(--text-secondary)]">Totala utgifter</span>
+                  <span className="text-[var(--text-secondary)]">{t('groupStatistics.totalExpenses')}</span>
                   <span className="font-semibold">{formatCurrency(member.paid, { precise: true })}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[var(--text-secondary)]">Total kostnad</span>
+                  <span className="text-[var(--text-secondary)]">{t('groupStatistics.totalCost')}</span>
                   <span className="font-semibold">{formatCurrency(member.totalOwed, { precise: true })}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[var(--text-secondary)]">Antal kvittningar</span>
-                  <span className="font-semibold">{member.transferCount} st</span>
+                  <span className="text-[var(--text-secondary)]">{t('groupStatistics.settlementCount')}</span>
+                  <span className="font-semibold">{t('groupStatistics.countSuffix', { count: member.transferCount })}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[var(--text-secondary)]">Totala kvittningar</span>
+                  <span className="text-[var(--text-secondary)]">{t('groupStatistics.totalSettlements')}</span>
                   <span className="font-semibold">{formatCurrency(member.transfers, { precise: true })}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[var(--text-secondary)]">Nuvarande balans</span>
+                  <span className="text-[var(--text-secondary)]">{t('groupStatistics.currentBalance')}</span>
                   <span className={`font-semibold ${getBalanceClass(member.balance)}`}>
                     {member.balance < 0 ? '-' : ''}
                     {formatCurrency(Math.abs(member.balance), { precise: true })}
@@ -1060,15 +1061,15 @@ export default function GroupStatistics() {
       </section>
 
       <section className="grid gap-6 lg:grid-cols-2">
-        <PieCard title="Utgifter per medlem" entries={statistics.paidByData} />
-        <PieCard title="Kvittningar per medlem" entries={statistics.transfersByMemberData} />
-        <PieCard title="Utgifter per kategori" entries={statistics.categoryData} />
+        <PieCard title={t('groupStatistics.expensesPerMember')} entries={statistics.paidByData} />
+        <PieCard title={t('groupStatistics.settlementsPerMember')} entries={statistics.transfersByMemberData} />
+        <PieCard title={t('groupStatistics.expensesPerCategory')} entries={statistics.categoryData} />
       </section>
 
       {!statistics.expensesCount ? (
         <section className="surface-card p-6 text-center">
           <BarChart3 className="mx-auto h-8 w-8 text-[var(--text-muted)]" />
-          <p className="mt-3 mb-0 text-sm text-[var(--text-secondary)]">Ingen statistik än nu. Lägg till utgifter i gruppen för att se grafer.</p>
+          <p className="mt-3 mb-0 text-sm text-[var(--text-secondary)]">{t('groupStatistics.emptyStatistics')}</p>
         </section>
       ) : null}
     </div>

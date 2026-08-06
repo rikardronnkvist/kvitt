@@ -6,6 +6,7 @@ import ModalShell from './ModalShell.jsx';
 import { getUserDisplayName } from '../lib/users.js';
 import DateTimePicker from './DateTimePicker.jsx';
 import { useAppSettings } from '../hooks/useAppSettings.js';
+import { t } from '../lib/i18n.js';
 
 function toLocalDateTimeInputValue(input) {
   const date = input ? new Date(input) : new Date();
@@ -90,7 +91,7 @@ export default function NewSettlementModal({
     () => buildSwishLink({
       phone: receiverSwishPhone,
       amount: parsedAmount,
-      message: `Kvittar skuld (${groupName || 'Okänd grupp'})`,
+      message: t('settlementModals.swishMessage', { groupName: groupName || t('settlementModals.unknownGroup') }),
     }),
     [receiverSwishPhone, parsedAmount, groupName],
   );
@@ -104,7 +105,7 @@ export default function NewSettlementModal({
 
   const handleClose = () => {
     const isDirty = formData.amount !== '' || formData.receiver_id !== '';
-    if (isDirty && !window.confirm('Avbryta? Det du fyllt i kommer att försvinna.')) return;
+    if (isDirty && !window.confirm(t('settlementModals.discardConfirm'))) return;
     onClose();
   };
 
@@ -142,17 +143,17 @@ export default function NewSettlementModal({
     const amount = Number(formData.amount);
 
     if (!Number.isInteger(amount) || amount <= 0) {
-      setError('Belopp måste vara ett heltal större än 0.');
+      setError(t('settlementModals.amountMustBePositiveInteger'));
       return;
     }
 
     if (!formData.payer_id || !formData.receiver_id) {
-      setError('Välj både betalare och mottagare.');
+      setError(t('settlementModals.selectPayerAndReceiver'));
       return;
     }
 
     if (formData.payer_id === formData.receiver_id) {
-      setError('Betalare och mottagare måste vara olika personer.');
+      setError(t('settlementModals.payerReceiverMustDiffer'));
       return;
     }
 
@@ -176,15 +177,15 @@ export default function NewSettlementModal({
 
   return (
     <ModalShell
-      title="Kvitta skuld"
+      title={t('settlementModals.newTitle')}
       description=""
       onClose={handleClose}
     >
       <form onSubmit={handleSubmit} className="space-y-5">
         <section className="space-y-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
           <div>
-            <h3 className="m-0 text-base font-semibold">Förslag för att alla ska bli kvitt</h3>
-            <p className="m-0 text-sm text-[var(--text-secondary)]">Klicka på ett förslag för att fylla i värden.</p>
+            <h3 className="m-0 text-base font-semibold">{t('settlementModals.suggestionsTitle')}</h3>
+            <p className="m-0 text-sm text-[var(--text-secondary)]">{t('settlementModals.suggestionsDescription')}</p>
           </div>
           <BalanceList
             balances={balances}
@@ -204,29 +205,29 @@ export default function NewSettlementModal({
         </section>
 
         <label className="field-label">
-          <span>Betalare</span>
+          <span>{t('settlementModals.payer')}</span>
           <MemberDropdown
             value={formData.payer_id}
             options={members}
-            placeholder="Välj betalare"
+            placeholder={t('settlementModals.selectPayer')}
             onChange={(selectedValue) => handleFieldChange('payer_id', selectedValue)}
-            ariaLabel="Välj betalare"
+            ariaLabel={t('settlementModals.selectPayer')}
           />
         </label>
 
         <label className="field-label">
-          <span>Mottagare</span>
+          <span>{t('settlementModals.receiver')}</span>
           <MemberDropdown
             value={formData.receiver_id}
             options={availableReceivers}
-            placeholder="Välj mottagare"
+            placeholder={t('settlementModals.selectReceiver')}
             onChange={(selectedValue) => handleFieldChange('receiver_id', selectedValue)}
-            ariaLabel="Välj mottagare"
+            ariaLabel={t('settlementModals.selectReceiver')}
           />
         </label>
 
         <label className="field-label">
-          <span>Belopp</span>
+          <span>{t('settlementModals.amount')}</span>
           <input
             type="text"
             inputMode="numeric"
@@ -239,7 +240,7 @@ export default function NewSettlementModal({
         </label>
 
         <label className="field-label">
-          <span>Tidpunkt för kvittningen</span>
+          <span>{t('settlementModals.settledAt')}</span>
           <DateTimePicker
             value={formData.settled_at}
             onChange={(value) => handleFieldChange('settled_at', value)}
@@ -256,17 +257,17 @@ export default function NewSettlementModal({
                 rel="noopener noreferrer"
               >
                 <img src="/swish.png" alt="" className="h-5 w-5" aria-hidden="true" />
-                Swisha {swishAmountText} kr till {getUserDisplayName(selectedReceiver)}
+                {t('settlementModals.swishTo', { amount: swishAmountText, name: getUserDisplayName(selectedReceiver) })}
               </a>
             ) : (
               <button type="button" className="btn-secondary w-full justify-center gap-2" disabled>
                 <img src="/swish.png" alt="" className="h-5 w-5" aria-hidden="true" />
-                Swisha {getUserDisplayName(selectedReceiver)}
+                {t('settlementModals.swishToName', { name: getUserDisplayName(selectedReceiver) })}
               </button>
             )}
             {!canSwish ? (
               <p className="m-0 text-xs text-[var(--text-muted)]">
-                {isReceiverCurrentUser ? 'Du kan inte Swisha till dig själv.' : 'Fyll i belopp för att starta Swish.'}
+                {isReceiverCurrentUser ? t('settlementModals.swishSelf') : t('settlementModals.swishNeedsAmount')}
               </p>
             ) : null}
           </div>
@@ -276,10 +277,10 @@ export default function NewSettlementModal({
 
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
           <button type="button" className="btn-secondary" onClick={handleClose} disabled={saving}>
-            Avbryt
+            {t('common.cancel')}
           </button>
           <button type="submit" className="btn-primary" disabled={saving || !formData.payer_id || !formData.receiver_id || !(Number.isInteger(parsedAmount) && parsedAmount > 0)}>
-            {saving ? 'Sparar...' : 'Markera som kvittad'}
+            {saving ? t('shell.saving') : t('settlementModals.markSettled')}
           </button>
         </div>
       </form>

@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { startRegistration } from '@simplewebauthn/browser';
 import { post } from '../api/client.js';
 import { getPasskeyErrorMessage } from '../auth/passkey.js';
+import { t } from '../lib/i18n.js';
 
 function startRegistrationCompat(optionsJSON) {
   try {
@@ -63,8 +64,8 @@ export default function Recover() {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
         <div className="surface-card w-full max-w-sm space-y-4 p-8 text-center">
-          <p className="text-lg font-semibold">Ny passkey registrerad!</p>
-          <p className="text-sm text-[var(--text-secondary)]">Du loggas in automatiskt…</p>
+          <p className="text-lg font-semibold">{t('recover.passkeyRegistered')}</p>
+          <p className="text-sm text-[var(--text-secondary)]">{t('recover.autoLogin')}</p>
         </div>
       </div>
     );
@@ -74,9 +75,9 @@ export default function Recover() {
     <div className="flex min-h-screen items-center justify-center p-4">
       <div className="surface-card w-full max-w-sm space-y-6 p-8">
         <div className="space-y-1">
-          <p className="page-title">Återhämtning</p>
+          <p className="page-title">{t('recover.title')}</p>
           <p className="text-sm text-[var(--text-secondary)]">
-            Registrera en ny passkey för att återfå åtkomst till ditt konto.
+            {t('recover.description')}
           </p>
         </div>
 
@@ -92,7 +93,7 @@ export default function Recover() {
           onClick={handleRecover}
           disabled={loading || !token}
         >
-          {loading ? 'Vänta…' : 'Registrera ny passkey'}
+          {loading ? t('recover.waiting') : t('recover.registerNewPasskey')}
         </button>
       </div>
     </div>

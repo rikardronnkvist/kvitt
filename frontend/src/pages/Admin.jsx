@@ -5,6 +5,7 @@ import UserAvatar from '../components/UserAvatar.jsx';
 import { CATEGORY_ICON_OPTIONS, getCategoryIcon } from '../lib/expenseCategories.js';
 import { GROUP_THEMES, getThemeForGroup } from '../lib/groupTheme.js';
 import { getUserDisplayName } from '../lib/users.js';
+import { t } from '../lib/i18n.js';
 
 function AdminSkeleton() {
   return (
@@ -23,29 +24,29 @@ function AdminSkeleton() {
 const ACTIVITY_PAGE_SIZE = 25;
 
 const ACTIVITY_EVENT_OPTIONS = [
-  { value: '', label: 'Alla händelser' },
-  { value: 'auth.login.succeeded', label: 'Inloggning lyckad' },
-  { value: 'auth.login.failed', label: 'Inloggning misslyckad' },
-  { value: 'auth.passkey.created', label: 'Passkey skapad' },
-  { value: 'auth.passkey.updated', label: 'Passkey uppdaterad' },
-  { value: 'auth.passkey.deleted', label: 'Passkey borttagen' },
-  { value: 'expense.created', label: 'Utgift skapad' },
-  { value: 'expense.updated', label: 'Utgift uppdaterad' },
-  { value: 'expense.deleted', label: 'Utgift borttagen' },
-  { value: 'settlement.created', label: 'Betalning skapad' },
-  { value: 'settlement.updated', label: 'Betalning uppdaterad' },
-  { value: 'settlement.deleted', label: 'Betalning borttagen' },
-  { value: 'group.created', label: 'Grupp skapad' },
-  { value: 'group.updated', label: 'Grupp uppdaterad' },
-  { value: 'group.archived', label: 'Grupp arkiverad' },
-  { value: 'group.unarchived', label: 'Grupp återaktiverad' },
-  { value: 'group.deleted', label: 'Grupp borttagen' },
-  { value: 'group.member.added', label: 'Medlem tillagd' },
-  { value: 'group.member.removed', label: 'Medlem borttagen' },
-  { value: 'admin.user.updated', label: 'Admin: användare uppdaterad' },
-  { value: 'admin.user.deleted', label: 'Admin: användare borttagen' },
-  { value: 'admin.group.updated', label: 'Admin: grupp uppdaterad' },
-  { value: 'admin.category.updated', label: 'Admin: kategori uppdaterad' },
+  { value: '', label: t('admin.activityAllEvents') },
+  { value: 'auth.login.succeeded', label: t('admin.activityAuthLoginSucceeded') },
+  { value: 'auth.login.failed', label: t('admin.activityAuthLoginFailed') },
+  { value: 'auth.passkey.created', label: t('admin.activityPasskeyCreated') },
+  { value: 'auth.passkey.updated', label: t('admin.activityPasskeyUpdated') },
+  { value: 'auth.passkey.deleted', label: t('admin.activityPasskeyDeleted') },
+  { value: 'expense.created', label: t('admin.activityExpenseCreated') },
+  { value: 'expense.updated', label: t('admin.activityExpenseUpdated') },
+  { value: 'expense.deleted', label: t('admin.activityExpenseDeleted') },
+  { value: 'settlement.created', label: t('admin.activitySettlementCreated') },
+  { value: 'settlement.updated', label: t('admin.activitySettlementUpdated') },
+  { value: 'settlement.deleted', label: t('admin.activitySettlementDeleted') },
+  { value: 'group.created', label: t('admin.activityGroupCreated') },
+  { value: 'group.updated', label: t('admin.activityGroupUpdated') },
+  { value: 'group.archived', label: t('admin.activityGroupArchived') },
+  { value: 'group.unarchived', label: t('admin.activityGroupUnarchived') },
+  { value: 'group.deleted', label: t('admin.activityGroupDeleted') },
+  { value: 'group.member.added', label: t('admin.activityMemberAdded') },
+  { value: 'group.member.removed', label: t('admin.activityMemberRemoved') },
+  { value: 'admin.user.updated', label: t('admin.activityAdminUserUpdated') },
+  { value: 'admin.user.deleted', label: t('admin.activityAdminUserDeleted') },
+  { value: 'admin.group.updated', label: t('admin.activityAdminGroupUpdated') },
+  { value: 'admin.category.updated', label: t('admin.activityAdminCategoryUpdated') },
 ];
 
 function formatDateTime(value) {
@@ -105,7 +106,7 @@ function AdminRegistrationTab({
         <input
           value={registrationToken}
           onChange={(event) => setRegistrationToken(event.target.value)}
-          placeholder="Lång unik nyckel"
+          placeholder={t('admin.longUniqueKey')}
         />
       </label>
       <label className="field-label">
@@ -118,11 +119,11 @@ function AdminRegistrationTab({
         </button>
         <button type="button" className="btn-secondary" onClick={handleResetRegistrationToken} disabled={savingRegistration || resettingRegistration}>
           <RefreshCw className="h-4 w-4" />
-          {resettingRegistration ? 'Återställer...' : 'Återställ nyckel'}
+          {resettingRegistration ? t('admin.resetting') : t('admin.resetKey')}
         </button>
         <button type="button" className="btn-secondary" onClick={handleCopyRegistrationUrl} disabled={!registrationUrl}>
           <Link2 className="h-4 w-4" />
-          Kopiera länk
+          {t('inviteQr.copyLink')}
         </button>
       </div>
     </div>
@@ -183,9 +184,9 @@ function getDeleteButtonClass(hasGroups) {
 
 function getRecoveryButtonTitle(passkeyCount) {
   if (passkeyCount === 0) {
-    return 'Användaren saknar passkeys – använd registreringslänken';
+    return t('admin.userNoPasskeysUseRegisterLink');
   }
-  return 'Generera återhämtningslänk';
+  return t('admin.generateRecoveryLink');
 }
 
 function AdminUserSaveButton({ userId, isDirty, isBusy, savingUserId, onSaveUser }) {
@@ -196,7 +197,7 @@ function AdminUserSaveButton({ userId, isDirty, isBusy, savingUserId, onSaveUser
       className={getSaveButtonClass(isDirty)}
       onClick={() => onSaveUser(userId)}
       disabled={!isDirty || isBusy}
-      title="Spara ändringar"
+      title={t('expenseModals.saveChanges')}
     >
       {isSaving ? '…' : <Check className="mx-auto h-4 w-4" />}
     </button>
@@ -225,7 +226,7 @@ function AdminUserDeleteButton({ userId, hasGroups, isBusy, deletingUserId, onDe
       className={getDeleteButtonClass(hasGroups)}
       onClick={() => onDeleteUser(userId)}
       disabled={hasGroups || isBusy}
-      title={hasGroups ? 'Kan inte radera användare med grupper' : 'Radera användare'}
+      title={hasGroups ? t('admin.cannotDeleteUserWithGroups') : t('admin.deleteUser')}
     >
       {isDeleting ? '...' : '×'}
     </button>
@@ -287,7 +288,7 @@ function AdminUserRow({
           className="min-w-0 flex-1"
           value={draft.full_name || ''}
           onChange={(event) => onDraftChange(user.id, 'full_name', event.target.value)}
-          aria-label="Fullständigt namn"
+          aria-label={t('auth.fullName')}
         />
         <div className="hidden w-14 shrink-0 justify-center sm:flex">
           <input
@@ -381,7 +382,7 @@ function GroupArchiveAction({ selectedGroup, groupAction, handleArchiveGroup, ha
         disabled={isBusy}
       >
         <RotateCcw className="h-4 w-4" />
-        {isBusy && groupAction.type === 'unarchive' ? 'Återaktiverar...' : 'Återaktivera'}
+        {isBusy && groupAction.type === 'unarchive' ? t('admin.unarchiving') : t('groupView.unarchive')}
       </button>
     );
   }
@@ -392,20 +393,20 @@ function GroupArchiveAction({ selectedGroup, groupAction, handleArchiveGroup, ha
       className="btn-secondary"
       onClick={() => handleArchiveGroup(selectedGroup.id)}
       disabled={isBusy || Boolean(selectedGroup.has_open_balances)}
-      title={selectedGroup.has_open_balances ? 'Kan inte arkivera förrän alla balanser är 0.' : undefined}
+      title={selectedGroup.has_open_balances ? t('admin.cannotArchiveUntilZeroBalances') : undefined}
     >
       <Archive className="h-4 w-4" />
-      {isBusy && groupAction.type === 'archive' ? 'Arkiverar...' : 'Arkivera'}
+      {isBusy && groupAction.type === 'archive' ? t('admin.archiving') : t('groupView.archiveGroup')}
     </button>
   );
 }
 
 function getGroupStatusMessage(selectedGroup) {
   if (selectedGroup.archived_at) {
-    return 'Gruppen är arkiverad och kan inte redigeras förrän den återaktiveras.';
+    return t('admin.groupArchivedCannotEdit');
   }
   if (selectedGroup.has_open_balances) {
-    return 'Gruppen kan inte arkiveras förrän allas balans är 0.';
+    return t('admin.groupCannotArchiveUntilZero');
   }
   return '';
 }
@@ -638,7 +639,7 @@ function AdminCategoriesTab({ categories, categoryDrafts, handleCategoryDraftCha
                   <td className="px-4 py-3 align-top">
                     <div className="inline-flex min-h-11 min-w-40 cursor-not-allowed items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[color:color-mix(in_srgb,var(--app-surface-muted)_88%,white)] px-3 py-2 text-sm text-[var(--text-muted)] opacity-85" aria-readonly="true">
                       <CategoryIcon className="h-4 w-4" />
-                      <span>{(draft.name || '').trim() || 'Namnlös kategori'}</span>
+                      <span>{(draft.name || '').trim() || t('admin.unnamedCategory')}</span>
                     </div>
                   </td>
                   <td className="px-4 py-3 align-top text-right">
@@ -728,7 +729,7 @@ function AdminActivityTab({
           <input
             value={activityFilters.query}
             onChange={(event) => handleActivityFilterChange('query', event.target.value)}
-            placeholder="Sök i händelser och metadata"
+            placeholder={t('admin.searchEventsPlaceholder')}
           />
         </label>
       </div>
@@ -953,7 +954,7 @@ export default function Admin() {
     try {
       await navigator.clipboard.writeText(url);
     } catch {
-      setError('Kunde inte kopiera länken.');
+      setError(t('admin.copyLinkFailed'));
     }
   };
 
@@ -1025,7 +1026,7 @@ export default function Admin() {
   };
 
   const handleDeleteGroup = async (groupId) => {
-    if (!window.confirm('Är du säker på att du vill radera gruppen permanent? Detta kan inte ångras.')) {
+    if (!window.confirm(t('groupView.confirmDeleteGroupPermanently'))) {
       return;
     }
     setGroupAction({ id: groupId, type: 'delete' });
@@ -1118,7 +1119,7 @@ export default function Admin() {
     try {
       await navigator.clipboard.writeText(registrationUrl);
     } catch {
-      setError('Kunde inte kopiera länken.');
+      setError(t('admin.copyLinkFailed'));
     }
   };
 
@@ -1150,7 +1151,7 @@ export default function Admin() {
 
   const tabs = [
     { id: 'admin', label: 'Admin', icon: Settings, count: null },
-    { id: 'users', label: 'Användare', icon: Users, count: users.length },
+    { id: 'users', label: t('admin.usersTab'), icon: Users, count: users.length },
     { id: 'groups', label: 'Grupper', icon: UsersRound, count: groups.length },
     { id: 'categories', label: 'Kategorier', icon: Tags, count: categories.length },
     { id: 'activity', label: 'Aktivitetslogg', icon: History, count: activityTotal },
@@ -1171,7 +1172,7 @@ export default function Admin() {
           <select
             value={activeTab}
             onChange={(e) => setActiveTab(e.target.value)}
-            aria-label="Välj sektion"
+            aria-label={t('admin.selectSectionAria')}
           >
             {tabs.map((tab) => (
               <option key={tab.id} value={tab.id}>

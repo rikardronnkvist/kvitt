@@ -4,6 +4,7 @@ import { FolderPlus } from 'lucide-react';
 import GroupCard from '../components/GroupCard.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import { get } from '../api/client.js';
+import { t } from '../lib/i18n.js';
 
 function DashboardSkeleton() {
   return (
@@ -125,8 +126,8 @@ export default function Dashboard() {
           ) : (
             <EmptyState
               icon={FolderPlus}
-              title="Du har inga grupper ännu"
-              description="Skapa din första grupp för att börja dela kostnader, följa saldon och registrera betalningar."
+              title={t('dashboard.emptyTitle')}
+              description={t('dashboard.emptyDescription')}
             />
           )}
         </>

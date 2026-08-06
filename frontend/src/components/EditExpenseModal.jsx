@@ -3,6 +3,7 @@ import { del, put } from '../api/client.js';
 import ExpenseFormFields from './ExpenseFormFields.jsx';
 import ModalShell from './ModalShell.jsx';
 import { createExpenseForm } from '../lib/expenseForm.js';
+import { t } from '../lib/i18n.js';
 
 export default function EditExpenseModal({ expense, members, categories, mileageRate, groupId, onClose, onSave, onDelete }) {
   const [form, setForm] = useState(() => createExpenseForm({ members, categories, expense }));
@@ -44,7 +45,7 @@ export default function EditExpenseModal({ expense, members, categories, mileage
   };
 
   const handleDelete = async () => {
-    if (!window.confirm('Är du säker på att du vill ta bort denna utgift?')) {
+    if (!window.confirm(t('expenseModals.editDeleteConfirm'))) {
       return;
     }
 
@@ -63,8 +64,8 @@ export default function EditExpenseModal({ expense, members, categories, mileage
 
   return (
     <ModalShell
-      title="Redigera utgift"
-      description="Uppdatera detaljerna eller justera fördelningen mellan deltagarna."
+      title={t('expenseModals.editTitle')}
+      description={t('expenseModals.editDescription')}
       onClose={onClose}
     >
       <ExpenseFormFields
@@ -79,7 +80,7 @@ export default function EditExpenseModal({ expense, members, categories, mileage
         onDelete={handleDelete}
         onError={setError}
         onSubmit={handleSubmit}
-        submitLabel="Spara ändringar"
+        submitLabel={t('expenseModals.saveChanges')}
       />
     </ModalShell>
   );

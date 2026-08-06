@@ -1,5 +1,6 @@
 import { browserSupportsWebAuthn, startAuthentication, startRegistration } from '@simplewebauthn/browser';
 import { del, get, post, put } from '../api/client.js';
+import { t } from '../lib/i18n.js';
 
 function isCancelError(error) {
   return error?.name === 'AbortError'
@@ -85,12 +86,12 @@ export async function loginWithPasskey() {
 
 export function getPasskeyErrorMessage(error, mode) {
   if (isCancelError(error)) {
-    return mode === 'register' ? 'Registreringen avbröts' : 'Inloggningen misslyckades';
+    return mode === 'register' ? t('auth.passkeyRegistrationCancelled') : t('auth.passkeyLoginFailed');
   }
 
   if (error?.message) {
     return error.message;
   }
 
-  return mode === 'register' ? 'Registreringen avbröts' : 'Inloggningen misslyckades';
+  return mode === 'register' ? t('auth.passkeyRegistrationCancelled') : t('auth.passkeyLoginFailed');
 }

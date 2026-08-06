@@ -4,6 +4,7 @@ import ExpenseFormFields from './ExpenseFormFields.jsx';
 import ModalShell from './ModalShell.jsx';
 import { createExpenseForm } from '../lib/expenseForm.js';
 import { getCurrentUserId } from '../lib/session.js';
+import { t } from '../lib/i18n.js';
 
 export default function NewExpenseModal({ groupId, members, categories, mileageRate, defaultPaidByUserId, onClose, onSuccess }) {
   const [error, setError] = useState('');
@@ -26,7 +27,7 @@ export default function NewExpenseModal({ groupId, members, categories, mileageR
 
   const handleClose = () => {
     const isDirty = form.title.trim() !== '' || (form.amount !== '' && form.amount !== '0') || form.notes.trim() !== '';
-    if (isDirty && !window.confirm('Avbryta? Det du fyllt i kommer att försvinna.')) return;
+    if (isDirty && !window.confirm(t('expenseModals.discardConfirm'))) return;
     onClose();
   };
 
@@ -58,8 +59,8 @@ export default function NewExpenseModal({ groupId, members, categories, mileageR
 
   return (
     <ModalShell
-      title="Lägg till utgift"
-      description="Registrera en ny kostnad och välj om den ska delas lika eller med egna belopp."
+      title={t('expenseModals.newTitle')}
+      description={t('expenseModals.newDescription')}
       onClose={handleClose}
     >
       <ExpenseFormFields
@@ -73,7 +74,7 @@ export default function NewExpenseModal({ groupId, members, categories, mileageR
         onCancel={handleClose}
         onError={setError}
         onSubmit={handleSubmit}
-        submitLabel="Spara utgift"
+        submitLabel={t('expenseModals.saveExpense')}
       />
     </ModalShell>
   );

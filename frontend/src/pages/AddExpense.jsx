@@ -5,6 +5,7 @@ import { get, post } from '../api/client.js';
 import ExpenseFormFields from '../components/ExpenseFormFields.jsx';
 import { createExpenseForm } from '../lib/expenseForm.js';
 import { getCurrentUserId } from '../lib/session.js';
+import { t } from '../lib/i18n.js';
 
 export default function AddExpense() {
   const { slug } = useParams();
@@ -88,19 +89,19 @@ export default function AddExpense() {
       <div className="space-y-3">
         <button type="button" className="btn-secondary" onClick={() => navigate(`/groups/${groupSlug}`)}>
           <ArrowLeft className="h-4 w-4" />
-          Tillbaka till {group?.name}
+          {t('addExpensePage.backToGroup', { groupName: group?.name })}
         </button>
         <div>
-          <p className="section-eyebrow">Ny utgift</p>
-          <h1 className="page-title">Lägg till utgift i {group?.name}</h1>
-          <p className="page-copy">Fyll i detaljerna och välj om kostnaden ska delas lika eller med egna belopp.</p>
+          <p className="section-eyebrow">{t('addExpensePage.newExpenseEyebrow')}</p>
+          <h1 className="page-title">{t('addExpensePage.title', { groupName: group?.name })}</h1>
+          <p className="page-copy">{t('addExpensePage.description')}</p>
         </div>
       </div>
 
       <section className="surface-card p-6 sm:p-7">
         {isArchived ? (
           <p className="m-0 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-4 py-3 text-sm text-[var(--text-secondary)]">
-            Gruppen är arkiverad och skrivskyddad. Nya utgifter kan inte läggas till.
+            {t('addExpensePage.archivedReadOnly')}
           </p>
         ) : (
           <ExpenseFormFields
@@ -114,7 +115,7 @@ export default function AddExpense() {
             onCancel={() => navigate(`/groups/${groupSlug}`)}
             onError={setError}
             onSubmit={handleSubmit}
-            submitLabel="Spara utgift"
+            submitLabel={t('expenseModals.saveExpense')}
           />
         )}
       </section>
