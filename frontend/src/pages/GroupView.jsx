@@ -869,6 +869,7 @@ export default function GroupView() {
   const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [editingSettlementId, setEditingSettlementId] = useState(null);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
+  const [defaultExpensePayerId, setDefaultExpensePayerId] = useState('');
   const [isAddingSettlement, setIsAddingSettlement] = useState(false);
   const [visibleTimelineCount, setVisibleTimelineCount] = useState(INITIAL_TIMELINE_VISIBLE_COUNT);
   const [groupActionSaving, setGroupActionSaving] = useState(false);
@@ -1053,6 +1054,17 @@ export default function GroupView() {
   );
   const memberBalancesAscending = useMemo(
     () => [...memberBalances].sort((a, b) => Number(a.balance) - Number(b.balance)),
+    [memberBalances],
+  );
+  const canQuickAddExpenseFromBalance = !isArchived && members.length >= 2;
+  const showBalanceBars = memberBalancesAscending.length >= 3;
+    const openExpenseModal = useCallback((paidByUserId = '') => {
+      setDefaultExpensePayerId(String(paidByUserId || ''));
+      setIsAddingExpense(true);
+    }, []);
+
+  const maxAbsoluteBalance = useMemo(
+    () => memberBalances.reduce((maxValue, member) => Math.max(maxValue, Math.abs(Number(member.balance) || 0)), 0),
     [memberBalances],
   );
   const canArchiveGroup = isGroupOwner && !isArchived && memberBalances.every((member) => Number(member.balance) === 0);
@@ -1272,7 +1284,7 @@ export default function GroupView() {
                 theme={theme}
                 members={members}
                 groupActionSaving={groupActionSaving}
-                onAddExpense={() => setIsAddingExpense(true)}
+                onAddExpense={() => openExpenseModal()}
                 onAddSettlement={() => setIsAddingSettlement(true)}
                 onOpenSettings={() => setIsSettingsOpen(true)}
                 onUnarchive={handleUnarchiveGroup}
@@ -1281,34 +1293,79 @@ export default function GroupView() {
               />
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <article className="rounded-lg border p-4" style={{ background: theme.bgSoft, borderColor: theme.borderSoft }}>
-                <p className="section-eyebrow">Balans</p>
-                <div className="mt-2 space-y-0.5">
+            <div className="grid gap-4 md:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
+              <article
+                className="overflow-hidden rounded-[1.75rem] border px-2 py-3 sm:px-4 sm:py-4"
+                style={{
+                  background: theme.bgSoft,
+                  borderColor: theme.borderSoft,
+                  boxShadow: '0 18px 42px rgba(15, 23, 42, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+                }}
+              >
+                <p className="section-eyebrow text-[color:color-mix(in_srgb,var(--text-muted)_88%,white)]">Balans</p>
+                <div className="relative mt-2 sm:mt-2.5">
+                  {showBalanceBars ? (
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute bottom-3 top-3 w-px -translate-x-1/2 rounded-full bg-[color:color-mix(in_srgb,var(--text-primary)_12%,transparent)] left-[calc(50%+(6rem-4rem)/2)] sm:left-[calc(50%+(8.75rem-5.5rem)/2)]"
+                    />
+                  ) : null}
+                  <div className="space-y-px">
                   {memberBalancesAscending.map((member) => {
                     const isCurrentUser = Number(member.id) === Number(currentUserId);
                     const shouldEmphasizeCurrentUser = memberBalancesAscending.length > 3 && isCurrentUser;
+                    const numericBalance = Number(member.balance) || 0;
+                    const absoluteBalance = Math.abs(numericBalance);
+                    const balanceWidth = maxAbsoluteBalance > 0 && absoluteBalance > 0
+                      ? `max(${((absoluteBalance / maxAbsoluteBalance) * 100).toFixed(1)}%, 0.85rem)`
+                      : '0%';
                     return (
-                      <div
+                      <button
                         key={member.id}
-                        className={`flex items-center justify-between gap-3 rounded-md px-1.5 py-0.5 text-sm ${shouldEmphasizeCurrentUser ? 'bg-[color:color-mix(in_srgb,var(--app-surface-strong)_40%,transparent)]' : ''}`}
+                        type="button"
+                        disabled={!canQuickAddExpenseFromBalance}
+                        onClick={() => openExpenseModal(member.id)}
+                        className={`grid w-full ${showBalanceBars ? 'grid-cols-[6rem_minmax(0,1fr)_4rem] sm:grid-cols-[8.75rem_minmax(0,1fr)_5.5rem]' : 'grid-cols-[minmax(0,1fr)_4rem] sm:grid-cols-[minmax(0,1fr)_5.5rem]'} items-center gap-1 rounded-lg px-1 py-0 text-left text-sm sm:gap-1.5 sm:px-2 ${canQuickAddExpenseFromBalance ? 'cursor-pointer transition hover:bg-[color:color-mix(in_srgb,var(--app-surface-strong)_35%,white)] focus:outline-none focus-visible:bg-[color:color-mix(in_srgb,var(--app-surface-strong)_35%,white)]' : 'cursor-default'} ${shouldEmphasizeCurrentUser ? '-mx-2 px-3 bg-[color:color-mix(in_srgb,var(--app-surface-strong)_55%,white)] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--text-primary)_8%,transparent)] sm:mx-0 sm:px-2' : ''}`}
                       >
-                        <span className="inline-flex min-w-0 flex-1 items-center gap-1.5 font-medium">
-                        <UserAvatar
-                          user={member}
-                          className="inline-flex h-5 w-5 items-center justify-center overflow-hidden rounded-full bg-[var(--app-surface-strong)] ring-1 ring-black/35"
-                          imageClassName="h-full w-full object-cover"
-                          initialsClassName="text-[9px] font-semibold text-[var(--text-secondary)]"
-                        />
-                          <span className="truncate">{getUserDisplayName(member)}</span>
+                        <span className={`inline-flex min-w-0 items-center gap-1.5 text-sm font-medium leading-tight text-[var(--text-primary)] sm:gap-2 ${showBalanceBars ? 'w-[6rem] shrink-0 sm:w-[8.75rem]' : 'w-full'}`}>
+                          <UserAvatar
+                            user={member}
+                            className={`inline-flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--app-surface-strong)] ring-1 ${shouldEmphasizeCurrentUser ? 'ring-[color:color-mix(in_srgb,var(--accent)_55%,black_10%)] shadow-[0_0_0_2px_color-mix(in_srgb,var(--accent)_14%,transparent)]' : 'ring-black/20'}`}
+                            imageClassName="h-full w-full object-cover"
+                            initialsClassName="text-[9px] font-semibold text-[var(--text-secondary)]"
+                          />
+                          <span className="min-w-0 break-words">{getUserDisplayName(member)}</span>
                         </span>
-                        <span className={`shrink-0 tabular-nums font-semibold ${getBalanceAmountClass(member.balance)}`}>
-                          {member.balance < 0 ? '-' : ''}
-                          {formatCurrency(Math.abs(member.balance), { precise: true })}
+                        {showBalanceBars ? (
+                          <div className="relative flex h-6 min-w-0 flex-1 items-center sm:h-7">
+                            <div className="grid h-full w-full grid-cols-2 gap-0">
+                              <div className="relative h-full">
+                                {numericBalance < 0 ? (
+                                  <span
+                                    className="absolute right-0 top-1/2 block h-5 -translate-y-1/2 rounded-l-[5px] rounded-r-none bg-[color:color-mix(in_srgb,var(--danger)_72%,white)] shadow-[0_10px_24px_color-mix(in_srgb,var(--danger)_15%,transparent)]"
+                                    style={{ width: balanceWidth }}
+                                  />
+                                ) : null}
+                              </div>
+                              <div className="relative h-full">
+                                {numericBalance > 0 ? (
+                                  <span
+                                    className="absolute left-0 top-1/2 block h-5 -translate-y-1/2 rounded-l-none rounded-r-[5px] bg-[color:color-mix(in_srgb,var(--success)_82%,white)] shadow-[0_10px_24px_color-mix(in_srgb,var(--success)_18%,transparent)]"
+                                    style={{ width: balanceWidth }}
+                                  />
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+                        ) : null}
+                        <span className={`w-[4rem] shrink-0 whitespace-nowrap text-right text-[1rem] tabular-nums font-semibold sm:w-[5.5rem] sm:text-[1.1rem] ${getBalanceAmountClass(member.balance)}`}>
+                          {numericBalance < 0 ? '-' : ''}
+                          {formatCurrency(absoluteBalance, { precise: true })}
                         </span>
-                      </div>
+                      </button>
                     );
                   })}
+                  </div>
                 </div>
               </article>
               <article className="rounded-lg border p-4" style={{ background: theme.bgSoft, borderColor: theme.borderSoft }}>
@@ -1422,7 +1479,11 @@ export default function GroupView() {
           members={members}
           categories={expenseCategories}
           mileageRate={mileageRate}
-          onClose={() => setIsAddingExpense(false)}
+          defaultPaidByUserId={defaultExpensePayerId}
+          onClose={() => {
+            setIsAddingExpense(false);
+            setDefaultExpensePayerId('');
+          }}
           onSuccess={loadData}
         />
       ) : null}

@@ -5,14 +5,24 @@ import ModalShell from './ModalShell.jsx';
 import { createExpenseForm } from '../lib/expenseForm.js';
 import { getCurrentUserId } from '../lib/session.js';
 
-export default function NewExpenseModal({ groupId, members, categories, mileageRate, onClose, onSuccess }) {
+export default function NewExpenseModal({ groupId, members, categories, mileageRate, defaultPaidByUserId, onClose, onSuccess }) {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState(() => createExpenseForm({ members, categories, currentUserId: getCurrentUserId() }));
+  const [form, setForm] = useState(() => createExpenseForm({
+    members,
+    categories,
+    currentUserId: getCurrentUserId(),
+    defaultPaidByUserId,
+  }));
 
   useEffect(() => {
-    setForm(createExpenseForm({ members, categories, currentUserId: getCurrentUserId() }));
-  }, [members, categories]);
+    setForm(createExpenseForm({
+      members,
+      categories,
+      currentUserId: getCurrentUserId(),
+      defaultPaidByUserId,
+    }));
+  }, [members, categories, defaultPaidByUserId]);
 
   const handleClose = () => {
     const isDirty = form.title.trim() !== '' || (form.amount !== '' && form.amount !== '0') || form.notes.trim() !== '';

@@ -64,10 +64,13 @@ function hasEqualSplits(amount, splits) {
   return splits.every((split, index) => Number(split.amount_owed) === Number(expected[index].amount_owed));
 }
 
-export function createExpenseForm({ members, categories = [], currentUserId, expense }) {
-  const defaultPayerId = members.some((member) => String(member.id) === currentUserId)
+export function createExpenseForm({ members, categories = [], currentUserId, expense, defaultPaidByUserId }) {
+  const fallbackPayerId = members.some((member) => String(member.id) === currentUserId)
     ? currentUserId
     : String(expense?.paid_by_user_id || members[0]?.id || '');
+  const defaultPayerId = defaultPaidByUserId != null && defaultPaidByUserId !== ''
+    ? String(defaultPaidByUserId)
+    : fallbackPayerId;
 
   const includedUsers = Object.fromEntries(
     members.map((member) => [
