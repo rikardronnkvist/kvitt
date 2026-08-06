@@ -1,5 +1,205 @@
 import { db } from '../db/database.js';
 
+function toParticipant(member) {
+  return {
+    id: member.id,
+    full_name: member.full_name,
+    phone: member.phone ?? null,
+    is_placeholder: member.is_placeholder ?? 0,
+  };
+}
+
+function createSignature(transactions) {
+  return transactions
+    .map((transaction) => `${transaction.from.id}:${transaction.to.id}:${transaction.amount}`)
+    .join('|');
+}
+
+function compareSolutions(candidate, currentBest) {
+  if (!currentBest) {
+    return -1;
+  }
+
+  if (candidate.count !== currentBest.count) {
+    return candidate.count - currentBest.count;
+  }
+
+  // Prefer larger, fewer chunks when the number of transfers is identical.
+  if (candidate.fragmentationScore !== currentBest.fragmentationScore) {
+    return currentBest.fragmentationScore - candidate.fragmentationScore;
+  }
+
+  if (candidate.signature < currentBest.signature) {
+    return -1;
+  }
+  if (candidate.signature > currentBest.signature) {
+    return 1;
+  }
+
+  return 0;
+}
+
+export function calculateOptimalTransactionsFromMembers(members) {
+  const creditors = members
+    .filter((member) => Number(member.balance) > 0)
+    .map((member) => ({
+      participant: toParticipant(member),
+      remaining: Math.round(Number(member.balance)),
+    }))
+    .sort((a, b) => {
+      if (b.remaining !== a.remaining) {
+        return b.remaining - a.remaining;
+      }
+      return a.participant.id - b.participant.id;
+    });
+
+  const debtors = members
+    .filter((member) => Number(member.balance) < 0)
+    .map((member) => ({
+      participant: toParticipant(member),
+      remaining: Math.round(Math.abs(Number(member.balance))),
+    }))
+    .sort((a, b) => {
+      if (b.remaining !== a.remaining) {
+        return b.remaining - a.remaining;
+      }
+      return a.participant.id - b.participant.id;
+    });
+
+  if (!creditors.length || !debtors.length) {
+    return [];
+  }
+
+  const totalCredit = creditors.reduce((sum, creditor) => sum + creditor.remaining, 0);
+  const totalDebt = debtors.reduce((sum, debtor) => sum + debtor.remaining, 0);
+  if (totalCredit !== totalDebt) {
+    const error = new Error('Kunde inte beräkna kvittningar: saldon summerar inte till noll.');
+    error.status = 500;
+    throw error;
+  }
+
+  const creditorBalances = creditors.map((creditor) => creditor.remaining);
+  const memo = new Map();
+  let best = null;
+
+  const nextDebtorIndex = (startIndex, debtBalances) => {
+    let index = startIndex;
+    while (index < debtBalances.length && debtBalances[index] <= 0) {
+      index += 1;
+    }
+    return index;
+  };
+
+  const getLowerBound = (debtorIndex, debtBalances, creditBalances) => {
+    let remainingDebtors = 0;
+    for (let index = debtorIndex; index < debtBalances.length; index += 1) {
+      if (debtBalances[index] > 0) {
+        remainingDebtors += 1;
+      }
+    }
+
+    let remainingCreditors = 0;
+    for (const value of creditBalances) {
+      if (value > 0) {
+        remainingCreditors += 1;
+      }
+    }
+
+    return Math.max(remainingDebtors, remainingCreditors);
+  };
+
+  const search = ({ debtorIndex, debtBalances, creditBalances, transactions, txCount, fragmentationScore }) => {
+    const activeDebtorIndex = nextDebtorIndex(debtorIndex, debtBalances);
+    if (activeDebtorIndex >= debtBalances.length) {
+      const candidate = {
+        count: txCount,
+        fragmentationScore,
+        signature: createSignature(transactions),
+        transactions,
+      };
+      if (compareSolutions(candidate, best) < 0) {
+        best = candidate;
+      }
+      return;
+    }
+
+    const lowerBound = getLowerBound(activeDebtorIndex, debtBalances, creditBalances);
+    if (best && txCount + lowerBound > best.count) {
+      return;
+    }
+
+    const memoKey = `${activeDebtorIndex}|${debtBalances.slice(activeDebtorIndex).join(',')}|${creditBalances.join(',')}`;
+    const memoBest = memo.get(memoKey);
+    if (memoBest !== undefined && memoBest <= txCount) {
+      return;
+    }
+    memo.set(memoKey, txCount);
+
+    const debtorRemaining = debtBalances[activeDebtorIndex];
+    const candidateCreditors = [];
+    for (let creditorIndex = 0; creditorIndex < creditBalances.length; creditorIndex += 1) {
+      if (creditBalances[creditorIndex] <= 0) {
+        continue;
+      }
+      candidateCreditors.push(creditorIndex);
+    }
+
+    candidateCreditors.sort((a, b) => {
+      if (creditBalances[b] !== creditBalances[a]) {
+        return creditBalances[b] - creditBalances[a];
+      }
+      return creditors[a].participant.id - creditors[b].participant.id;
+    });
+
+    for (const creditorIndex of candidateCreditors) {
+      const creditorRemaining = creditBalances[creditorIndex];
+      const amount = Math.min(debtorRemaining, creditorRemaining);
+      if (amount <= 0) {
+        continue;
+      }
+
+      const nextDebtBalances = [...debtBalances];
+      const nextCreditBalances = [...creditBalances];
+
+      nextDebtBalances[activeDebtorIndex] = debtorRemaining - amount;
+      nextCreditBalances[creditorIndex] = creditorRemaining - amount;
+
+      const nextTransactions = [
+        ...transactions,
+        {
+          from: debtors[activeDebtorIndex].participant,
+          to: creditors[creditorIndex].participant,
+          amount,
+        },
+      ];
+
+      if (best && txCount + 1 > best.count) {
+        continue;
+      }
+
+      search({
+        debtorIndex: activeDebtorIndex,
+        debtBalances: nextDebtBalances,
+        creditBalances: nextCreditBalances,
+        transactions: nextTransactions,
+        txCount: txCount + 1,
+        fragmentationScore: fragmentationScore + amount * amount,
+      });
+    }
+  };
+
+  search({
+    debtorIndex: 0,
+    debtBalances: debtors.map((debtor) => debtor.remaining),
+    creditBalances: creditorBalances,
+    transactions: [],
+    txCount: 0,
+    fragmentationScore: 0,
+  });
+
+  return best?.transactions ?? [];
+}
+
 export function calculateMemberBalances(groupId) {
   const group = db.prepare('SELECT id FROM groups WHERE id = ?').get(groupId);
   if (!group) {
@@ -66,54 +266,5 @@ export function calculateMemberBalances(groupId) {
 
 export function calculateBalances(groupId) {
   const members = calculateMemberBalances(groupId);
-  const creditors = members
-    .filter((member) => member.balance > 0)
-    .map((member) => ({ ...member, balance: member.balance }));
-  const debtors = members
-    .filter((member) => member.balance < 0)
-    .map((member) => ({ ...member, balance: Math.abs(member.balance) }));
-
-  creditors.sort((a, b) => b.balance - a.balance);
-  debtors.sort((a, b) => b.balance - a.balance);
-
-  const transactions = [];
-  let creditorIndex = 0;
-  let debtorIndex = 0;
-
-  while (creditorIndex < creditors.length && debtorIndex < debtors.length) {
-    const creditor = creditors[creditorIndex];
-    const debtor = debtors[debtorIndex];
-    const amount = Math.min(creditor.balance, debtor.balance);
-    const roundedAmount = Math.round(amount);
-
-    if (roundedAmount > 0) {
-      transactions.push({
-        from: {
-          id: debtor.id,
-          full_name: debtor.full_name,
-          phone: debtor.phone ?? null,
-          is_placeholder: debtor.is_placeholder ?? 0,
-        },
-        to: {
-          id: creditor.id,
-          full_name: creditor.full_name,
-          phone: creditor.phone ?? null,
-          is_placeholder: creditor.is_placeholder ?? 0,
-        },
-        amount: roundedAmount,
-      });
-    }
-
-    creditor.balance = Math.round(creditor.balance - roundedAmount);
-    debtor.balance = Math.round(debtor.balance - roundedAmount);
-
-    if (creditor.balance <= 0) {
-      creditorIndex += 1;
-    }
-    if (debtor.balance <= 0) {
-      debtorIndex += 1;
-    }
-  }
-
-  return transactions;
+  return calculateOptimalTransactionsFromMembers(members);
 }
