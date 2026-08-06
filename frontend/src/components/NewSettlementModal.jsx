@@ -6,53 +6,6 @@ import ModalShell from './ModalShell.jsx';
 import { getUserDisplayName } from '../lib/users.js';
 import DateTimePicker from './DateTimePicker.jsx';
 import { useAppSettings } from '../hooks/useAppSettings.js';
-import { t } from '../lib/i18n.js';
-
-const DEFAULT_PAYMENT_LINK_CONFIG = Object.freeze({
-  base_link: 'https://app.swish.nu/1/p/sw/',
-  query_params: Object.freeze({
-    phone: 'sw',
-    amount: 'amt',
-    message: 'msg',
-  }),
-});
-
-function readPaymentLinkConfig() {
-  const rawConfig = import.meta.env.VITE_PAYMENT_LINK_CONFIG;
-  if (!rawConfig) {
-    return DEFAULT_PAYMENT_LINK_CONFIG;
-  }
-
-  try {
-    const parsed = JSON.parse(rawConfig);
-    const baseLink = typeof parsed?.base_link === 'string' && parsed.base_link.trim()
-      ? parsed.base_link.trim()
-      : DEFAULT_PAYMENT_LINK_CONFIG.base_link;
-
-    const queryParams = parsed?.query_params && typeof parsed.query_params === 'object'
-      ? parsed.query_params
-      : {};
-
-    return {
-      base_link: baseLink,
-      query_params: {
-        phone: typeof queryParams.phone === 'string' && queryParams.phone.trim()
-          ? queryParams.phone.trim()
-          : DEFAULT_PAYMENT_LINK_CONFIG.query_params.phone,
-        amount: typeof queryParams.amount === 'string' && queryParams.amount.trim()
-          ? queryParams.amount.trim()
-          : DEFAULT_PAYMENT_LINK_CONFIG.query_params.amount,
-        message: typeof queryParams.message === 'string' && queryParams.message.trim()
-          ? queryParams.message.trim()
-          : DEFAULT_PAYMENT_LINK_CONFIG.query_params.message,
-      },
-    };
-  } catch {
-    return DEFAULT_PAYMENT_LINK_CONFIG;
-  }
-}
-
-const PAYMENT_LINK_CONFIG = readPaymentLinkConfig();
 
 function toLocalDateTimeInputValue(input) {
   const date = input ? new Date(input) : new Date();
@@ -61,50 +14,27 @@ function toLocalDateTimeInputValue(input) {
   return `${safeDate.getFullYear()}-${pad(safeDate.getMonth() + 1)}-${pad(safeDate.getDate())}T${pad(safeDate.getHours())}:${pad(safeDate.getMinutes())}`;
 }
 
-function normalizePaymentPhone(phone, phoneFormat = 'swedish') {
+function normalizeSwishPhone(phone) {
   if (!phone) return null;
-  const raw = String(phone).trim();
-  if (!raw) return null;
-
-  const digits = raw.replace(/\D/g, '');
+  const digits = String(phone).replace(/[^\d+]/g, '');
   if (!digits) return null;
-
-  if (raw.startsWith('+')) {
-    if (digits.startsWith('46')) return digits;
-    if (digits.startsWith('47')) return digits;
-    return null;
+  if (digits.startsWith('+')) {
+    return digits.startsWith('+46') ? digits.slice(1) : null;
   }
-
   if (digits.startsWith('00')) {
     const normalized = digits.slice(2);
-    if (normalized.startsWith('46')) return normalized;
-    if (normalized.startsWith('47')) return normalized;
-    return null;
+    return normalized.startsWith('46') ? normalized : null;
   }
-
   if (digits.startsWith('0')) {
-    if (phoneFormat === 'norwegian' && digits.length === 9) {
-      return `47${digits.slice(1)}`;
-    }
     return `46${digits.slice(1)}`;
   }
-
-  if (digits.startsWith('46') || digits.startsWith('47')) {
+  if (digits.startsWith('46')) {
     return digits;
   }
-
-  if (phoneFormat === 'norwegian' && digits.length === 8) {
-    return `47${digits}`;
-  }
-
-  if (digits.length === 9) {
-    return `46${digits}`;
-  }
-
   return null;
 }
 
-function formatPaymentAmount(amount) {
+function formatSwishAmount(amount) {
   return String(Math.round(amount));
 }
 
@@ -112,24 +42,27 @@ function sanitizeIntegerInput(value) {
   return String(value ?? '').replace(/\D/g, '');
 }
 
-function buildPaymentLink({ phone, amount, message }) {
-  const paymentPhone = normalizePaymentPhone(phone);
-  if (!paymentPhone || !Number.isInteger(amount) || amount <= 0) {
+function buildSwishLink({ phone, amount, message }) {
+  const swishPhone = normalizeSwishPhone(phone);
+  if (!swishPhone || !Number.isInteger(amount) || amount <= 0) {
     return null;
   }
-  const paymentAmount = formatPaymentAmount(amount);
+  const encodedMessage = encodeURIComponent(message.slice(0, 50));
+  const swishAmount = formatSwishAmount(amount);
+  return `https://app.swish.nu/1/p/sw/?sw=${swishPhone}&amt=${swishAmount}&msg=${encodedMessage}`;
+}
 
-  let url;
-  try {
-    url = new URL(PAYMENT_LINK_CONFIG.base_link);
-  } catch {
-    url = new URL(DEFAULT_PAYMENT_LINK_CONFIG.base_link);
-  }
+function sanitizeAmountField(value) {
+  const raw = sanitizeIntegerInput(value);
+  return raw === '' ? '' : String(Math.min(99999, Math.max(1, Number(raw))));
+}
 
-  url.searchParams.set(PAYMENT_LINK_CONFIG.query_params.phone, paymentPhone);
-  url.searchParams.set(PAYMENT_LINK_CONFIG.query_params.amount, paymentAmount);
-  url.searchParams.set(PAYMENT_LINK_CONFIG.query_params.message, message.slice(0, 50));
-  return url.toString();
+function validateSettlementForm({ payer_id, receiver_id, amount: rawAmount }) {
+  const amount = Number(rawAmount);
+  if (!Number.isInteger(amount) || amount <= 0) return 'Belopp måste vara ett heltal större än 0.';
+  if (!payer_id || !receiver_id) return 'Välj både betalare och mottagare.';
+  if (payer_id === receiver_id) return 'Betalare och mottagare måste vara olika personer.';
+  return null;
 }
 
 export default function NewSettlementModal({
@@ -162,29 +95,29 @@ export default function NewSettlementModal({
     [members, formData.receiver_id],
   );
   const parsedAmount = Number(formData.amount);
-  const receiverPaymentPhone = useMemo(
-    () => normalizePaymentPhone(selectedReceiver?.phone || null, appSettings.phone_format),
-    [selectedReceiver, appSettings.phone_format],
+  const receiverSwishPhone = useMemo(
+    () => normalizeSwishPhone(selectedReceiver?.phone || null),
+    [selectedReceiver],
   );
-  const paymentLink = useMemo(
-    () => buildPaymentLink({
-      phone: receiverPaymentPhone,
+  const swishLink = useMemo(
+    () => buildSwishLink({
+      phone: receiverSwishPhone,
       amount: parsedAmount,
-      message: t('settlementModals.swishMessage', { groupName: groupName || t('settlementModals.unknownGroup') }),
+      message: `Kvittar skuld (${groupName || 'Okänd grupp'})`,
     }),
-    [receiverPaymentPhone, parsedAmount, groupName],
+    [receiverSwishPhone, parsedAmount, groupName],
   );
-  const paymentAmountText = useMemo(
-    () => (Number.isInteger(parsedAmount) && parsedAmount > 0 ? formatPaymentAmount(parsedAmount) : null),
+  const swishAmountText = useMemo(
+    () => (Number.isInteger(parsedAmount) && parsedAmount > 0 ? formatSwishAmount(parsedAmount) : null),
     [parsedAmount],
   );
   const isReceiverCurrentUser = String(selectedReceiver?.id ?? '') === String(currentUserId ?? '');
-  const showPaymentSection = appSettings.phone_enabled && Boolean(formData.receiver_id && receiverPaymentPhone);
-  const canStartPayment = Boolean(paymentLink && formData.payer_id && formData.receiver_id && !isReceiverCurrentUser);
+  const showSwishSection = appSettings.phone_enabled && Boolean(formData.receiver_id && receiverSwishPhone);
+  const canSwish = Boolean(swishLink && formData.payer_id && formData.receiver_id && !isReceiverCurrentUser);
 
   const handleClose = () => {
     const isDirty = formData.amount !== '' || formData.receiver_id !== '';
-    if (isDirty && !window.confirm(t('settlementModals.discardConfirm'))) return;
+    if (isDirty && !window.confirm('Avbryta? Det du fyllt i kommer att försvinna.')) return;
     onClose();
   };
 
@@ -210,29 +143,16 @@ export default function NewSettlementModal({
   }, [availableReceivers, formData.receiver_id]);
 
   const handleFieldChange = (field, value) => {
-    setFormData((previous) => ({
-      ...previous,
-      [field]: field === 'amount' ? (() => { const raw = sanitizeIntegerInput(value); return raw === '' ? '' : String(Math.min(99999, Math.max(1, Number(raw)))); })() : value,
-    }));
+    const sanitized = field === 'amount' ? sanitizeAmountField(value) : value;
+    setFormData((previous) => ({ ...previous, [field]: sanitized }));
     setError('');
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const amount = Number(formData.amount);
-
-    if (!Number.isInteger(amount) || amount <= 0) {
-      setError(t('settlementModals.amountMustBePositiveInteger'));
-      return;
-    }
-
-    if (!formData.payer_id || !formData.receiver_id) {
-      setError(t('settlementModals.selectPayerAndReceiver'));
-      return;
-    }
-
-    if (formData.payer_id === formData.receiver_id) {
-      setError(t('settlementModals.payerReceiverMustDiffer'));
+    const validationError = validateSettlementForm(formData);
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
@@ -242,7 +162,7 @@ export default function NewSettlementModal({
       await post(`/api/settlements/${groupId}`, {
         payer_id: Number(formData.payer_id),
         receiver_id: Number(formData.receiver_id),
-        amount,
+        amount: Number(formData.amount),
         settled_at: formData.settled_at,
       });
       await onSuccess();
@@ -256,15 +176,15 @@ export default function NewSettlementModal({
 
   return (
     <ModalShell
-      title={t('settlementModals.newTitle')}
+      title="Kvitta skuld"
       description=""
       onClose={handleClose}
     >
       <form onSubmit={handleSubmit} className="space-y-5">
         <section className="space-y-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
           <div>
-            <h3 className="m-0 text-base font-semibold">{t('settlementModals.suggestionsTitle')}</h3>
-            <p className="m-0 text-sm text-[var(--text-secondary)]">{t('settlementModals.suggestionsDescription')}</p>
+            <h3 className="m-0 text-base font-semibold">Förslag för att alla ska bli kvitt</h3>
+            <p className="m-0 text-sm text-[var(--text-secondary)]">Klicka på ett förslag för att fylla i värden.</p>
           </div>
           <BalanceList
             balances={balances}
@@ -275,82 +195,73 @@ export default function NewSettlementModal({
               receiver_id: String(balance.to.id),
               amount: String(Math.round(balance.amount)),
             }))}
-            isSelected={(balance) => (
-              formData.payer_id === String(balance.from.id)
-              && formData.receiver_id === String(balance.to.id)
-              && formData.amount === String(Math.round(balance.amount))
-            )}
           />
         </section>
 
         <label className="field-label">
-          <span>{t('settlementModals.payer')}</span>
+          <span>Betalare</span>
           <MemberDropdown
             value={formData.payer_id}
             options={members}
-            placeholder={t('settlementModals.selectPayer')}
+            placeholder="Välj betalare"
             onChange={(selectedValue) => handleFieldChange('payer_id', selectedValue)}
-            ariaLabel={t('settlementModals.selectPayer')}
+            ariaLabel="Välj betalare"
           />
         </label>
 
         <label className="field-label">
-          <span>{t('settlementModals.receiver')}</span>
+          <span>Mottagare</span>
           <MemberDropdown
             value={formData.receiver_id}
             options={availableReceivers}
-            placeholder={t('settlementModals.selectReceiver')}
+            placeholder="Välj mottagare"
             onChange={(selectedValue) => handleFieldChange('receiver_id', selectedValue)}
-            ariaLabel={t('settlementModals.selectReceiver')}
+            ariaLabel="Välj mottagare"
           />
         </label>
 
         <label className="field-label">
-          <span>{t('settlementModals.amount')}</span>
-          <div className="relative">
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              value={formData.amount}
-              onChange={(event) => handleFieldChange('amount', event.target.value)}
-              placeholder="0"
-              required
-              style={{ paddingRight: '2.4rem' }}
-            />
-            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-[var(--text-muted)]">kr</span>
-          </div>
+          <span>Belopp</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={formData.amount}
+            onChange={(event) => handleFieldChange('amount', event.target.value)}
+            placeholder="0"
+            required
+          />
         </label>
 
         <label className="field-label">
-          <span>{t('settlementModals.settledAt')}</span>
+          <span>Tidpunkt för kvittningen</span>
           <DateTimePicker
             value={formData.settled_at}
             onChange={(value) => handleFieldChange('settled_at', value)}
           />
         </label>
 
-        {showPaymentSection ? (
+        {showSwishSection ? (
           <div className="space-y-2">
-            {canStartPayment ? (
+            {canSwish ? (
               <a
-                href={paymentLink}
+                href={swishLink}
                 className="btn-secondary w-full justify-center gap-2"
                 target="_blank"
                 rel="noopener noreferrer"
               >
                 <img src="/swish.png" alt="" className="h-5 w-5" aria-hidden="true" />
-                {t('settlementModals.swishTo', { amount: paymentAmountText, name: getUserDisplayName(selectedReceiver) })}
+                Swisha {swishAmountText} kr till {getUserDisplayName(selectedReceiver)}
               </a>
             ) : (
               <button type="button" className="btn-secondary w-full justify-center gap-2" disabled>
                 <img src="/swish.png" alt="" className="h-5 w-5" aria-hidden="true" />
-                {t('settlementModals.swishToName', { name: getUserDisplayName(selectedReceiver) })}
+                Swisha {getUserDisplayName(selectedReceiver)}
               </button>
             )}
-            {!canStartPayment ? (
+            {!canSwish ? (
               <p className="m-0 text-xs text-[var(--text-muted)]">
-                {isReceiverCurrentUser ? t('settlementModals.swishSelf') : t('settlementModals.swishNeedsAmount')}
+                {isReceiverCurrentUser ? 'Du kan inte Swisha till dig själv.' : 'Fyll i belopp för att starta Swish.'}
               </p>
             ) : null}
           </div>
@@ -360,10 +271,10 @@ export default function NewSettlementModal({
 
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
           <button type="button" className="btn-secondary" onClick={handleClose} disabled={saving}>
-            {t('common.cancel')}
+            Avbryt
           </button>
           <button type="submit" className="btn-primary" disabled={saving || !formData.payer_id || !formData.receiver_id || !(Number.isInteger(parsedAmount) && parsedAmount > 0)}>
-            {saving ? t('shell.saving') : t('settlementModals.markSettled')}
+            {saving ? 'Sparar...' : 'Markera som kvittad'}
           </button>
         </div>
       </form>

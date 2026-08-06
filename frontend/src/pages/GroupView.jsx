@@ -31,6 +31,10 @@ function sanitizeIntegerInput(value) {
   return String(value ?? '').replace(/\D/g, '');
 }
 
+function normalizeIconId(value) {
+  return String(value || '').trim().toLowerCase().replace(/[_\s]+/g, '-');
+}
+
 function getBalanceAmountClass(balance) {
   if (balance > 0) {
     return 'amount-positive';
@@ -1066,11 +1070,6 @@ export default function GroupView() {
   }, [inviteToken]);
 
   const summary = useMemo(() => {
-    const normalizeIconId = (value) => String(value || '')
-      .trim()
-      .toLowerCase()
-      .replace(/[_\s]+/g, '-');
-
     const sortOrderByIcon = new Map(
       expenseCategories.map((category) => [normalizeIconId(category.icon), Number(category.sort_order)]),
     );
