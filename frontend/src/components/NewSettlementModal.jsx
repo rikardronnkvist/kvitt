@@ -61,23 +61,46 @@ function toLocalDateTimeInputValue(input) {
   return `${safeDate.getFullYear()}-${pad(safeDate.getMonth() + 1)}-${pad(safeDate.getDate())}T${pad(safeDate.getHours())}:${pad(safeDate.getMinutes())}`;
 }
 
-function normalizePaymentPhone(phone) {
+function normalizePaymentPhone(phone, phoneFormat = 'swedish') {
   if (!phone) return null;
-  const digits = String(phone).replace(/[^\d+]/g, '');
+  const raw = String(phone).trim();
+  if (!raw) return null;
+
+  const digits = raw.replace(/\D/g, '');
   if (!digits) return null;
-  if (digits.startsWith('+')) {
-    return digits.startsWith('+46') ? digits.slice(1) : null;
+
+  if (raw.startsWith('+')) {
+    if (digits.startsWith('46')) return digits;
+    if (digits.startsWith('47')) return digits;
+    return null;
   }
+
   if (digits.startsWith('00')) {
     const normalized = digits.slice(2);
-    return normalized.startsWith('46') ? normalized : null;
+    if (normalized.startsWith('46')) return normalized;
+    if (normalized.startsWith('47')) return normalized;
+    return null;
   }
+
   if (digits.startsWith('0')) {
+    if (phoneFormat === 'norwegian' && digits.length === 9) {
+      return `47${digits.slice(1)}`;
+    }
     return `46${digits.slice(1)}`;
   }
-  if (digits.startsWith('46')) {
+
+  if (digits.startsWith('46') || digits.startsWith('47')) {
     return digits;
   }
+
+  if (phoneFormat === 'norwegian' && digits.length === 8) {
+    return `47${digits}`;
+  }
+
+  if (digits.length === 9) {
+    return `46${digits}`;
+  }
+
   return null;
 }
 
@@ -140,8 +163,8 @@ export default function NewSettlementModal({
   );
   const parsedAmount = Number(formData.amount);
   const receiverPaymentPhone = useMemo(
-    () => normalizePaymentPhone(selectedReceiver?.phone || null),
-    [selectedReceiver],
+    () => normalizePaymentPhone(selectedReceiver?.phone || null, appSettings.phone_format),
+    [selectedReceiver, appSettings.phone_format],
   );
   const paymentLink = useMemo(
     () => buildPaymentLink({

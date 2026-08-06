@@ -6,7 +6,7 @@ const PHONE_ENABLED_ENV = 'KVITT_PHONE_ENABLED';
 const PHONE_FORMAT_ENV = 'KVITT_PHONE_FORMAT';
 const DEFAULT_PHONE_AND_SWISH_ENABLED = true;
 const DEFAULT_PHONE_FORMAT = 'swedish';
-const ALLOWED_PHONE_FORMATS = new Set(['swedish', 'international', 'national']);
+const ALLOWED_PHONE_FORMATS = new Set(['swedish', 'international', 'national', 'norwegian']);
 
 function toBooleanSetting(value, fallback) {
   if (value == null) {

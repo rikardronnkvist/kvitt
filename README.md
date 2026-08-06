@@ -47,7 +47,7 @@ Use `main-<run_number>` for immutable CI deployments and `v*` tags for release d
 | `VITE_LANGUAGE` | `frontend` (build env / local dev) | `sv-se` | Build-time fallback language used in local Vite development. |
 | `VITE_TAGLINE` | `frontend` (build arg or runtime env) | `Dela kostnader, bli kvitt` | Tagline shown on the login page and in the app header. |
 | `KVITT_PHONE_ENABLED` | `backend` and `frontend` runtime env | `true` | Enables or disables phone number collection and Swish suggestions. |
-| `KVITT_PHONE_FORMAT` | `backend` and `frontend` runtime env | `swedish` | Phone display format. Supported values: `swedish`, `international`, `national`. |
+| `KVITT_PHONE_FORMAT` | `backend` and `frontend` runtime env | `swedish` | Phone display format. Supported values: `swedish`, `international`, `national`, `norwegian`. |
 | `VITE_PAYMENT_LINK_CONFIG` | `frontend` (build env / local dev) | `{"base_link":"https://app.swish.nu/1/p/sw/","query_params":{"phone":"sw","amount":"amt","message":"msg"}}` | Payment deep-link config as JSON. Lets you change provider base URL and query parameter names while defaulting to Swish. |
 | `VAPID_PUBLIC_KEY` | `backend` | _(none)_ | VAPID public key for Web Push notifications. Leave empty to disable push. |
 | `VAPID_PRIVATE_KEY` | `backend` | _(none)_ | VAPID private key. Keep this secret. |
@@ -101,6 +101,7 @@ VAPID_CONTACT_EMAIL=you@mydomain.se
 ### Phone numbers and Swish
 - Phone numbers are controlled by `KVITT_PHONE_ENABLED` and are enabled by default.
 - The display format is controlled by `KVITT_PHONE_FORMAT`.
+- Supported formats are `swedish`, `international`, `national`, and `norwegian`.
 - The same settings are used for profile phone input, registration phone input, and Swish suggestions.
 - Set the same values in the backend environment and the frontend runtime environment if you want the frontend config to match immediately on load.
 - Swish payment suggestions are hidden automatically when phone handling is disabled.

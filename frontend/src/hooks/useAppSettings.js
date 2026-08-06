@@ -12,7 +12,7 @@ function toBoolean(value, fallback) {
 
 function normalizePhoneFormat(value) {
   const normalized = String(value || '').trim().toLowerCase();
-  if (['swedish', 'international', 'national'].includes(normalized)) {
+  if (['swedish', 'international', 'national', 'norwegian'].includes(normalized)) {
     return normalized;
   }
   return DEFAULT_APP_SETTINGS.phone_format;
@@ -43,7 +43,7 @@ export function useAppSettings() {
         if (!active) return;
         setSettings({
           phone_enabled: data?.phone_enabled !== false,
-          phone_format: typeof data?.phone_format === 'string' ? data.phone_format : DEFAULT_APP_SETTINGS.phone_format,
+          phone_format: normalizePhoneFormat(data?.phone_format),
         });
       })
       .catch(() => {

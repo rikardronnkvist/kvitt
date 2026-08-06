@@ -25,7 +25,38 @@ function normalizeSwedishDigits(value) {
   return digits;
 }
 
+function normalizeNorwegianDigits(value) {
+  const raw = sanitizePhoneInput(value).trim();
+  if (!raw) return '';
+
+  let digits = raw.replace(/\D/g, '');
+  if (!digits) return '';
+
+  if (digits.startsWith('0047')) {
+    digits = digits.slice(4);
+  } else if (digits.startsWith('47')) {
+    digits = digits.slice(2);
+  } else if (digits.startsWith('0') && digits.length === 9) {
+    digits = digits.slice(1);
+  }
+
+  if (digits.length !== 8) {
+    return raw;
+  }
+
+  return digits;
+}
+
 export function formatPhoneNumber(value, format = 'swedish') {
+  if (format === 'norwegian') {
+    const digits = normalizeNorwegianDigits(value);
+    if (!digits) return '';
+    if (digits.length !== 8) {
+      return sanitizePhoneInput(value).trim();
+    }
+    return `+47 ${digits.slice(0, 3)} ${digits.slice(3, 5)} ${digits.slice(5, 8)}`;
+  }
+
   const digits = normalizeSwedishDigits(value);
   if (!digits) return '';
   if (digits.length !== 9) {
@@ -44,6 +75,9 @@ export function formatPhoneNumber(value, format = 'swedish') {
 }
 
 export function getPhonePlaceholder(format = 'swedish') {
+  if (format === 'norwegian') {
+    return '+47 123 45 678';
+  }
   if (format === 'international') {
     return '+46 70 123 45 67';
   }
