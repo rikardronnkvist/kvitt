@@ -195,6 +195,11 @@ export default function NewSettlementModal({
               receiver_id: String(balance.to.id),
               amount: String(Math.round(balance.amount)),
             }))}
+            isSelected={(balance) => (
+              formData.payer_id === String(balance.from.id)
+              && formData.receiver_id === String(balance.to.id)
+              && formData.amount === String(Math.round(balance.amount))
+            )}
           />
         </section>
 
