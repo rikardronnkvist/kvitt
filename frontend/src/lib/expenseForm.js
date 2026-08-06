@@ -70,12 +70,18 @@ function deriveSplitType(expense, members) {
   return 'all_equal';
 }
 
+function resolveDefaultPayerId({ defaultPaidByUserId, currentUserId, expense, members }) {
+  if (defaultPaidByUserId && members.some((member) => String(member.id) === String(defaultPaidByUserId))) {
+    return String(defaultPaidByUserId);
+  }
+  if (members.some((member) => String(member.id) === currentUserId)) {
+    return currentUserId;
+  }
+  return String(expense?.paid_by_user_id || members[0]?.id || '');
+}
+
 export function createExpenseForm({ members, categories = [], currentUserId, defaultPaidByUserId, expense }) {
-  const defaultPayerId = defaultPaidByUserId && members.some((member) => String(member.id) === String(defaultPaidByUserId))
-    ? String(defaultPaidByUserId)
-    : members.some((member) => String(member.id) === currentUserId)
-      ? currentUserId
-      : String(expense?.paid_by_user_id || members[0]?.id || '');
+  const defaultPayerId = resolveDefaultPayerId({ defaultPaidByUserId, currentUserId, expense, members });
 
   const includedUsers = Object.fromEntries(
     members.map((member) => [

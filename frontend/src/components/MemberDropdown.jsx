@@ -45,9 +45,10 @@ export default function MemberDropdown({
   }
 
   return (
-    <div ref={containerRef} className="relative" onKeyDown={handleKeyDown}>
+    <div ref={containerRef} className="relative">
       <button
         type="button"
+        onKeyDown={handleKeyDown}
         aria-label={ariaLabel}
         aria-haspopup="listbox"
         aria-expanded={open}

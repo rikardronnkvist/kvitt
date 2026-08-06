@@ -221,9 +221,10 @@ function SplitDetailsPanel({
   setForm,
 }) {
   if (form.split_type === 'percent') {
-    const diffLabel = percentDifference === 0
-      ? 'Summerar 100%'
-      : `${percentDifference > 0 ? 'Återstår' : 'Över'} ${Math.abs(percentDifference)}%`;
+      const diffDirection = percentDifference > 0 ? 'Återstår' : 'Över';
+      const diffLabel = percentDifference === 0
+        ? 'Summerar 100%'
+        : `${diffDirection} ${Math.abs(percentDifference)}%`;
     const diffClass = percentDifference === 0 ? 'amount-positive' : 'amount-negative';
     return (
       <div className="space-y-4 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
@@ -362,7 +363,8 @@ function SplitDetailsPanel({
                 value={form.custom_amounts[member.id] || ''}
                 onChange={(event) => setForm((previous) => {
                   const raw = sanitizeIntegerInput(event.target.value);
-                  const clamped = raw === '' ? '' : String(Math.min(hasValidAmount ? amount : Infinity, Math.max(0, Number(raw))));
+                    const maxAmount = hasValidAmount ? amount : Infinity;
+                    const clamped = raw === '' ? '' : String(Math.min(maxAmount, Math.max(0, Number(raw))));
                   return { ...previous, custom_amounts: { ...previous.custom_amounts, [member.id]: clamped } };
                 })}
                 placeholder="0"

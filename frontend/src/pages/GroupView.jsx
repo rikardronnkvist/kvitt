@@ -912,33 +912,24 @@ export default function GroupView() {
   // Poll for new activity while the tab is visible — avoids requiring a manual reload
   useEffect(() => {
     const POLL_INTERVAL = 20_000;
-    let timerId = null;
 
     const checkAndRefresh = async () => {
       if (document.hidden) return;
       try {
         const { last_activity_at } = await get(`/api/groups/${slug}/activity`);
-        if (lastActivityRef.current !== null && last_activity_at !== lastActivityRef.current) {
-          await loadData({ silent: true });
-        }
+        const hasNewActivity = lastActivityRef.current !== null && last_activity_at !== lastActivityRef.current;
+        if (hasNewActivity) await loadData({ silent: true });
       } catch {
         // ignore poll errors
       }
     };
 
-    const schedule = () => {
-      timerId = window.setTimeout(async () => {
-        await checkAndRefresh();
-        schedule();
-      }, POLL_INTERVAL);
-    };
-
+    const timerId = window.setInterval(checkAndRefresh, POLL_INTERVAL);
     const onVisibilityChange = () => { checkAndRefresh(); };
 
-    schedule();
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
-      window.clearTimeout(timerId);
+      window.clearInterval(timerId);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [loadData, slug]);
