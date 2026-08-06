@@ -307,15 +307,19 @@ export default function NewSettlementModal({
 
         <label className="field-label">
           <span>{t('settlementModals.amount')}</span>
-          <input
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            value={formData.amount}
-            onChange={(event) => handleFieldChange('amount', event.target.value)}
-            placeholder="0"
-            required
-          />
+          <div className="relative">
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={formData.amount}
+              onChange={(event) => handleFieldChange('amount', event.target.value)}
+              placeholder="0"
+              required
+              style={{ paddingRight: '2.4rem' }}
+            />
+            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-[var(--text-muted)]">kr</span>
+          </div>
         </label>
 
         <label className="field-label">
