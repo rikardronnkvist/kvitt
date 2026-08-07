@@ -10,6 +10,8 @@ COPY . .
 
 FROM node:24-alpine
 WORKDIR /app
+# upgrade npm to pull in updated bundled deps (fixes Trivy CVEs in npm-internal packages)
+RUN npm install -g npm@latest --no-update-notifier
 RUN mkdir -p /app/data
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/src ./src
