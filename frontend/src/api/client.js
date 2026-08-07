@@ -6,7 +6,11 @@ function buildSafeUrl(url) {
   if (typeof url !== 'string' || !url.startsWith('/')) {
     throw new Error(t('common.genericError'));
   }
-  return new URL(url, window.location.origin).toString();
+  const { origin, pathname, search } = new URL(url, window.location.origin);
+  if (origin !== window.location.origin) {
+    throw new Error(t('common.genericError'));
+  }
+  return pathname + search;
 }
 
 function redirectToLogin() {

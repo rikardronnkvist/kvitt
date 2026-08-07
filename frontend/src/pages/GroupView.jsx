@@ -831,7 +831,7 @@ function GroupSettingsModal({
             </div>
           )}
 
-          {isGroupOwner && !isArchived ? (
+          {!isArchived ? (
             <div className="space-y-3 border-t border-[var(--border-subtle)] pt-4">
               <p className="m-0 text-sm text-[var(--text-secondary)]">
                 Arkivera gruppen för att göra den skrivskyddad.
