@@ -849,6 +849,24 @@ function GroupSettingsModal({
   );
 }
 
+function buildMonthlyTotals(timeline) {
+  const map = new Map();
+  for (const item of timeline) {
+    if (!Number.isFinite(item.activityTimestamp)) continue;
+    const key = getMonthKey(item.activityTimestamp);
+    const current = map.get(key) || { totalSpent: 0, expenseCount: 0, settlementTotal: 0, settlementCount: 0 };
+    if (item.kind === 'expense') {
+      current.totalSpent += Number(item.amount || 0);
+      current.expenseCount += 1;
+    } else {
+      current.settlementTotal += Number(item.amount || 0);
+      current.settlementCount += 1;
+    }
+    map.set(key, current);
+  }
+  return map;
+}
+
 function compareTimelineItems(a, b) {
   const activityMinuteA = Math.floor(a.activityTimestamp / 60000);
   const activityMinuteB = Math.floor(b.activityTimestamp / 60000);
@@ -1030,23 +1048,7 @@ export default function GroupView() {
   );
   const hasMoreTimeline = timeline.length > visibleTimelineCount;
 
-  const monthlyTotals = useMemo(() => {
-    const map = new Map();
-    for (const item of timeline) {
-      if (!Number.isFinite(item.activityTimestamp)) continue;
-      const key = getMonthKey(item.activityTimestamp);
-      const current = map.get(key) || { totalSpent: 0, expenseCount: 0, settlementTotal: 0, settlementCount: 0 };
-      if (item.kind === 'expense') {
-        current.totalSpent += Number(item.amount || 0);
-        current.expenseCount += 1;
-      } else {
-        current.settlementTotal += Number(item.amount || 0);
-        current.settlementCount += 1;
-      }
-      map.set(key, current);
-    }
-    return map;
-  }, [timeline]);
+  const monthlyTotals = useMemo(() => buildMonthlyTotals(timeline), [timeline]);
 
   const memberBalances = useMemo(
     () => computeMemberBalances(members, expenses, settlements),
