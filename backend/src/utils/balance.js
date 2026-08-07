@@ -39,6 +39,16 @@ function compareSolutions(candidate, currentBest) {
   return 0;
 }
 
+function buildSortedCreditorIndices(creditBalances, creditors) {
+  return creditBalances
+    .map((v, i) => i)
+    .filter((i) => creditBalances[i] > 0)
+    .sort((a, b) => {
+      if (creditBalances[b] !== creditBalances[a]) return creditBalances[b] - creditBalances[a];
+      return creditors[a].participant.id - creditors[b].participant.id;
+    });
+}
+
 export function calculateOptimalTransactionsFromMembers(members) {
   const creditors = members
     .filter((member) => Number(member.balance) > 0)
@@ -136,21 +146,7 @@ export function calculateOptimalTransactionsFromMembers(members) {
     memo.set(memoKey, txCount);
 
     const debtorRemaining = debtBalances[activeDebtorIndex];
-    const candidateCreditors = [];
-    for (let creditorIndex = 0; creditorIndex < creditBalances.length; creditorIndex += 1) {
-      if (creditBalances[creditorIndex] <= 0) {
-        continue;
-      }
-      candidateCreditors.push(creditorIndex);
-    }
-
-    candidateCreditors.sort((a, b) => {
-      if (creditBalances[b] !== creditBalances[a]) {
-        return creditBalances[b] - creditBalances[a];
-      }
-      return creditors[a].participant.id - creditors[b].participant.id;
-    });
-
+      const candidateCreditors = buildSortedCreditorIndices(creditBalances, creditors);
     for (const creditorIndex of candidateCreditors) {
       const creditorRemaining = creditBalances[creditorIndex];
       const amount = Math.min(debtorRemaining, creditorRemaining);

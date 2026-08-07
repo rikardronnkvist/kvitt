@@ -849,6 +849,15 @@ function GroupSettingsModal({
   );
 }
 
+function safeInviteUrl(token) {
+  if (!token) return '';
+  try {
+    return buildInviteUrl(token);
+  } catch {
+    return '';
+  }
+}
+
 export default function GroupView() {
   const navigate = useNavigate();
   const { slug } = useParams();
@@ -1062,14 +1071,7 @@ export default function GroupView() {
     [memberBalances],
   );
   const canArchiveGroup = isGroupOwner && !isArchived && memberBalances.every((member) => Number(member.balance) === 0);
-  const inviteUrl = useMemo(() => {
-    if (!inviteToken) return '';
-    try {
-      return buildInviteUrl(inviteToken);
-    } catch {
-      return '';
-    }
-  }, [inviteToken]);
+  const inviteUrl = useMemo(() => safeInviteUrl(inviteToken), [inviteToken]);
 
   const summary = useMemo(() => {
     const sortOrderByIcon = new Map(
