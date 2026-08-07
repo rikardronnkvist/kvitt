@@ -1,14 +1,21 @@
 import { randomBytes } from 'node:crypto';
+import { createRequire } from 'node:module';
+import os from 'node:os';
 import express from 'express';
 import { z } from 'zod';
 import authMiddleware from '../middleware/auth.js';
 import { db } from '../db/database.js';
-import { getRegistrationAccessToken, resetRegistrationAccessToken, setRegistrationAccessToken } from '../utils/settings.js';
+import { getPhoneAndSwishEnabled, getRegistrationAccessToken, resetRegistrationAccessToken, setRegistrationAccessToken } from '../utils/settings.js';
 import { getFrontendPublicOrigin } from '../utils/public-origin.js';
 import { createUniqueSlug, slugifyGroupName } from '../utils/slug.js';
 import { calculateMemberBalances } from '../utils/balance.js';
 import { resolveRequestIp, tryLogActivity } from '../utils/activity-log.js';
 import { toAvatarUrl } from '../utils/avatar.js';
+import { isConfigured as isPushConfigured } from '../utils/push.js';
+
+const require = createRequire(import.meta.url);
+const { version: backendVersion } = require('../../package.json');
+const serverStartedAt = new Date().toISOString();
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -97,6 +104,35 @@ function getAdminGroupById(groupId) {
     ...group,
     member_count: Number(group.member_count),
     has_open_balances: group.archived_at ? false : groupHasOpenBalances(groupId),
+  };
+}
+
+function readAdminStatus() {
+  const releaseId = process.env.RELEASE_ID || process.env.APP_VERSION || process.env.IMAGE_TAG || null;
+  const commitSha = process.env.GIT_COMMIT || process.env.GITHUB_SHA || null;
+  const buildDate = process.env.BUILD_DATE || null;
+  const environment = process.env.DEPLOYMENT_ENV || process.env.NODE_ENV || 'unknown';
+
+  return {
+    release: {
+      version: backendVersion,
+      release_id: releaseId,
+      commit_sha: commitSha,
+      build_date: buildDate,
+      environment,
+    },
+    server: {
+      hostname: os.hostname(),
+      node_version: process.version,
+      port: Number(process.env.PORT) || 3000,
+      started_at: serverStartedAt,
+      current_time: new Date().toISOString(),
+      uptime_seconds: Math.floor(process.uptime()),
+    },
+    features: {
+      phone_enabled: getPhoneAndSwishEnabled(),
+      push_notifications_enabled: isPushConfigured(),
+    },
   };
 }
 
@@ -221,6 +257,10 @@ router.get('/activity-logs', (req, res) => {
     pageSize,
     hasNextPage: Number(totalRow?.count || 0) > page * pageSize,
   });
+});
+
+router.get('/status', (_req, res) => {
+  return res.json(readAdminStatus());
 });
 
 router.get('/registration-access', (req, res) => {

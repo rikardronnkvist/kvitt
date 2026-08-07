@@ -56,6 +56,32 @@ function formatDateTime(value) {
   return date.toLocaleString('sv-SE');
 }
 
+function formatUptime(seconds) {
+  const totalSeconds = Number(seconds);
+  if (!Number.isFinite(totalSeconds) || totalSeconds < 0) {
+    return '-';
+  }
+
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+  if (days > 0) {
+    return `${days}d ${hours}h`;
+  }
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  return `${minutes}m`;
+}
+
+function formatStatusValue(value) {
+  if (value == null || value === '') {
+    return '-';
+  }
+  return String(value);
+}
+
 function toGroupDraft(group) {
   return {
     name: group.name,
@@ -85,7 +111,43 @@ function buildActivityLogQuery(activityPage, activityFilters) {
   return params.toString();
 }
 
+function AdminStatusCard({ status }) {
+  if (!status) {
+    return null;
+  }
+
+  const rows = [
+    { label: t('admin.statusRelease'), value: formatStatusValue(status.release?.release_id || status.release?.version) },
+    { label: t('admin.statusVersion'), value: formatStatusValue(status.release?.version) },
+    { label: t('admin.statusCommit'), value: formatStatusValue(status.release?.commit_sha ? status.release.commit_sha.slice(0, 8) : null) },
+    { label: t('admin.statusEnvironment'), value: formatStatusValue(status.release?.environment) },
+    { label: t('admin.statusServer'), value: formatStatusValue(status.server?.hostname) },
+    { label: t('admin.statusUptime'), value: formatUptime(status.server?.uptime_seconds) },
+    { label: t('admin.statusStartedAt'), value: formatDateTime(status.server?.started_at) },
+    { label: t('admin.statusPush'), value: status.features?.push_notifications_enabled ? t('common.yes') : t('common.no') },
+    { label: t('admin.statusPhone'), value: status.features?.phone_enabled ? t('common.yes') : t('common.no') },
+  ];
+
+  return (
+    <section className="space-y-4 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-4">
+      <div className="space-y-1">
+        <h2 className="m-0 text-base font-semibold">{t('admin.statusTitle')}</h2>
+        <p className="m-0 text-sm text-[var(--text-secondary)]">{t('admin.statusDescription')}</p>
+      </div>
+      <dl className="grid gap-x-4 gap-y-3 sm:grid-cols-2 xl:grid-cols-3">
+        {rows.map((row) => (
+          <div key={row.label} className="space-y-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-3 py-2">
+            <dt className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{row.label}</dt>
+            <dd className="m-0 break-all text-sm text-[var(--text-primary)]">{row.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
 function AdminRegistrationTab({
+  adminStatus,
   registrationToken,
   registrationUrl,
   setRegistrationToken,
@@ -126,6 +188,7 @@ function AdminRegistrationTab({
           {t('inviteQr.copyLink')}
         </button>
       </div>
+      <AdminStatusCard status={adminStatus} />
     </div>
   );
 }
@@ -810,6 +873,7 @@ export default function Admin() {
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [adminStatus, setAdminStatus] = useState(null);
   const [userDrafts, setUserDrafts] = useState({});
   const [groupDrafts, setGroupDrafts] = useState({});
   const [categoryDrafts, setCategoryDrafts] = useState({});
@@ -845,15 +909,17 @@ export default function Admin() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [usersData, groupsData, categoriesData, registrationData] = await Promise.all([
+      const [usersData, groupsData, categoriesData, registrationData, statusData] = await Promise.all([
         get('/api/admin/users'),
         get('/api/admin/groups'),
         get('/api/admin/categories'),
         get('/api/admin/registration-access'),
+        get('/api/admin/status').catch(() => null),
       ]);
       setUsers(usersData);
       setGroups(groupsData);
       setCategories(categoriesData);
+      setAdminStatus(statusData);
       setUserDrafts(Object.fromEntries(usersData.map((user) => [user.id, {
         is_admin: Boolean(user.is_admin),
         full_name: user.full_name,
@@ -1216,6 +1282,7 @@ export default function Admin() {
 
           {!loading && activeTab === 'admin' ? (
             <AdminRegistrationTab
+              adminStatus={adminStatus}
               registrationToken={registrationToken}
               registrationUrl={registrationUrl}
               setRegistrationToken={setRegistrationToken}
