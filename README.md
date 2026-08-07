@@ -32,6 +32,20 @@ Image names:
 
 Use `main-<run_number>` for immutable CI deployments and `v*` tags for release deployments.
 
+### Version policy
+Kvitt uses two related version identifiers:
+
+- `Release`: the deploy tag or image tag currently running, for example `v1.1.0` or `main-482`. This should come from deployment metadata such as `RELEASE_ID`.
+- `Version`: the package version stored in `backend/package.json` and `frontend/package.json`.
+
+Policy:
+
+- Bump `backend/package.json` and `frontend/package.json` together for every tagged release.
+- Keep backend and frontend on the same semantic version unless there is a clear reason to split them.
+- Treat GitHub release tags such as `v1.1.0` as the source of truth for what is deployed.
+- Pass the deployed release tag into the backend as `RELEASE_ID` so the admin page shows the exact running release.
+- The root `package.json` is workspace metadata and does not currently drive the admin status card.
+
 ### Environment variables
 | Variable | Container | Default | Description |
 | --- | --- | --- | --- |
