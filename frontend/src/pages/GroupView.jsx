@@ -849,6 +849,20 @@ function GroupSettingsModal({
   );
 }
 
+function compareTimelineItems(a, b) {
+  const activityMinuteA = Math.floor(a.activityTimestamp / 60000);
+  const activityMinuteB = Math.floor(b.activityTimestamp / 60000);
+  if (Number.isFinite(activityMinuteA) && Number.isFinite(activityMinuteB) && activityMinuteB !== activityMinuteA) {
+    return activityMinuteB - activityMinuteA;
+  }
+  const tieBreakerA = a.tieBreakerTimestamp;
+  const tieBreakerB = b.tieBreakerTimestamp;
+  if (Number.isFinite(tieBreakerA) && Number.isFinite(tieBreakerB) && tieBreakerB !== tieBreakerA) {
+    return tieBreakerB - tieBreakerA;
+  }
+  return Number(b.id) - Number(a.id);
+}
+
 function safeInviteUrl(token) {
   if (!token) return '';
   try {
@@ -1003,25 +1017,7 @@ export default function GroupView() {
         payer_display_name: getUserDisplayName({ full_name: settlement.payer_full_name }),
         receiver_display_name: getUserDisplayName({ full_name: settlement.receiver_full_name }),
       })),
-    ].sort((a, b) => {
-      const activityMinuteA = Math.floor(a.activityTimestamp / 60000);
-      const activityMinuteB = Math.floor(b.activityTimestamp / 60000);
-      if (
-        Number.isFinite(activityMinuteA)
-        && Number.isFinite(activityMinuteB)
-        && activityMinuteB !== activityMinuteA
-      ) {
-        return activityMinuteB - activityMinuteA;
-      }
-
-      const tieBreakerA = a.tieBreakerTimestamp;
-      const tieBreakerB = b.tieBreakerTimestamp;
-      if (Number.isFinite(tieBreakerA) && Number.isFinite(tieBreakerB) && tieBreakerB !== tieBreakerA) {
-        return tieBreakerB - tieBreakerA;
-      }
-
-      return Number(b.id) - Number(a.id);
-    });
+    ].sort(compareTimelineItems);
   }, [expenses, settlements]);
 
   useEffect(() => {
