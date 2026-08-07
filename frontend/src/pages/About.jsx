@@ -37,7 +37,7 @@ export default function About() {
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
             <img
-              src="/pwa-1-safari.png"
+              src="/pwa-ios-1-safari.png"
               alt={t('about.pwaStep1Alt')}
               className="w-full rounded-lg border border-[var(--border-subtle)]"
             />
@@ -49,7 +49,7 @@ export default function About() {
 
           <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
             <img
-              src="/pwa-2-share.png"
+              src="/pwa-ios-2-share.png"
               alt={t('about.pwaStep2Alt')}
               className="w-full rounded-lg border border-[var(--border-subtle)]"
             />
@@ -61,7 +61,7 @@ export default function About() {
 
           <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
             <img
-              src="/pwa-3-addtohome.png"
+              src="/pwa-ios-3-addtohome.png"
               alt={t('about.pwaStep3Alt')}
               className="w-full rounded-lg border border-[var(--border-subtle)]"
             />
@@ -73,13 +73,58 @@ export default function About() {
 
           <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
             <img
-              src="/pwa-4-add.png"
+              src="/pwa-ios-4-add.png"
               alt={t('about.pwaStep4Alt')}
               className="w-full rounded-lg border border-[var(--border-subtle)]"
             />
             <p className="mt-3 text-sm text-[var(--text-secondary)]">
               <span className="font-semibold text-[var(--text-primary)]">{t('about.stepLabel', { number: 4 })}</span>{' '}
               {t('about.pwaStep4Text')}
+            </p>
+          </article>
+        </div>
+      </div>
+
+      <div className="surface-card p-5">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">{t('about.pwaAndroidHeading')}</h2>
+        <p className="text-[var(--text-secondary)]">
+          {t('about.pwaAndroidIntro')}
+        </p>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
+            <img
+              src="/pwa-android-1-add-app.png"
+              alt={t('about.pwaAndroidStep1Alt')}
+              className="w-full rounded-lg border border-[var(--border-subtle)]"
+            />
+            <p className="mt-3 text-sm text-[var(--text-secondary)]">
+              <span className="font-semibold text-[var(--text-primary)]">{t('about.stepLabel', { number: 1 })}</span>{' '}
+              {t('about.pwaAndroidStep1Text')}
+            </p>
+          </article>
+
+          <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
+            <img
+              src="/pwa-android-2-install.png"
+              alt={t('about.pwaAndroidStep2Alt')}
+              className="w-full rounded-lg border border-[var(--border-subtle)]"
+            />
+            <p className="mt-3 text-sm text-[var(--text-secondary)]">
+              <span className="font-semibold text-[var(--text-primary)]">{t('about.stepLabel', { number: 2 })}</span>{' '}
+              {t('about.pwaAndroidStep2Text')}
+            </p>
+          </article>
+
+          <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
+            <img
+              src="/pwa-android-3-notifications.png"
+              alt={t('about.pwaAndroidStep3Alt')}
+              className="w-full rounded-lg border border-[var(--border-subtle)]"
+            />
+            <p className="mt-3 text-sm text-[var(--text-secondary)]">
+              <span className="font-semibold text-[var(--text-primary)]">{t('about.stepLabel', { number: 3 })}</span>{' '}
+              {t('about.pwaAndroidStep3Text')}
             </p>
           </article>
         </div>

@@ -152,7 +152,15 @@
     "pwaStep3Alt": "Steg 3: välj Lägg till på hemskärm",
     "pwaStep3Text": "Välj Lägg till på hemskärm (du kan behöva scrolla ner en bit för att hitta detta val).",
     "pwaStep4Alt": "Steg 4: bekräfta genom att trycka på Lägg till",
-    "pwaStep4Text": "Bekräfta med Lägg till uppe till höger."
+    "pwaStep4Text": "Bekräfta med Lägg till uppe till höger.",
+    "pwaAndroidHeading": "Installera Kvitt som app på Android",
+    "pwaAndroidIntro": "På Android kan du installera Kvitt direkt från Chrome. Då öppnas Kvitt som en app och push-notiser fungerar.",
+    "pwaAndroidStep1Alt": "Steg 1: tryck på Lägg till app i adressfältet",
+    "pwaAndroidStep1Text": "Tryck på ikonen Lägg till app i adressfältet i Chrome.",
+    "pwaAndroidStep2Alt": "Steg 2: tryck på Installera",
+    "pwaAndroidStep2Text": "Tryck på Installera i dialogrutan som visas.",
+    "pwaAndroidStep3Alt": "Steg 3: tillåt notiser",
+    "pwaAndroidStep3Text": "Tillåt notiser när appen frågar för att få meddelanden om nya utgifter."
   },
   "expenseModals": {
     "discardConfirm": "Avbryta? Det du fyllt i kommer att försvinna.",
