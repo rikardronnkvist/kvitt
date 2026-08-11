@@ -218,4 +218,5 @@ jobs:
     steps:
       - name: Trigger Komodo stack redeploy
         run: |
-          curl -s -f -X POST "${{ secrets.KOMODO_WEBHOOK_URL }}"
+          curl -s -f -X POST "${{ secrets.KOMODO_WEBHOOK_URL }}" \
+            -H "Authorization: Bearer ${{ secrets.KOMODO_WEBHOOK_SECRET }}"
