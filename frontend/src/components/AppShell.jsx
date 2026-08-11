@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
-import { Bell, BellOff, FolderPlus, Home, Info, KeyRound, LogOut, Menu, ScanLine, Settings, UserCircle2, X } from 'lucide-react';
+import { Bell, BellOff, FolderPlus, Home, Info, KeyRound, LogOut, Menu, RefreshCw, ScanLine, Settings, UserCircle2, X } from 'lucide-react';
 import { parseUser } from '../lib/session.js';
 import { get, post, put } from '../api/client.js';
 import { GROUP_THEMES } from '../lib/groupTheme.js';
@@ -20,6 +20,7 @@ import AvatarCropperModal from './AvatarCropperModal.jsx';
 import UserAvatar from './UserAvatar.jsx';
 import { useAppSettings } from '../hooks/useAppSettings.js';
 import { useThemePreference } from '../hooks/useThemePreference.js';
+import { usePullToRefresh } from '../hooks/usePullToRefresh.js';
 
 function getSecureRandomIndex(length) {
   if (!Number.isInteger(length) || length <= 0) {
@@ -588,6 +589,7 @@ export default function AppShell() {
   const navigate = useNavigate();
   const { settings: appSettings } = useAppSettings();
   const { themePreference, setThemePreference } = useThemePreference();
+  const { pullDistance, refreshing, threshold } = usePullToRefresh();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
   const [creatingGroup, setCreatingGroup] = useState(false);
@@ -874,6 +876,21 @@ export default function AppShell() {
 
   return (
     <div className="min-h-screen bg-[var(--app-bg)] text-[var(--text-primary)]">
+      {(pullDistance > 0 || refreshing) && (
+        <div
+          className="fixed left-0 right-0 top-0 z-[60] flex justify-center transition-none"
+          style={{ paddingTop: Math.min(pullDistance, threshold) * 0.5 + 8 }}
+          aria-live="polite"
+          aria-label={t('shell.pullToRefresh')}
+        >
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--app-surface-strong)] shadow-[var(--shadow-soft)]">
+            <RefreshCw
+              className={`h-4 w-4 text-[var(--text-secondary)] ${refreshing ? 'animate-spin' : ''}`}
+              style={refreshing ? {} : { transform: `rotate(${(pullDistance / threshold) * 360}deg)` }}
+            />
+          </div>
+        </div>
+      )}
       <header className="sticky top-0 z-50 border-b border-[var(--border-subtle)] bg-[color:var(--app-surface)/88%] backdrop-blur-xl">
         <div className="mx-auto max-w-[1280px] px-4 sm:px-6">
           <div className="mx-auto flex h-16 max-w-[960px] items-center justify-between gap-4">

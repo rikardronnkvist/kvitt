@@ -63,6 +63,7 @@
     "myPasskeys": "Mina Passkeys",
     "disableNotifications": "Stäng av notiser",
     "enableNotifications": "Aktivera notiser",
+    "pullToRefresh": "Laddar om...",
     "adminPanel": "Adminpanel",
     "aboutKvitt": "Om Kvitt",
     "logout": "Logga ut",
