@@ -136,7 +136,7 @@ app.get('/healthz', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
-app.get(['/register', '/register/*'], (req, res) => {
+app.get(/^\/register(?:\/.*)?$/, (req, res) => {
   const safeQuery = getSafeRegisterQuery(req.originalUrl);
   return res.redirect(302, `${getFrontendPublicOrigin()}/register${safeQuery}`);
 });
