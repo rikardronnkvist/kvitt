@@ -8,7 +8,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@simplewebauthn/server": "^11.0.0",
+    "@simplewebauthn/server": "^13.3.2",
     "better-sqlite3": "12.4.1",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
