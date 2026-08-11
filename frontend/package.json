@@ -8,7 +8,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@simplewebauthn/browser": "^11.0.0",
+    "@simplewebauthn/browser": "^13.3.0",
     "@tailwindcss/vite": "^4.3.3",
     "@zxing/browser": "^0.2.1",
     "lucide-react": "^1.30.0",
