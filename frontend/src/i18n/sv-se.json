@@ -228,6 +228,15 @@
     "expensesPerMember": "Utgifter per medlem",
     "settlementsPerMember": "Kvittningar per medlem",
     "expensesPerCategory": "Utgifter per kategori",
+    "transactionsPerCategory": "Transaktioner per kategori",
+    "categoryRadarTitle": "Kategoriöversikt",
+    "categoryRadarAria": "Spindeldiagram över kategorier med serier för kronor och antal transaktioner",
+    "categoryRadarAmountSeries": "Kronor",
+    "categoryRadarCountSeries": "Antal transaktioner",
+    "memberRadarTitle": "Personöversikt",
+    "memberRadarAria": "Spindeldiagram över personer med serier för kronor och antal transaktioner",
+    "memberRadarAmountSeries": "Kronor",
+    "memberRadarCountSeries": "Antal transaktioner",
     "emptyStatistics": "Ingen statistik än nu. Lägg till utgifter i gruppen för att se grafer."
   },
   "invitePage": {

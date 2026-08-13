@@ -3,9 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, BarChart3 } from 'lucide-react';
 import { get } from '../api/client.js';
 import UserAvatar from '../components/UserAvatar.jsx';
+import { getCategoryIcon } from '../lib/expenseCategories.js';
 import { formatCurrency } from '../lib/format.js';
 import { getThemeForGroup } from '../lib/groupTheme.js';
-import { getUserDisplayName } from '../lib/users.js';
+import { getUserAvatarUrl, getUserDisplayName, getUserInitials } from '../lib/users.js';
 import { t } from '../lib/i18n.js';
 
 const PIE_COLORS = ['#0F766E', '#4F6D8A', '#B25D3D', '#5F7D4E', '#6E4E73', '#B38A2E', '#5C6B73'];
@@ -524,8 +525,22 @@ function TimelineChart({ periods, granularity, onGranularityChange, dataMode, on
   );
 }
 
-function PieCard({ title, entries }) {
-  const [hoveredLabel, setHoveredLabel] = useState('');
+function PieCard({
+  title,
+  entries,
+  formatValue = (value) => formatCurrency(value, { precise: true }),
+  highlightedLabel,
+  onHighlightChange,
+}) {
+  const [localHoveredLabel, setLocalHoveredLabel] = useState('');
+  const hoveredLabel = highlightedLabel !== undefined ? highlightedLabel : localHoveredLabel;
+  const setHoveredLabel = (label) => {
+    if (onHighlightChange) {
+      onHighlightChange(label);
+      return;
+    }
+    setLocalHoveredLabel(label);
+  };
   const total = entries.reduce((sum, item) => sum + item.value, 0);
   const hasHover = Boolean(hoveredLabel);
   const donutSize = 180;
@@ -623,12 +638,444 @@ function PieCard({ title, entries }) {
                 <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: entry.color }} />
                 <span className="truncate">{entry.label}</span>
               </span>
-              <span className="min-w-[7ch] whitespace-nowrap text-right font-semibold tabular-nums amount-neutral">{formatCurrency(entry.value, { precise: true })}</span>
+              <span className="min-w-[7ch] whitespace-nowrap text-right font-semibold tabular-nums amount-neutral">{formatValue(entry.value)}</span>
             </button>
             );
           }) : (
             <p className="m-0 text-sm text-[var(--text-secondary)]">{t('groupStatistics.noDataToShow')}</p>
           )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function truncateLabel(label, maxLength = 16) {
+  const text = String(label || '').trim();
+  if (text.length <= maxLength) {
+    return text;
+  }
+  return `${text.slice(0, Math.max(1, maxLength - 1))}\u2026`;
+}
+
+function getRadarPoint(index, total, normalizedRadius, centerX, centerY, radiusX, radiusY) {
+  const angle = (-Math.PI / 2) + ((index / Math.max(total, 1)) * Math.PI * 2);
+  const safeRadius = Math.max(0, Math.min(1, normalizedRadius));
+  return {
+    x: centerX + (Math.cos(angle) * (radiusX * safeRadius)),
+    y: centerY + (Math.sin(angle) * (radiusY * safeRadius)),
+    angle,
+  };
+}
+
+function toPolygonPoints(points) {
+  return points.map((point) => `${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(' ');
+}
+
+function getLabelAnchor(angle) {
+  const cosine = Math.cos(angle);
+  if (cosine > 0.28) return 'start';
+  if (cosine < -0.28) return 'end';
+  return 'middle';
+}
+
+function CategoryRadarChart({ title, entries, theme, hoveredLabel = '', onHoverLabelChange }) {
+  const chartWidth = 760;
+  const chartHeight = 380;
+  const centerX = chartWidth / 2;
+  const centerY = chartHeight / 2;
+  const radiusX = 280;
+  const radiusY = 138;
+  const ringLevels = [0.25, 0.5, 0.75, 1];
+
+  const maxAmount = Math.max(1, ...entries.map((entry) => Number(entry.amount) || 0));
+  const maxCount = Math.max(1, ...entries.map((entry) => Number(entry.count) || 0));
+
+  const axisPoints = entries.map((entry, index) => ({
+    ...getRadarPoint(index, entries.length, 1, centerX, centerY, radiusX, radiusY),
+    label: entry.label,
+    iconId: entry.iconId,
+  }));
+  const amountPoints = entries.map((entry, index) => (
+    getRadarPoint(index, entries.length, (Number(entry.amount) || 0) / maxAmount, centerX, centerY, radiusX, radiusY)
+  ));
+  const countPoints = entries.map((entry, index) => (
+    getRadarPoint(index, entries.length, (Number(entry.count) || 0) / maxCount, centerX, centerY, radiusX, radiusY)
+  ));
+
+  if (!entries.length) {
+    return (
+      <article className="surface-card p-5">
+        <p className="m-0 text-base font-semibold">{title}</p>
+        <p className="mt-3 mb-0 text-sm text-[var(--text-secondary)]">{t('groupStatistics.noDataToShow')}</p>
+      </article>
+    );
+  }
+
+  return (
+    <article className="surface-card p-5">
+      <p className="m-0 text-base font-semibold">{title}</p>
+      <div
+        className="mt-4 rounded-lg border p-3"
+        style={{
+          borderColor: theme?.borderSoft || 'var(--border-subtle)',
+          background: theme?.bgSoft || 'var(--app-surface-muted)',
+        }}
+      >
+        <svg
+          viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+          className="h-[24rem] w-full"
+          role="img"
+          aria-label={t('groupStatistics.categoryRadarAria')}
+          onMouseLeave={() => onHoverLabelChange?.('')}
+        >
+          {ringLevels.map((level) => {
+            const ringPoints = entries.map((_, index) => getRadarPoint(index, entries.length, level, centerX, centerY, radiusX, radiusY));
+            return (
+              <polygon
+                key={level}
+                points={toPolygonPoints(ringPoints)}
+                fill="none"
+                stroke="rgba(17, 24, 39, 0.14)"
+                strokeDasharray={level < 1 ? '3 4' : '0'}
+              />
+            );
+          })}
+
+          {axisPoints.map((axisPoint, index) => {
+            const isActive = !hoveredLabel || hoveredLabel === axisPoint.label;
+            const iconPoint = getRadarPoint(index, entries.length, 1.14, centerX, centerY, radiusX, radiusY);
+            const CategoryIcon = getCategoryIcon(axisPoint.iconId);
+            const directionX = Math.cos(iconPoint.angle);
+            const directionY = Math.sin(iconPoint.angle);
+            const labelDistance = 16;
+            const labelX = iconPoint.x + (directionX * labelDistance);
+            const labelY = iconPoint.y + (directionY * labelDistance);
+            const labelAnchor = directionX > 0.28 ? 'start' : directionX < -0.28 ? 'end' : 'middle';
+            const labelBaseline = directionY < -0.6 ? 'auto' : directionY > 0.6 ? 'hanging' : 'central';
+            return (
+              <g
+                key={axisPoint.label}
+                onMouseEnter={() => onHoverLabelChange?.(axisPoint.label)}
+                onFocus={() => onHoverLabelChange?.(axisPoint.label)}
+              >
+                <line
+                  x1={centerX}
+                  y1={centerY}
+                  x2={axisPoint.x}
+                  y2={axisPoint.y}
+                  stroke={isActive ? 'rgba(17, 24, 39, 0.28)' : 'rgba(17, 24, 39, 0.10)'}
+                />
+                <g transform={`translate(${iconPoint.x}, ${iconPoint.y})`}>
+                  <circle
+                    cx="0"
+                    cy="-8"
+                    r="10.5"
+                    fill={isActive ? 'color-mix(in srgb, var(--app-surface-strong) 88%, white)' : 'color-mix(in srgb, var(--app-surface-muted) 80%, white)'}
+                    stroke={isActive ? 'color-mix(in srgb, var(--text-primary) 26%, transparent)' : 'color-mix(in srgb, var(--text-secondary) 18%, transparent)'}
+                    strokeWidth="1"
+                  />
+                  <g transform="translate(-7, -15)">
+                    <CategoryIcon
+                      size={14}
+                      strokeWidth={2.1}
+                      color={isActive ? 'var(--text-primary)' : 'color-mix(in srgb, var(--text-secondary) 86%, black)'}
+                    />
+                  </g>
+                </g>
+                <text
+                  x={labelX}
+                  y={labelY - 8}
+                  textAnchor={labelAnchor}
+                  dominantBaseline={labelBaseline}
+                  className={`text-[10px] ${isActive ? 'fill-[var(--text-primary)] font-semibold' : 'fill-[var(--text-secondary)]'}`}
+                >
+                  {truncateLabel(axisPoint.label)}
+                </text>
+              </g>
+            );
+          })}
+
+          <polygon
+            points={toPolygonPoints(amountPoints)}
+            fill="rgba(178, 93, 61, 0.20)"
+            stroke="rgba(178, 93, 61, 0.92)"
+            strokeWidth="2"
+            strokeLinejoin="round"
+          />
+          <polygon
+            points={toPolygonPoints(countPoints)}
+            fill="rgba(95, 125, 78, 0.18)"
+            stroke="rgba(95, 125, 78, 0.95)"
+            strokeWidth="2"
+            strokeLinejoin="round"
+          />
+
+          {amountPoints.map((point, index) => {
+            const label = entries[index].label;
+            const isActive = !hoveredLabel || hoveredLabel === label;
+            return (
+              <g
+                key={`amount-${label}`}
+                onMouseEnter={() => onHoverLabelChange?.(label)}
+                onFocus={() => onHoverLabelChange?.(label)}
+              >
+                <circle
+                  cx={point.x}
+                  cy={point.y}
+                  r={isActive ? 3.8 : 2.2}
+                  fill={isActive ? 'rgba(178, 93, 61, 0.98)' : 'rgba(178, 93, 61, 0.42)'}
+                />
+              </g>
+            );
+          })}
+          {countPoints.map((point, index) => {
+            const label = entries[index].label;
+            const isActive = !hoveredLabel || hoveredLabel === label;
+            return (
+              <g
+                key={`count-${label}`}
+                onMouseEnter={() => onHoverLabelChange?.(label)}
+                onFocus={() => onHoverLabelChange?.(label)}
+              >
+                <circle
+                  cx={point.x}
+                  cy={point.y}
+                  r={isActive ? 3.8 : 2.2}
+                  fill={isActive ? 'rgba(95, 125, 78, 1)' : 'rgba(95, 125, 78, 0.42)'}
+                />
+              </g>
+            );
+          })}
+        </svg>
+
+        <div className="mt-2 grid gap-2 text-xs sm:grid-cols-2">
+          <div className="rounded-md border px-2 py-1.5" style={{ borderColor: 'rgba(178, 93, 61, 0.36)' }}>
+            <span className="inline-flex items-center gap-1.5 text-[var(--text-secondary)]">
+              <span className="h-2.5 w-2.5 rounded-full bg-[rgba(178,93,61,0.98)]" />
+              {t('groupStatistics.categoryRadarAmountSeries')}
+            </span>
+            <p className="m-0 text-sm font-semibold amount-neutral">max {formatCurrency(maxAmount, { precise: true })}</p>
+          </div>
+          <div className="rounded-md border px-2 py-1.5" style={{ borderColor: 'rgba(95, 125, 78, 0.40)' }}>
+            <span className="inline-flex items-center gap-1.5 text-[var(--text-secondary)]">
+              <span className="h-2.5 w-2.5 rounded-full bg-[rgba(95,125,78,1)]" />
+              {t('groupStatistics.categoryRadarCountSeries')}
+            </span>
+            <p className="m-0 text-sm font-semibold amount-neutral">max {t('groupStatistics.countSuffix', { count: maxCount })}</p>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function MemberRadarChart({ title, entries, theme, hoveredLabel = '', onHoverLabelChange }) {
+  const chartWidth = 760;
+  const chartHeight = 380;
+  const centerX = chartWidth / 2;
+  const centerY = chartHeight / 2;
+  const radiusX = 280;
+  const radiusY = 138;
+  const ringLevels = [0.25, 0.5, 0.75, 1];
+
+  const maxAmount = Math.max(1, ...entries.map((entry) => Number(entry.amount) || 0));
+  const maxCount = Math.max(1, ...entries.map((entry) => Number(entry.count) || 0));
+
+  const axisPoints = entries.map((entry, index) => ({
+    ...getRadarPoint(index, entries.length, 1, centerX, centerY, radiusX, radiusY),
+    label: entry.label,
+    initials: entry.initials,
+    avatarUrl: entry.avatarUrl,
+  }));
+  const amountPoints = entries.map((entry, index) => (
+    getRadarPoint(index, entries.length, (Number(entry.amount) || 0) / maxAmount, centerX, centerY, radiusX, radiusY)
+  ));
+  const countPoints = entries.map((entry, index) => (
+    getRadarPoint(index, entries.length, (Number(entry.count) || 0) / maxCount, centerX, centerY, radiusX, radiusY)
+  ));
+
+  if (!entries.length) {
+    return (
+      <article className="surface-card p-5">
+        <p className="m-0 text-base font-semibold">{title}</p>
+        <p className="mt-3 mb-0 text-sm text-[var(--text-secondary)]">{t('groupStatistics.noDataToShow')}</p>
+      </article>
+    );
+  }
+
+  return (
+    <article className="surface-card p-5">
+      <p className="m-0 text-base font-semibold">{title}</p>
+      <div
+        className="mt-4 rounded-lg border p-3"
+        style={{
+          borderColor: theme?.borderSoft || 'var(--border-subtle)',
+          background: theme?.bgSoft || 'var(--app-surface-muted)',
+        }}
+      >
+        <svg
+          viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+          className="h-[24rem] w-full"
+          role="img"
+          aria-label={t('groupStatistics.memberRadarAria')}
+          onMouseLeave={() => onHoverLabelChange?.('')}
+        >
+          {ringLevels.map((level) => {
+            const ringPoints = entries.map((_, index) => getRadarPoint(index, entries.length, level, centerX, centerY, radiusX, radiusY));
+            return (
+              <polygon
+                key={level}
+                points={toPolygonPoints(ringPoints)}
+                fill="none"
+                stroke="rgba(17, 24, 39, 0.14)"
+                strokeDasharray={level < 1 ? '3 4' : '0'}
+              />
+            );
+          })}
+
+          {axisPoints.map((axisPoint, index) => {
+            const isActive = !hoveredLabel || hoveredLabel === axisPoint.label;
+            const iconPoint = getRadarPoint(index, entries.length, 1.14, centerX, centerY, radiusX, radiusY);
+            const directionX = Math.cos(iconPoint.angle);
+            const directionY = Math.sin(iconPoint.angle);
+            const labelDistance = 16;
+            const labelX = iconPoint.x + (directionX * labelDistance);
+            const labelY = iconPoint.y + (directionY * labelDistance);
+            const labelAnchor = directionX > 0.28 ? 'start' : directionX < -0.28 ? 'end' : 'middle';
+            const labelBaseline = directionY < -0.6 ? 'auto' : directionY > 0.6 ? 'hanging' : 'central';
+            return (
+              <g
+                key={axisPoint.label}
+                onMouseEnter={() => onHoverLabelChange?.(axisPoint.label)}
+                onFocus={() => onHoverLabelChange?.(axisPoint.label)}
+              >
+                <line
+                  x1={centerX}
+                  y1={centerY}
+                  x2={axisPoint.x}
+                  y2={axisPoint.y}
+                  stroke={isActive ? 'rgba(17, 24, 39, 0.28)' : 'rgba(17, 24, 39, 0.10)'}
+                />
+                <g transform={`translate(${iconPoint.x}, ${iconPoint.y})`}>
+                  <circle
+                    cx="0"
+                    cy="-8"
+                    r="10.5"
+                    fill={isActive ? 'color-mix(in srgb, var(--app-surface-strong) 88%, white)' : 'color-mix(in srgb, var(--app-surface-muted) 80%, white)'}
+                    stroke={isActive ? 'color-mix(in srgb, var(--text-primary) 26%, transparent)' : 'color-mix(in srgb, var(--text-secondary) 18%, transparent)'}
+                    strokeWidth="1"
+                  />
+                  {axisPoint.avatarUrl ? (
+                    <>
+                      <defs>
+                        <clipPath id={`member-radar-avatar-clip-${index}`}>
+                          <circle cx="0" cy="-8" r="8.2" />
+                        </clipPath>
+                      </defs>
+                      <image
+                        href={axisPoint.avatarUrl}
+                        x="-8.2"
+                        y="-16.2"
+                        width="16.4"
+                        height="16.4"
+                        preserveAspectRatio="xMidYMid slice"
+                        clipPath={`url(#member-radar-avatar-clip-${index})`}
+                      />
+                    </>
+                  ) : (
+                    <text
+                      x="0"
+                      y="-8"
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                      className={`text-[8px] ${isActive ? 'fill-[var(--text-primary)] font-semibold' : 'fill-[var(--text-secondary)] font-medium'}`}
+                    >
+                      {String(axisPoint.initials || '').slice(0, 2).toUpperCase()}
+                    </text>
+                  )}
+                </g>
+                <text
+                  x={labelX}
+                  y={labelY - 8}
+                  textAnchor={labelAnchor}
+                  dominantBaseline={labelBaseline}
+                  className={`text-[10px] ${isActive ? 'fill-[var(--text-primary)] font-semibold' : 'fill-[var(--text-secondary)]'}`}
+                >
+                  {truncateLabel(axisPoint.label)}
+                </text>
+              </g>
+            );
+          })}
+
+          <polygon
+            points={toPolygonPoints(amountPoints)}
+            fill="rgba(178, 93, 61, 0.20)"
+            stroke="rgba(178, 93, 61, 0.92)"
+            strokeWidth="2"
+            strokeLinejoin="round"
+          />
+          <polygon
+            points={toPolygonPoints(countPoints)}
+            fill="rgba(95, 125, 78, 0.18)"
+            stroke="rgba(95, 125, 78, 0.95)"
+            strokeWidth="2"
+            strokeLinejoin="round"
+          />
+
+          {amountPoints.map((point, index) => {
+            const label = entries[index].label;
+            const isActive = !hoveredLabel || hoveredLabel === label;
+            return (
+              <g
+                key={`member-amount-${label}`}
+                onMouseEnter={() => onHoverLabelChange?.(label)}
+                onFocus={() => onHoverLabelChange?.(label)}
+              >
+                <circle
+                  cx={point.x}
+                  cy={point.y}
+                  r={isActive ? 3.8 : 2.2}
+                  fill={isActive ? 'rgba(178, 93, 61, 0.98)' : 'rgba(178, 93, 61, 0.42)'}
+                />
+              </g>
+            );
+          })}
+          {countPoints.map((point, index) => {
+            const label = entries[index].label;
+            const isActive = !hoveredLabel || hoveredLabel === label;
+            return (
+              <g
+                key={`member-count-${label}`}
+                onMouseEnter={() => onHoverLabelChange?.(label)}
+                onFocus={() => onHoverLabelChange?.(label)}
+              >
+                <circle
+                  cx={point.x}
+                  cy={point.y}
+                  r={isActive ? 3.8 : 2.2}
+                  fill={isActive ? 'rgba(95, 125, 78, 1)' : 'rgba(95, 125, 78, 0.42)'}
+                />
+              </g>
+            );
+          })}
+        </svg>
+
+        <div className="mt-2 grid gap-2 text-xs sm:grid-cols-2">
+          <div className="rounded-md border px-2 py-1.5" style={{ borderColor: 'rgba(178, 93, 61, 0.36)' }}>
+            <span className="inline-flex items-center gap-1.5 text-[var(--text-secondary)]">
+              <span className="h-2.5 w-2.5 rounded-full bg-[rgba(178,93,61,0.98)]" />
+              {t('groupStatistics.memberRadarAmountSeries')}
+            </span>
+            <p className="m-0 text-sm font-semibold amount-neutral">max {formatCurrency(maxAmount, { precise: true })}</p>
+          </div>
+          <div className="rounded-md border px-2 py-1.5" style={{ borderColor: 'rgba(95, 125, 78, 0.40)' }}>
+            <span className="inline-flex items-center gap-1.5 text-[var(--text-secondary)]">
+              <span className="h-2.5 w-2.5 rounded-full bg-[rgba(95,125,78,1)]" />
+              {t('groupStatistics.memberRadarCountSeries')}
+            </span>
+            <p className="m-0 text-sm font-semibold amount-neutral">max {t('groupStatistics.countSuffix', { count: maxCount })}</p>
+          </div>
         </div>
       </div>
     </article>
@@ -747,21 +1194,27 @@ function getCategorySortOrderMap(expenseCategories) {
 }
 
 function buildCategoryEntries(expenses, categorySortOrderByName) {
-  const categoryMap = buildTotals(
-    expenses,
-    (expense) => expense.category_name || 'Ingen kategori',
-    (expense) => Number(expense.amount || 0),
-  );
+  const categoryMap = new Map();
+  for (const expense of expenses) {
+    const label = expense.category_name || 'Ingen kategori';
+    const current = categoryMap.get(label) || { amount: 0, count: 0, iconId: '' };
+    current.amount += Number(expense.amount || 0);
+    current.count += 1;
+    if (!current.iconId) {
+      current.iconId = String(expense.category_icon || 'shapes');
+    }
+    categoryMap.set(label, current);
+  }
 
   return Array.from(categoryMap.entries())
-    .map(([label, value]) => ({ label, value }))
+    .map(([label, data]) => ({ label, amount: data.amount, count: data.count, iconId: data.iconId || 'shapes' }))
     .sort((a, b) => {
       const orderA = categorySortOrderByName.get(String(a.label || '').trim().toLowerCase()) ?? Number.MAX_SAFE_INTEGER;
       const orderB = categorySortOrderByName.get(String(b.label || '').trim().toLowerCase()) ?? Number.MAX_SAFE_INTEGER;
       if (orderA !== orderB) {
         return orderA - orderB;
       }
-      return b.value - a.value;
+      return b.amount - a.amount;
     });
 }
 
@@ -864,7 +1317,16 @@ function buildStatistics({ expenses, expenseCategories, members, settlements, ti
     transfersCount: settlements.length,
     periodRange: formatRangeLabel(periodDates[0], periodDates.at(-1)),
     timelinePeriods,
-    categoryData: toPieData(categoryEntries, { sortByValue: false }),
+    categoryData: toPieData(categoryEntries.map((entry) => ({ label: entry.label, value: entry.amount })), { sortByValue: false }),
+    categoryTransactionData: toPieData(categoryEntries.map((entry) => ({ label: entry.label, value: entry.count })), { sortByValue: false }),
+    categoryRadarData: categoryEntries,
+    memberRadarData: memberRows.map((member) => ({
+      label: getUserDisplayName(member),
+      initials: getUserInitials(member),
+      avatarUrl: getUserAvatarUrl(member),
+      amount: Number(member.paid || 0) + Number(member.transfers || 0),
+      count: Number(member.expenseCount || 0) + Number(member.transferCount || 0),
+    })),
     paidByData: toPieData(Array.from(paidByMap.entries()).map(([label, value]) => ({ label, value }))),
     transfersByMemberData: toPieData(
       memberRows.map((member) => ({
@@ -885,6 +1347,8 @@ export default function GroupStatistics() {
   const [settlements, setSettlements] = useState([]);
   const [timelineGranularity, setTimelineGranularity] = useState('month');
   const [timelineDataMode, setTimelineDataMode] = useState('both');
+  const [hoveredCategoryLabel, setHoveredCategoryLabel] = useState('');
+  const [hoveredMemberLabel, setHoveredMemberLabel] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -938,6 +1402,8 @@ export default function GroupStatistics() {
     timelineDataMode,
     timelineGranularity,
   }), [expenses, expenseCategories, members, settlements, timelineDataMode, timelineGranularity]);
+  const showCategoryRadarChart = statistics.categoryRadarData.length > 2;
+  const showMemberRadarChart = statistics.membersCount > 2;
 
   if (loading) {
     return <StatisticsSkeleton />;
@@ -1055,9 +1521,53 @@ export default function GroupStatistics() {
       </section>
 
       <section className="grid gap-6 lg:grid-cols-2">
-        <PieCard title={t('groupStatistics.expensesPerMember')} entries={statistics.paidByData} />
-        <PieCard title={t('groupStatistics.settlementsPerMember')} entries={statistics.transfersByMemberData} />
-        <PieCard title={t('groupStatistics.expensesPerCategory')} entries={statistics.categoryData} />
+        <PieCard
+          title={t('groupStatistics.expensesPerMember')}
+          entries={statistics.paidByData}
+          highlightedLabel={hoveredMemberLabel}
+          onHighlightChange={setHoveredMemberLabel}
+        />
+        <PieCard
+          title={t('groupStatistics.settlementsPerMember')}
+          entries={statistics.transfersByMemberData}
+          highlightedLabel={hoveredMemberLabel}
+          onHighlightChange={setHoveredMemberLabel}
+        />
+        <PieCard
+          title={t('groupStatistics.expensesPerCategory')}
+          entries={statistics.categoryData}
+          highlightedLabel={hoveredCategoryLabel}
+          onHighlightChange={setHoveredCategoryLabel}
+        />
+        <PieCard
+          title={t('groupStatistics.transactionsPerCategory')}
+          entries={statistics.categoryTransactionData}
+          formatValue={(value) => t('groupStatistics.countSuffix', { count: Number(value) || 0 })}
+          highlightedLabel={hoveredCategoryLabel}
+          onHighlightChange={setHoveredCategoryLabel}
+        />
+        {showCategoryRadarChart ? (
+          <div className="lg:col-span-2">
+            <CategoryRadarChart
+              title={t('groupStatistics.categoryRadarTitle')}
+              entries={statistics.categoryRadarData}
+              theme={theme}
+              hoveredLabel={hoveredCategoryLabel}
+              onHoverLabelChange={setHoveredCategoryLabel}
+            />
+          </div>
+        ) : null}
+        {showMemberRadarChart ? (
+          <div className="lg:col-span-2">
+            <MemberRadarChart
+              title={t('groupStatistics.memberRadarTitle')}
+              entries={statistics.memberRadarData}
+              theme={theme}
+              hoveredLabel={hoveredMemberLabel}
+              onHoverLabelChange={setHoveredMemberLabel}
+            />
+          </div>
+        ) : null}
       </section>
 
       {!statistics.expensesCount ? (
