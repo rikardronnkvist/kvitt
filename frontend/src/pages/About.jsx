@@ -1,10 +1,37 @@
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { t } from '../lib/i18n.js';
 
 export default function About() {
-  return (
-    <div className="mx-auto max-w-[640px] space-y-6">
-      <h1 className="text-2xl font-semibold text-[var(--text-primary)]">{t('about.title')}</h1>
+  const navigate = useNavigate();
 
+  return (
+    <div className="min-h-screen bg-[var(--app-bg)] text-[var(--text-primary)]">
+      <header className="border-b border-[var(--border-subtle)] bg-[color:var(--app-surface)/88%] backdrop-blur-xl">
+        <div className="mx-auto max-w-[1280px] px-4 sm:px-6">
+          <div className="mx-auto flex h-16 max-w-[960px] items-center justify-between gap-4">
+            <Link
+              to="/login"
+              className="flex items-center gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-strong)] px-3 py-2 text-left shadow-[var(--shadow-soft)]"
+            >
+              <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-[var(--app-surface-muted)]">
+                <img src="/app-icon.png" alt={t('shell.appIconAlt')} className="h-full w-full object-cover" />
+              </div>
+              <div>
+                <p className="m-0 text-sm font-semibold">{t('common.appName')}</p>
+                <p className="m-0 text-xs text-[var(--text-muted)]">{window.__kvittConfig?.tagline || import.meta.env.VITE_TAGLINE || t('common.defaultTagline')}</p>
+              </div>
+            </Link>
+            <button type="button" className="btn-secondary" onClick={() => navigate(-1)}>
+              <ArrowLeft className="h-4 w-4" />
+              Tillbaka
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-[1280px] px-4 pb-24 pt-6 sm:px-6 lg:pb-10">
+        <div className="mx-auto max-w-[960px] space-y-6">
       <div className="surface-card flex items-center gap-5 p-5">
         <img src="/kvitt.png" alt={t('about.logoAlt')} className="h-28 w-28 flex-shrink-0 rounded-2xl shadow-[var(--shadow-soft)]" />
         <p className="text-[var(--text-secondary)]">
@@ -129,6 +156,8 @@ export default function About() {
           </article>
         </div>
       </div>
+        </div>
+      </main>
     </div>
   );
 }

@@ -36,6 +36,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Login />} />
+      <Route path="/about" element={<About />} />
       <Route path="/recover" element={<Recover />} />
       <Route path="/qr-login/:token" element={<QrLoginPage />} />
       <Route path="/invite/:token" element={<InvitePage />} />
@@ -45,7 +46,6 @@ export default function App() {
           <Route path="/groups/:slug" element={<GroupView />} />
           <Route path="/groups/:slug/statistics" element={<GroupStatistics />} />
           <Route path="/groups/:slug/expenses/new" element={<AddExpense />} />
-          <Route path="/about" element={<About />} />
           <Route element={<AdminRoute />}>
             <Route path="/admin" element={<Admin />} />
           </Route>

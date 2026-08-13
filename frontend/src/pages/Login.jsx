@@ -319,9 +319,10 @@ function AuthFooter({ isRegisterMode, hasRegistrationToken, registrationToken })
   };
 
   return (
-    <p className="m-0 text-center text-sm text-[var(--text-secondary)]">
-      {renderFooterContent()}
-    </p>
+    <div className="space-y-2 text-center text-sm text-[var(--text-secondary)]">
+      <p className="m-0">{renderFooterContent()}</p>
+      <Link to="/about">Om Kvitt</Link>
+    </div>
   );
 }
 
