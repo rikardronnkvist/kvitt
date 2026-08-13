@@ -36,7 +36,28 @@
     "alreadyHaveAccount": "Har du redan ett konto?",
     "login": "Logga in",
     "loadDevUsersFailed": "Kunde inte ladda testanvändare.",
-    "loginDevUserFailed": "Kunde inte logga in testanvändare."
+    "loginDevUserFailed": "Kunde inte logga in testanvändare.",
+    "loginQr": "Logga in via QR-kod"
+  },
+  "qrLogin": {
+    "modalTitle": "Logga in via QR-kod",
+    "modalDescription": "Scanna QR-koden med din telefon och logga in med Passkey. Perfekt om enheten du använder nu inte stödjer Passkeys.",
+    "qrAlt": "QR-kod för inloggning",
+    "creating": "Skapar QR-kod...",
+    "hint": "QR-koden är giltig i 5 minuter.",
+    "expired": "QR-koden har gått ut. Stäng och försök igen.",
+    "loggingIn": "Loggar in...",
+    "createFailed": "Kunde inte skapa QR-kod.",
+    "qrCreateFailed": "Kunde inte generera QR-kod.",
+    "claimFailed": "Kunde inte hämta sessionen. Försök igen.",
+    "completeFailed": "QR-sessionen har gått ut eller är ogiltig.",
+    "pageTitle": "Logga in på Kvitt",
+    "pageDescription": "Du öppnade den här länken från en annan enhet. Logga in med din Passkey för att slutföra inloggningen.",
+    "loginButton": "Logga in med Passkey",
+    "successTitle": "Inloggning klar!",
+    "successDescription": "Du är nu inloggad på den andra enheten. Du kan stänga den här fliken.",
+    "showLink": "Visa länk (om du inte kan skanna)",
+    "startPasskey": "Startar Passkey..."
   },
   "scanner": {
     "permissionDenied": "Kameraåtkomst nekades. Tillåt kamera för att skanna QR-kod.",

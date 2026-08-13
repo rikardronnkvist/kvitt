@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ScanLine } from 'lucide-react';
+import { ScanLine, QrCode } from 'lucide-react';
 import { get, post } from '../api/client.js';
 import PasskeyButton from '../components/PasskeyButton.jsx';
 import InviteQrScannerModal from '../components/InviteQrScannerModal.jsx';
+import QrLoginModal from '../components/QrLoginModal.jsx';
 import { usePasskeyAuth } from '../hooks/usePasskeyAuth.js';
 import { formatPhoneNumber, getPhonePlaceholder, sanitizePhoneInput } from '../lib/phone.js';
 import { useAppSettings } from '../hooks/useAppSettings.js';
@@ -243,7 +244,7 @@ function RegisterSection({
   );
 }
 
-function LoginSection({ isBusy, passkeyLoading, handlePasskeyLogin, setIsScannerOpen }) {
+function LoginSection({ isBusy, passkeyLoading, handlePasskeyLogin, setIsScannerOpen, setIsQrLoginOpen }) {
   return (
     <div className="space-y-4">
       <PasskeyButton
@@ -253,6 +254,10 @@ function LoginSection({ isBusy, passkeyLoading, handlePasskeyLogin, setIsScanner
         disabled={isBusy}
         onClick={handlePasskeyLogin}
       />
+      <button type="button" className="btn-secondary w-full" disabled={isBusy} onClick={() => setIsQrLoginOpen(true)}>
+        <QrCode className="h-4 w-4" />
+        {t('auth.loginQr')}
+      </button>
       <button type="button" className="btn-secondary w-full" disabled={isBusy} onClick={() => setIsScannerOpen(true)}>
         <ScanLine className="h-4 w-4" />
         {t('auth.scanInviteQr')}
@@ -329,6 +334,7 @@ export default function Login() {
   const [registerForm, setRegisterForm] = useState(registerInitialState);
   const [devboxLoginLoading, setDevboxLoginLoading] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isQrLoginOpen, setIsQrLoginOpen] = useState(false);
   const [error, setError] = useState('');
   const isRegisterMode = isRegisterRoute;
   const {
@@ -431,6 +437,7 @@ export default function Login() {
               passkeyLoading={passkeyLoading}
               handlePasskeyLogin={handlePasskeyLogin}
               setIsScannerOpen={setIsScannerOpen}
+              setIsQrLoginOpen={setIsQrLoginOpen}
             />
           )}
 
@@ -453,6 +460,10 @@ export default function Login() {
           onClose={() => setIsScannerOpen(false)}
           onDetected={handleInviteDetected}
         />
+      ) : null}
+
+      {isQrLoginOpen ? (
+        <QrLoginModal onClose={() => setIsQrLoginOpen(false)} />
       ) : null}
     </main>
   );
