@@ -37,7 +37,9 @@
     "login": "Logga in",
     "loadDevUsersFailed": "Kunde inte ladda testanvändare.",
     "loginDevUserFailed": "Kunde inte logga in testanvändare.",
-    "loginQr": "Logga in via QR-kod"
+    "loginQr": "Logga in via QR-kod",
+    "passkeyLoginFailed": "Passkey-inloggningen avbröts eller misslyckades.",
+    "passkeyRegistrationCancelled": "Passkey-registreringen avbröts eller misslyckades."
   },
   "qrLogin": {
     "modalTitle": "Logga in via QR-kod",
