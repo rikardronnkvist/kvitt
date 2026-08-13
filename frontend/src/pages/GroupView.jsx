@@ -867,6 +867,31 @@ function buildMonthlyTotals(timeline) {
   return map;
 }
 
+function buildCategorySummary(expenses, expenseCategories) {
+  const sortOrderByIcon = new Map(
+    expenseCategories.map((category) => [normalizeIconId(category.icon), Number(category.sort_order)]),
+  );
+  const sortOrderByName = new Map(
+    expenseCategories.map((category) => [String(category.name || '').trim().toLowerCase(), Number(category.sort_order)]),
+  );
+  const totals = new Map();
+  for (const expense of expenses) {
+    const name = expense.category_name || 'Övrigt';
+    const icon = expense.category_icon || 'shapes';
+    const key = `${name}|${icon}`;
+    const current = totals.get(key) || { name, icon, amount: 0 };
+    current.amount += Number(expense.amount || 0);
+    totals.set(key, current);
+  }
+  const getSortOrder = (category) => sortOrderByIcon.get(normalizeIconId(category.icon))
+    ?? sortOrderByName.get(String(category.name || '').trim().toLowerCase())
+    ?? Number.MAX_SAFE_INTEGER;
+  return {
+    totalExpenses: expenses.reduce((sum, expense) => sum + expense.amount, 0),
+    byCategory: Array.from(totals.values()).sort((a, b) => getSortOrder(a) - getSortOrder(b) || b.amount - a.amount),
+  };
+}
+
 function compareTimelineItems(a, b) {
   const activityMinuteA = Math.floor(a.activityTimestamp / 60000);
   const activityMinuteB = Math.floor(b.activityTimestamp / 60000);
@@ -1075,40 +1100,10 @@ export default function GroupView() {
   const canArchiveGroup = isGroupOwner && !isArchived && memberBalances.every((member) => Number(member.balance) === 0);
   const inviteUrl = useMemo(() => safeInviteUrl(inviteToken), [inviteToken]);
 
-  const summary = useMemo(() => {
-    const sortOrderByIcon = new Map(
-      expenseCategories.map((category) => [normalizeIconId(category.icon), Number(category.sort_order)]),
-    );
-    const sortOrderByName = new Map(
-      expenseCategories.map((category) => [String(category.name || '').trim().toLowerCase(), Number(category.sort_order)]),
-    );
-
-    const totals = new Map();
-    for (const expense of expenses) {
-      const key = `${expense.category_name || 'Övrigt'}|${expense.category_icon || 'shapes'}`;
-      const current = totals.get(key) || { name: expense.category_name || 'Övrigt', icon: expense.category_icon || 'shapes', amount: 0 };
-      current.amount += Number(expense.amount || 0);
-      totals.set(key, current);
-    }
-
-    return {
-      totalExpenses: expenses.reduce((sum, expense) => sum + expense.amount, 0),
-      byCategory: Array.from(totals.values()).sort((a, b) => {
-        const orderA = sortOrderByIcon.get(normalizeIconId(a.icon))
-          ?? sortOrderByName.get(String(a.name || '').trim().toLowerCase())
-          ?? Number.MAX_SAFE_INTEGER;
-        const orderB = sortOrderByIcon.get(normalizeIconId(b.icon))
-          ?? sortOrderByName.get(String(b.name || '').trim().toLowerCase())
-          ?? Number.MAX_SAFE_INTEGER;
-
-        if (orderA !== orderB) {
-          return orderA - orderB;
-        }
-
-        return b.amount - a.amount;
-      }),
-    };
-  }, [expenses, expenseCategories]);
+  const summary = useMemo(
+    () => buildCategorySummary(expenses, expenseCategories),
+    [expenses, expenseCategories],
+  );
 
   const ensureInvite = () => ensureInviteToken({
     inviteToken,
