@@ -775,6 +775,7 @@ function AdminActivityTab({
           <span>Från</span>
           <input
             type="datetime-local"
+            step="1"
             value={activityFilters.from}
             onChange={(event) => handleActivityFilterChange('from', event.target.value)}
           />
@@ -783,6 +784,7 @@ function AdminActivityTab({
           <span>Till</span>
           <input
             type="datetime-local"
+            step="1"
             value={activityFilters.to}
             onChange={(event) => handleActivityFilterChange('to', event.target.value)}
           />
