@@ -57,7 +57,7 @@ class QrLoginStore {
 
   consume(token, claimSecret) {
     const entry = this.store.get(token);
-    if (!entry || entry.status !== 'completed') {
+    if (entry?.status !== 'completed') {
       return null;
     }
     if (entry.claimSecret !== claimSecret) {
