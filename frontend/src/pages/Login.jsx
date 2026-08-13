@@ -268,7 +268,7 @@ function LoginSection({ isBusy, passkeyLoading, handlePasskeyLogin, setIsScanner
 
 function DevboxSection({ devboxUsers, isBusy, onLogin }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 rounded-lg border border-[var(--danger)] p-4">
       <p className="m-0 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t('auth.devbox')}</p>
       <div className="space-y-2">
         {devboxUsers.length ? devboxUsers.map((user) => (
