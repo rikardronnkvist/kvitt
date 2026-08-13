@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { db } from '../db/database.js';
 import requireAuth from '../middleware/auth.js';
 import passkeyRoutes from '../auth/passkey.routes.js';
+import qrLoginRoutes from '../auth/qr-login.routes.js';
 import { getAuthUserById, signToken } from '../auth/token.js';
 import { resolveRequestIp, tryLogActivity } from '../utils/activity-log.js';
 import { cleanupUserAvatarFiles, getAvatarFilePath } from '../utils/avatar.js';
@@ -129,6 +130,7 @@ function normalizeProfilePhone({ phoneEnabled, phone, currentPhone }) {
 }
 
 router.use('/passkey', passkeyRoutes);
+router.use('/qr-login', qrLoginRoutes);
 
 router.get('/devbox/users', (_req, res) => {
   if (!isDevboxMode) {

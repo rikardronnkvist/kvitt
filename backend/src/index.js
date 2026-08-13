@@ -91,7 +91,9 @@ function isSensitiveAuthAttempt(req) {
     || authPath === '/passkey/register/verify'
     || authPath === '/passkey/login/options'
     || authPath === '/passkey/login/verify'
+    || authPath === '/qr-login'
     || /^\/passkey\/recover\/[^/]+\/(options|verify)$/.test(authPath)
+    || /^\/qr-login\/[^/]+\/complete$/.test(authPath)
   );
 }
 
