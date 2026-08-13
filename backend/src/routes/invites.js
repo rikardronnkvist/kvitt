@@ -119,7 +119,7 @@ router.post('/:token/accept', authMiddleware, (req, res) => {
     return res.status(err.status || 500).json({ error: err.message });
   }
 
-  return res.json({ slug: invite.group_slug, already_member: alreadyMember ? true : false });
+  return res.json({ slug: invite.group_slug, already_member: Boolean(alreadyMember) });
 });
 
 export default router;
