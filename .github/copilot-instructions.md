@@ -34,6 +34,7 @@ The product helps users create groups, add expenses, calculate balances, and set
 - Follow existing patterns in the repository.
 - Make minimal, targeted changes unless explicitly asked otherwise.
 - Prefer pragmatic solutions over clever ones.
+- Keep all user-visible text in the appropriate i18n language files, including frontend labels, API error messages, and push notification text. Do not hardcode user-facing copy in components, routes, services, or other application logic.
 
 ## Boundaries
 - Commit freely as work progresses or when a logical unit is complete.

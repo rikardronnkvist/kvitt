@@ -2,6 +2,8 @@ import express from 'express';
 import { z } from 'zod';
 import authMiddleware from '../middleware/auth.js';
 import { db } from '../db/database.js';
+import { getSubscriptionsForUsers, isConfigured, sendPushNotification } from '../utils/push.js';
+import { notifications } from '../i18n/sv-se.js';
 
 const router = express.Router();
 
@@ -117,6 +119,26 @@ router.post('/:token/accept', authMiddleware, (req, res) => {
     tx();
   } catch (err) {
     return res.status(err.status || 500).json({ error: err.message });
+  }
+
+  if (!alreadyMember && isConfigured()) {
+    const group = db.prepare('SELECT name, slug FROM groups WHERE id = ?').get(groupId);
+    const memberName = req.user.full_name || 'Någon';
+    const recipients = db.prepare(`
+      SELECT gm.user_id
+      FROM group_members gm
+      JOIN users u ON u.id = gm.user_id
+      WHERE gm.group_id = ? AND gm.user_id != ? AND u.is_placeholder = 0
+    `).all(groupId, realUserId).map((member) => member.user_id);
+    const subscriptions = getSubscriptionsForUsers(recipients);
+
+    Promise.allSettled(subscriptions.map((subscription) => (
+      sendPushNotification(subscription, {
+        title: group?.name ?? 'Kvitt',
+        body: notifications.groupMemberJoined(memberName),
+        url: `/groups/${group?.slug ?? groupId}`,
+      })
+    )));
   }
 
   return res.json({ slug: invite.group_slug, already_member: Boolean(alreadyMember) });
