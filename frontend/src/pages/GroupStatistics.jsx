@@ -22,6 +22,18 @@ const TIMELINE_DATA_OPTIONS = [
   { value: 'transfers', label: t('groupStatistics.settlements') },
 ];
 
+function getRadarLabelAnchor(directionX) {
+  if (directionX > 0.28) return 'start';
+  if (directionX < -0.28) return 'end';
+  return 'middle';
+}
+
+function getRadarLabelBaseline(directionY) {
+  if (directionY < -0.6) return 'auto';
+  if (directionY > 0.6) return 'hanging';
+  return 'central';
+}
+
 function hexToRgba(hex, alpha) {
   const normalized = String(hex || '').replace('#', '');
   if (normalized.length !== 6) {
@@ -744,8 +756,8 @@ function CategoryRadarChart({ title, entries, theme, hoveredLabel = '', onHoverL
             const labelDistance = 16;
             const labelX = iconPoint.x + (directionX * labelDistance);
             const labelY = iconPoint.y + (directionY * labelDistance);
-            const labelAnchor = directionX > 0.28 ? 'start' : directionX < -0.28 ? 'end' : 'middle';
-            const labelBaseline = directionY < -0.6 ? 'auto' : directionY > 0.6 ? 'hanging' : 'central';
+            const labelAnchor = getRadarLabelAnchor(directionX);
+            const labelBaseline = getRadarLabelBaseline(directionY);
             return (
               <g
                 key={axisPoint.label}
@@ -935,8 +947,8 @@ function MemberRadarChart({ title, entries, theme, hoveredLabel = '', onHoverLab
             const labelDistance = 16;
             const labelX = iconPoint.x + (directionX * labelDistance);
             const labelY = iconPoint.y + (directionY * labelDistance);
-            const labelAnchor = directionX > 0.28 ? 'start' : directionX < -0.28 ? 'end' : 'middle';
-            const labelBaseline = directionY < -0.6 ? 'auto' : directionY > 0.6 ? 'hanging' : 'central';
+            const labelAnchor = getRadarLabelAnchor(directionX);
+            const labelBaseline = getRadarLabelBaseline(directionY);
             return (
               <g
                 key={axisPoint.label}
