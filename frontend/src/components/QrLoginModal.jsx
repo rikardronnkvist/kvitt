@@ -8,6 +8,10 @@ import { t } from '../lib/i18n.js';
 
 const POLL_INTERVAL_MS = 3000;
 
+function getValidatedJwt(result) {
+  return typeof result?.jwt === 'string' && result.jwt.trim() ? result.jwt : null;
+}
+
 export default function QrLoginModal({ onClose }) {
   const navigate = useNavigate();
   const [session, setSession] = useState(null);
@@ -30,7 +34,11 @@ export default function QrLoginModal({ onClose }) {
     try {
       const result = await post(`/api/auth/qr-login/${token}/claim`, { claimSecret });
       if (!activeRef.current) return;
-      localStorage.setItem('token', result.jwt);
+      const jwt = getValidatedJwt(result);
+      if (!jwt) {
+        throw new Error('Ogiltigt QR-inloggningssvar.');
+      }
+      localStorage.setItem('token', jwt);
       navigate('/');
     } catch {
       if (!activeRef.current) return;
