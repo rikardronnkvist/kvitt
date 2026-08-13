@@ -27,7 +27,7 @@ export default function QrLoginPage() {
     try {
       const { token: jwt } = await loginWithPasskey();
 
-      const response = await fetch(`/api/auth/qr-login/${token}/complete`, {
+      const response = await fetch(`/api/auth/qr-login/${encodeURIComponent(token)}/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jwt }),

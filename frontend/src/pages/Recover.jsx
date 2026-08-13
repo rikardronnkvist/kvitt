@@ -38,9 +38,10 @@ export default function Recover() {
     setError('');
     setLoading(true);
     try {
-      const optionsResponse = await post(`/api/auth/passkey/recover/${token}/options`, {});
+      const encodedToken = encodeURIComponent(token);
+      const optionsResponse = await post(`/api/auth/passkey/recover/${encodedToken}/options`, {});
       const response = await startRegistrationCompat(optionsResponse.options);
-      const data = await post(`/api/auth/passkey/recover/${token}/verify`, {
+      const data = await post(`/api/auth/passkey/recover/${encodedToken}/verify`, {
         requestId: optionsResponse.requestId,
         response,
       });

@@ -891,7 +891,8 @@ function safeInviteUrl(token) {
 }
 
 async function fetchGroupData(slug) {
-  const groupData = await get(`/api/groups/${slug}`);
+  const encodedSlug = encodeURIComponent(slug);
+  const groupData = await get(`/api/groups/${encodedSlug}`);
   const [expenses, categories, balances, settlements] = await Promise.all([
     get(`/api/expenses/${groupData.id}`),
     get('/api/expenses/categories'),
@@ -958,7 +959,7 @@ export default function GroupView() {
   const checkAndRefresh = useCallback(async () => {
     if (document.hidden) return;
     try {
-      const { last_activity_at } = await get(`/api/groups/${slug}/activity`);
+      const { last_activity_at } = await get(`/api/groups/${encodeURIComponent(slug)}/activity`);
       const hasNewActivity = lastActivityRef.current !== null && last_activity_at !== lastActivityRef.current;
       if (hasNewActivity) await loadData({ silent: true });
     } catch {

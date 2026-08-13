@@ -32,7 +32,8 @@ export default function QrLoginModal({ onClose }) {
   const claimSession = useCallback(async (token, claimSecret) => {
     stopPolling();
     try {
-      const result = await post(`/api/auth/qr-login/${token}/claim`, { claimSecret });
+      const encodedToken = encodeURIComponent(token);
+      const result = await post(`/api/auth/qr-login/${encodedToken}/claim`, { claimSecret });
       if (!activeRef.current) return;
       const jwt = getValidatedJwt(result);
       if (!jwt) {
@@ -73,7 +74,8 @@ export default function QrLoginModal({ onClose }) {
         pollRef.current = setInterval(async () => {
           if (!activeRef.current) return;
           try {
-            const result = await get(`/api/auth/qr-login/${data.token}/status`);
+            const encodedToken = encodeURIComponent(data.token);
+            const result = await get(`/api/auth/qr-login/${encodedToken}/status`);
             if (!activeRef.current) return;
             if (result.status === 'completed') {
               setStatus('completed');
