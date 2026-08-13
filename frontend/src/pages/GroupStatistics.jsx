@@ -672,13 +672,6 @@ function toPolygonPoints(points) {
   return points.map((point) => `${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(' ');
 }
 
-function getLabelAnchor(angle) {
-  const cosine = Math.cos(angle);
-  if (cosine > 0.28) return 'start';
-  if (cosine < -0.28) return 'end';
-  return 'middle';
-}
-
 function CategoryRadarChart({ title, entries, theme, hoveredLabel = '', onHoverLabelChange }) {
   const chartWidth = 760;
   const chartHeight = 380;
