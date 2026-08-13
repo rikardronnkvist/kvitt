@@ -890,6 +890,17 @@ function safeInviteUrl(token) {
   }
 }
 
+async function fetchGroupData(slug) {
+  const groupData = await get(`/api/groups/${slug}`);
+  const [expenses, categories, balances, settlements] = await Promise.all([
+    get(`/api/expenses/${groupData.id}`),
+    get('/api/expenses/categories'),
+    get(`/api/settlements/${groupData.id}/balances`),
+    get(`/api/settlements/${groupData.id}`),
+  ]);
+  return { group: groupData, expenses, categories, balances, settlements };
+}
+
 export default function GroupView() {
   const navigate = useNavigate();
   const { slug } = useParams();
@@ -925,19 +936,13 @@ export default function GroupView() {
   const loadData = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
     try {
-      const groupData = await get(`/api/groups/${slug}`);
-      const [expensesData, categoriesData, balancesData, settlementsData] = await Promise.all([
-        get(`/api/expenses/${groupData.id}`),
-        get('/api/expenses/categories'),
-        get(`/api/settlements/${groupData.id}/balances`),
-        get(`/api/settlements/${groupData.id}`),
-      ]);
-      setGroup(groupData);
-      setExpenses(expensesData);
-      setExpenseCategories(categoriesData);
-      setBalances(balancesData);
-      setSettlements(settlementsData);
-      lastActivityRef.current = groupData.last_activity_at ?? null;
+      const data = await fetchGroupData(slug);
+      setGroup(data.group);
+      setExpenses(data.expenses);
+      setExpenseCategories(data.categories);
+      setBalances(data.balances);
+      setSettlements(data.settlements);
+      lastActivityRef.current = data.group.last_activity_at ?? null;
       setError('');
     } catch (loadError) {
       if (!silent) setError(loadError.message);
