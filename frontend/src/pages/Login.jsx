@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { ScanLine, QrCode } from 'lucide-react';
 import { get, post } from '../api/client.js';
 import PasskeyButton from '../components/PasskeyButton.jsx';
+import ErrorMessage from '../components/ErrorMessage.jsx';
 import InviteQrScannerModal from '../components/InviteQrScannerModal.jsx';
 import QrLoginModal from '../components/QrLoginModal.jsx';
 import { usePasskeyAuth } from '../hooks/usePasskeyAuth.js';
@@ -446,7 +447,7 @@ export default function Login() {
             <DevboxSection devboxUsers={devboxUsers} isBusy={isBusy} onLogin={handleDevboxUserLogin} />
           ) : null}
 
-          {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
+          <ErrorMessage message={error} />
 
           <AuthFooter
             isRegisterMode={isRegisterMode}

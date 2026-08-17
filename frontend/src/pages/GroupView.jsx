@@ -7,6 +7,7 @@ import NewExpenseModal from '../components/NewExpenseModal.jsx';
 import EditSettlementModal from '../components/EditSettlementModal.jsx';
 import NewSettlementModal from '../components/NewSettlementModal.jsx';
 import EmptyState from '../components/EmptyState.jsx';
+import ErrorMessage from '../components/ErrorMessage.jsx';
 import ModalShell from '../components/ModalShell.jsx';
 import InviteQrCodeModal from '../components/InviteQrCodeModal.jsx';
 import UserAvatar from '../components/UserAvatar.jsx';
@@ -1386,7 +1387,7 @@ export default function GroupView() {
         </div>
       </section>
 
-      {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
+      <ErrorMessage message={error} />
 
       <div className="grid gap-6">
         <TimelineSection

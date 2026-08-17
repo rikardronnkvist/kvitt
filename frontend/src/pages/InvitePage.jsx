@@ -5,6 +5,7 @@ import { post } from '../api/client.js';
 import { parseUser } from '../lib/session.js';
 import { getGroupTheme } from '../lib/groupTheme.js';
 import { t } from '../lib/i18n.js';
+import ErrorMessage from '../components/ErrorMessage.jsx';
 
 export const PENDING_INVITE_TOKEN_KEY = 'pending_invite_token';
 
@@ -90,7 +91,7 @@ export default function InvitePage() {
       <div className="flex min-h-screen items-center justify-center px-4">
         <div className="surface-card w-full max-w-md space-y-4 p-8 text-center">
           <h1 className="text-xl font-semibold">{t('invitePage.invalidInviteTitle')}</h1>
-          <p className="text-[var(--text-secondary)]">{error}</p>
+          <ErrorMessage message={error} />
           {isLoggedIn && (
             <button type="button" className="btn-primary w-full" onClick={() => navigate('/')}>
               {t('invitePage.goHome')}
@@ -201,7 +202,7 @@ export default function InvitePage() {
                 {getJoinButtonLabel(joining, hasPlaceholders)}
             </button>
 
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            <ErrorMessage message={error} />
           </div>
         )}
       </div>

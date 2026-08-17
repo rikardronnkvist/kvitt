@@ -18,6 +18,7 @@ import { isPushSupported, isIosNonStandalone, subscribeToPush, unsubscribeFromPu
 import { t } from '../lib/i18n.js';
 import AvatarCropperModal from './AvatarCropperModal.jsx';
 import UserAvatar from './UserAvatar.jsx';
+import ErrorMessage from './ErrorMessage.jsx';
 import { useAppSettings } from '../hooks/useAppSettings.js';
 import { useThemePreference } from '../hooks/useThemePreference.js';
 import { usePullToRefresh } from '../hooks/usePullToRefresh.js';
@@ -280,9 +281,7 @@ function CreateGroupModal({
                 ))}
               </div>
             </div>
-            {groupError ? (
-              <p className="m-0 rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{groupError}</p>
-            ) : null}
+            <ErrorMessage message={groupError} className="m-0" />
           </div>
           <div className="flex gap-3">
             <button type="button" className="btn-secondary flex-1" onClick={() => setCreatingGroup(false)}>
@@ -402,9 +401,7 @@ function EditProfileModal({
                 ) : null}
               </div>
             </div>
-            {profileError ? (
-              <p className="m-0 rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{profileError}</p>
-            ) : null}
+            <ErrorMessage message={profileError} className="m-0" />
           </div>
           <div className="flex gap-3">
             <button type="button" className="btn-secondary flex-1" onClick={() => setEditingProfile(false)}>
@@ -567,9 +564,7 @@ function PasskeysModal({
             onDeletePasskey={onDeletePasskey}
           />
 
-          {passkeysError ? (
-            <p className="m-0 rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{passkeysError}</p>
-          ) : null}
+          <ErrorMessage message={passkeysError} className="m-0" />
 
           <div className="flex gap-3">
             <button type="button" className="btn-secondary flex-1" onClick={() => setManagingPasskeys(false)}>

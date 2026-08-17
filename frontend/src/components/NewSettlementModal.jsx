@@ -5,6 +5,7 @@ import MemberDropdown from './MemberDropdown.jsx';
 import ModalShell from './ModalShell.jsx';
 import { getUserDisplayName } from '../lib/users.js';
 import DateTimePicker from './DateTimePicker.jsx';
+import ErrorMessage from './ErrorMessage.jsx';
 import { useAppSettings } from '../hooks/useAppSettings.js';
 
 function toLocalDateTimeInputValue(input) {
@@ -271,7 +272,7 @@ export default function NewSettlementModal({
           </div>
         ) : null}
 
-        {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
+        <ErrorMessage message={error} />
 
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
           <button type="button" className="btn-secondary" onClick={handleClose} disabled={saving}>

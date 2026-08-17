@@ -7,6 +7,7 @@ import {
   loginWithPasskey,
 } from '../auth/passkey.js';
 import { t } from '../lib/i18n.js';
+import ErrorMessage from '../components/ErrorMessage.jsx';
 
 export default function QrLoginPage() {
   const { token } = useParams();
@@ -89,11 +90,7 @@ export default function QrLoginPage() {
                 <KeyRound className="h-4 w-4 text-[var(--accent)]" />
                 {loading ? t('qrLogin.startPasskey') : t('qrLogin.loginButton')}
               </button>
-              {error && (
-                <p className="m-0 rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">
-                  {error}
-                </p>
-              )}
+              <ErrorMessage message={error} className="m-0" />
             </>
           )}
         </div>

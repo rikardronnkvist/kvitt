@@ -7,6 +7,7 @@ import { getUserDisplayName } from '../lib/users.js';
 import MemberDropdown from './MemberDropdown.jsx';
 import UserAvatar from './UserAvatar.jsx';
 import DateTimePicker from './DateTimePicker.jsx';
+import ErrorMessage from './ErrorMessage.jsx';
 
 const SPLIT_TYPE_OPTIONS = [
   { value: 'all_equal', label: 'Alla delar lika', Icon: SquareSplitHorizontal },
@@ -578,7 +579,7 @@ export default function ExpenseFormFields({
         />}
       </div>
 
-      {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
+      <ErrorMessage message={error} />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>{onDelete ? <button type="button" className="btn-danger w-full sm:w-auto" onClick={onDelete} disabled={saving}>Ta bort</button> : null}</div>

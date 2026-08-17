@@ -3,6 +3,7 @@ import { del, put } from '../api/client.js';
 import MemberDropdown from './MemberDropdown.jsx';
 import ModalShell from './ModalShell.jsx';
 import DateTimePicker from './DateTimePicker.jsx';
+import ErrorMessage from './ErrorMessage.jsx';
 
 function sanitizeIntegerInput(value) {
   return String(value ?? '').replace(/\D/g, '');
@@ -177,7 +178,7 @@ export default function EditSettlementModal({ settlement, members, groupId, onCl
           />
         </label>
 
-        {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
+        <ErrorMessage message={error} />
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <button type="button" className="btn-danger" onClick={handleDelete} disabled={saving}>
