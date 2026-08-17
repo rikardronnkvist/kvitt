@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, BarChart3 } from 'lucide-react';
 import { get } from '../api/client.js';
 import UserAvatar from '../components/UserAvatar.jsx';
+import ErrorMessage from '../components/ErrorMessage.jsx';
 import { getCategoryIcon } from '../lib/expenseCategories.js';
 import { formatCurrency } from '../lib/format.js';
 import { getThemeForGroup } from '../lib/groupTheme.js';
@@ -1430,7 +1431,7 @@ export default function GroupStatistics() {
             </button>
           </div>
 
-          {error ? <p className="rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
+          <ErrorMessage message={error} />
 
           <aside className="rounded-lg border p-4" style={{ background: theme.bgSoft, borderColor: theme.borderSoft }}>
               <p className="m-0 text-sm font-semibold">{t('groupStatistics.overview')}</p>

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Camera, Keyboard, Loader2 } from 'lucide-react';
 import { BrowserCodeReader, BrowserMultiFormatReader } from '@zxing/browser';
 import ModalShell from './ModalShell.jsx';
+import ErrorMessage from './ErrorMessage.jsx';
 import { extractInviteToken } from '../lib/inviteToken.js';
 import { t } from '../lib/i18n.js';
 
@@ -191,9 +192,7 @@ export default function InviteQrScannerModal({ onClose, onDetected }) {
         </div>
 
         {error ? (
-          <p className="m-0 rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">
-            {error}
-          </p>
+          <ErrorMessage message={error} className="m-0" />
         ) : (
           <p className="m-0 text-xs text-[var(--text-muted)] inline-flex items-center gap-1">
             <Camera className="h-3.5 w-3.5" />

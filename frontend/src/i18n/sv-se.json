@@ -11,6 +11,26 @@
     "save": "Spara",
     "cancel": "Avbryt"
   },
+  "errors": {
+    "moreInformation": "Mer information",
+    "technicalDetailsTitle": "Teknisk felinformation",
+    "technicalDetailsDescription": "Informationen är formaterad som Markdown och kan klistras direkt in i ett GitHub-issue.",
+    "technicalDetailsLabel": "Tekniska feldetaljer",
+    "copyDetails": "Kopiera information",
+    "copied": "Kopierad!",
+    "copyFailed": "Kunde inte kopiera. Markera texten och kopiera manuellt.",
+    "createGitHubIssue": "Skapa GitHub-issue",
+    "issueTitle": "Felrapport: {message}",
+    "reportTitle": "Kvitt felrapport",
+    "reportErrorHeading": "Fel",
+    "reportTechnicalHeading": "Teknisk information",
+    "reportTime": "Tid",
+    "reportRequest": "Anrop",
+    "reportHttpStatus": "HTTP-status",
+    "reportBrowser": "Webbläsare",
+    "reportCauseHeading": "Orsak",
+    "invalidErrorResponse": "Serverns felsvar saknade läsbara JSON-detaljer."
+  },
   "auth": {
     "sessionExpired": "Din session har gått ut.",
     "deviceNoPasskey": "Din enhet stödjer inte Passkeys",

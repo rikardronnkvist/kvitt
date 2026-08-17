@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Archive, Check, History, Link2, RefreshCw, RotateCcw, Settings, Tags, Trash2, Users, UsersRound } from 'lucide-react';
 import { get, post, put, del } from '../api/client.js';
 import UserAvatar from '../components/UserAvatar.jsx';
+import ErrorMessage from '../components/ErrorMessage.jsx';
 import { CATEGORY_ICON_OPTIONS, getCategoryIcon } from '../lib/expenseCategories.js';
 import { GROUP_THEMES, getThemeForGroup } from '../lib/groupTheme.js';
 import { getUserDisplayName } from '../lib/users.js';
@@ -1234,7 +1235,7 @@ export default function Admin() {
   return (
     <div className="space-y-8">
       <div className="surface-card overflow-x-hidden">
-        {error ? <p className="mx-6 mt-4 rounded-lg border border-[color:color-mix(in_srgb,var(--danger)_20%,transparent)] bg-[color:color-mix(in_srgb,var(--danger)_8%,transparent)] px-3 py-2 text-sm text-[var(--danger)]">{error}</p> : null}
+        <ErrorMessage message={error} className="mx-6 mt-4" />
         {/* Mobile: dropdown */}
         <div className="border-b border-[var(--border-subtle)] px-4 py-3 sm:hidden">
           <select

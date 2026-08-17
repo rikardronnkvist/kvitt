@@ -1,4 +1,5 @@
 import { t } from '../lib/i18n.js';
+import { registerErrorDetails } from '../lib/errorDetails.js';
 
 const getToken = () => localStorage.getItem('token');
 
@@ -20,7 +21,44 @@ function redirectToLogin() {
   }
 }
 
+function sanitizeRequestUrl(url) {
+  const parsed = new URL(url, window.location.origin);
+  const pathname = parsed.pathname
+    .split('/')
+    .map((segment) => (/^[A-Za-z0-9_-]{20,}$/.test(segment) ? '[redacted]' : segment))
+    .join('/');
+  const queryKeys = [...parsed.searchParams.keys()];
+  return queryKeys.length > 0 ? `${pathname}?${queryKeys.map((key) => `${key}=[redacted]`).join('&')}` : pathname;
+}
+
+function markdownCodeBlock(value) {
+  const fence = String(value).includes('```') ? '````' : '```';
+  return [fence + 'text', String(value), fence];
+}
+
+function buildErrorReport({ url, method, message, status, statusText, serverMessage, cause }) {
+  return [
+    `# ${t('errors.reportTitle')}`,
+    '',
+    `## ${t('errors.reportErrorHeading')}`,
+    '',
+    ...markdownCodeBlock(message),
+    '',
+    `## ${t('errors.reportTechnicalHeading')}`,
+    '',
+    `- **${t('errors.reportTime')}:** ${new Date().toISOString()}`,
+    `- **${t('errors.reportRequest')}:** \`${method} ${sanitizeRequestUrl(url)}\``,
+    status ? `- **${t('errors.reportHttpStatus')}:** ${status}${statusText ? ` ${statusText}` : ''}` : null,
+    `- **${t('errors.reportBrowser')}:** ${navigator.userAgent}`,
+    serverMessage || cause ? '' : null,
+    serverMessage || cause ? `## ${t('errors.reportCauseHeading')}` : null,
+    serverMessage || cause ? '' : null,
+    ...(serverMessage || cause ? markdownCodeBlock(serverMessage || cause) : []),
+  ].filter((line) => line !== null).join('\n');
+}
+
 async function request(url, options = {}, responseType = 'json') {
+  const method = options.method || 'GET';
   const token = getToken();
   const headers = {
     ...(responseType !== 'blob' ? { 'Content-Type': 'application/json' } : {}),
@@ -28,7 +66,19 @@ async function request(url, options = {}, responseType = 'json') {
     ...options.headers,
   };
 
-  const response = await fetch(buildSafeUrl(url), { ...options, headers });
+  let response;
+  try {
+    response = await fetch(buildSafeUrl(url), { ...options, headers });
+  } catch (error) {
+    const message = t('common.genericError');
+    registerErrorDetails(message, buildErrorReport({
+      url,
+      method,
+      message,
+      cause: error instanceof Error ? error.message : String(error),
+    }));
+    throw new Error(message, { cause: error });
+  }
 
   if (response.status === 401) {
     redirectToLogin();
@@ -37,11 +87,25 @@ async function request(url, options = {}, responseType = 'json') {
 
   if (!response.ok) {
     let message = t('common.genericError');
+    let serverMessage = '';
+    let cause = '';
     try {
       const data = await response.json();
-      message = data.error || message;
+      serverMessage = typeof data.error === 'string' ? data.error : '';
+      message = serverMessage || message;
     } catch {
-      message = response.statusText || message;
+      cause = t('errors.invalidErrorResponse');
+    }
+    if (message === t('common.genericError')) {
+      registerErrorDetails(message, buildErrorReport({
+        url,
+        method,
+        message,
+        status: response.status,
+        statusText: response.statusText,
+        serverMessage,
+        cause,
+      }));
     }
     throw new Error(message);
   }
