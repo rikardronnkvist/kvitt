@@ -8,7 +8,7 @@
     "start": "concurrently --names \"backend,frontend\" --prefix-colors \"cyan,magenta\" \"npm start --prefix backend\" \"npm run preview --prefix frontend\""
   },
   "devDependencies": {
-    "concurrently": "^10.0.4"
+    "concurrently": "^10.0.5"
   },
   "dependencies": {
     "all": "^0.0.0"
