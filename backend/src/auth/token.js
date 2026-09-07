@@ -25,7 +25,7 @@ export function getAuthUserById(userId) {
   const user = db.prepare(`
     SELECT id, is_admin, full_name, phone, initials, theme_preference, user_handle, avatar_path, avatar_version
     FROM users
-    WHERE id = ?
+    WHERE id = ? AND is_placeholder = 0
   `).get(userId);
 
   if (!user) {

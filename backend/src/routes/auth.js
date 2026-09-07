@@ -140,6 +140,7 @@ router.get('/devbox/users', (_req, res) => {
   const users = db.prepare(`
     SELECT id, full_name, is_admin
     FROM users
+    WHERE is_placeholder = 0
     ORDER BY COALESCE(NULLIF(full_name, ''), id) COLLATE NOCASE
   `).all();
 

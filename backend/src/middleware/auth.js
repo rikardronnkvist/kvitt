@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { jwtSecret } from '../auth/token.js';
+import { getAuthUserById, jwtSecret } from '../auth/token.js';
 
 export default function authMiddleware(req, res, next) {
   const header = req.headers.authorization;
@@ -12,10 +12,12 @@ export default function authMiddleware(req, res, next) {
 
   try {
     const payload = jwt.verify(token, jwtSecret);
+    const user = getAuthUserById(Number(payload.id));
+    if (!user) {
+      return res.status(401).json({ error: 'Ogiltig eller utgången token.' });
+    }
     req.user = {
-      id: Number(payload.id),
-      user_handle: payload.user_handle,
-      is_admin: Boolean(payload.is_admin),
+      ...user,
       current_passkey_id: payload.current_passkey_id != null ? Number(payload.current_passkey_id) : null,
     };
     return next();
