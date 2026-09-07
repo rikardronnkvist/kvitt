@@ -4,7 +4,9 @@ import { Bell, BellOff, FolderPlus, Home, Info, KeyRound, LogOut, Menu, RefreshC
 import { parseUser } from '../lib/session.js';
 import { get, post, put } from '../api/client.js';
 import { GROUP_THEMES } from '../lib/groupTheme.js';
-import InviteQrScannerModal from './InviteQrScannerModal.jsx';
+import QrScannerModal from './QrScannerModal.jsx';
+import { extractInviteToken } from '../lib/inviteToken.js';
+import { extractQrLoginPath } from '../lib/qrCode.js';
 import {
   addPasskeyToAccount,
   deleteMyPasskey,
@@ -640,9 +642,19 @@ export default function AppShell() {
     navigate('/login');
   };
 
-  const handleInviteDetected = (inviteToken) => {
-    setScannerOpen(false);
-    navigate(`/invite/${inviteToken}`);
+  const handleInviteDetected = (value) => {
+    const inviteToken = extractInviteToken(value);
+    if (inviteToken) {
+      setScannerOpen(false);
+      navigate(`/invite/${inviteToken}`);
+      return;
+    }
+
+    const loginPath = extractQrLoginPath(value);
+    if (loginPath) {
+      setScannerOpen(false);
+      navigate(loginPath);
+    }
   };
 
   useEffect(() => {
@@ -1002,7 +1014,7 @@ export default function AppShell() {
       />
 
       {scannerOpen ? (
-        <InviteQrScannerModal
+        <QrScannerModal
           onClose={() => setScannerOpen(false)}
           onDetected={handleInviteDetected}
         />
