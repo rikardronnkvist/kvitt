@@ -118,6 +118,7 @@ function AppMenuDropdown({
   navigate,
   onOpenCreateGroup,
   onOpenEditProfile,
+  onOpenApiTokens,
   onOpenPasskeys,
   onLogout,
 }) {
@@ -183,6 +184,14 @@ function AppMenuDropdown({
       >
         <KeyRound className="h-4 w-4 text-[var(--text-secondary)]" />
         {t('shell.myPasskeys')}
+      </button>
+      <button
+        type="button"
+        className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
+        onClick={onOpenApiTokens}
+      >
+        <KeyRound className="h-4 w-4 text-[var(--text-secondary)]" />
+        {t('shell.myTokens')}
       </button>
       {!user?.is_admin || hasNotificationsMenuItem ? (
         <div className="my-1 border-t border-[var(--border-subtle)]" />
@@ -940,6 +949,7 @@ export default function AppShell() {
                   navigate={navigate}
                   onOpenCreateGroup={openCreateGroup}
                   onOpenEditProfile={openEditProfile}
+                  onOpenApiTokens={() => { setDropdownOpen(false); navigate('/api-tokens'); }}
                   onOpenPasskeys={openPasskeys}
                   onLogout={handleLogout}
                 />

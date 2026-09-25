@@ -1,0 +1,13 @@
+{
+  "servers": {
+    "kvitt": {
+      "type": "stdio",
+      "command": "npm",
+      "args": ["start", "--prefix", "mcp"],
+      "env": {
+        "KVITT_BASE_URL": "http://localhost:3000",
+        "KVITT_API_TOKEN": ""
+      }
+    }
+  }
+}
