@@ -22,7 +22,7 @@ services:
       labels:
         - "traefik.enable=true"
         - "traefik.docker.network=traefik"
-        - "traefik.http.routers.kvitt-mcp.rule=Host(`${MCP_HOST:-kvitt.mydomain.se}`) && (PathPrefix(`/mcp`) || PathPrefix(`/.well-known/oauth-protected-resource`))"
+        - "traefik.http.routers.kvitt-mcp.rule=Host(`${MCP_HOST:-kvitt.mydomain.se}`) && (Path(`/mcp`) || PathPrefix(`/mcp/`) || PathPrefix(`/.well-known/oauth-protected-resource`))"
         - "traefik.http.routers.kvitt-mcp.priority=100"
         - "traefik.http.routers.kvitt-mcp.entrypoints=websecure"
         - "traefik.http.routers.kvitt-mcp.tls=true"
