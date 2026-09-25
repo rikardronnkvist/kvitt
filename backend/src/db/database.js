@@ -238,6 +238,18 @@ function createCoreSchema() {
       last_used_at DATETIME
     );
 
+    CREATE TABLE IF NOT EXISTS api_tokens (
+      id TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      secret_hash TEXT NOT NULL,
+      scopes TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      last_used_at DATETIME,
+      expires_at DATETIME,
+      revoked_at DATETIME
+    );
+
     CREATE TABLE IF NOT EXISTS app_settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
@@ -285,6 +297,8 @@ function createCoreSchema() {
     CREATE INDEX IF NOT EXISTS idx_settlements_group_id ON settlements(group_id);
     CREATE INDEX IF NOT EXISTS idx_passkeys_user_id ON passkeys(user_id);
     CREATE INDEX IF NOT EXISTS idx_passkeys_credential_id ON passkeys(credential_id);
+    CREATE INDEX IF NOT EXISTS idx_api_tokens_user_id ON api_tokens(user_id);
+    CREATE INDEX IF NOT EXISTS idx_api_tokens_active ON api_tokens(id, revoked_at, expires_at);
     CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created_at);
     CREATE INDEX IF NOT EXISTS idx_activity_logs_actor_user_id ON activity_logs(actor_user_id);
     CREATE INDEX IF NOT EXISTS idx_activity_logs_group_id ON activity_logs(group_id);

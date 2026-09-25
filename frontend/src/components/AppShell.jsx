@@ -4,7 +4,9 @@ import { Bell, BellOff, FolderPlus, Home, Info, KeyRound, LogOut, Menu, RefreshC
 import { parseUser } from '../lib/session.js';
 import { get, post, put } from '../api/client.js';
 import { GROUP_THEMES } from '../lib/groupTheme.js';
-import InviteQrScannerModal from './InviteQrScannerModal.jsx';
+import QrScannerModal from './QrScannerModal.jsx';
+import { extractInviteToken } from '../lib/inviteToken.js';
+import { extractQrLoginPath } from '../lib/qrCode.js';
 import {
   addPasskeyToAccount,
   deleteMyPasskey,
@@ -116,6 +118,7 @@ function AppMenuDropdown({
   navigate,
   onOpenCreateGroup,
   onOpenEditProfile,
+  onOpenApiTokens,
   onOpenPasskeys,
   onLogout,
 }) {
@@ -181,6 +184,14 @@ function AppMenuDropdown({
       >
         <KeyRound className="h-4 w-4 text-[var(--text-secondary)]" />
         {t('shell.myPasskeys')}
+      </button>
+      <button
+        type="button"
+        className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
+        onClick={onOpenApiTokens}
+      >
+        <KeyRound className="h-4 w-4 text-[var(--text-secondary)]" />
+        {t('shell.myTokens')}
       </button>
       {!user?.is_admin || hasNotificationsMenuItem ? (
         <div className="my-1 border-t border-[var(--border-subtle)]" />
@@ -640,9 +651,19 @@ export default function AppShell() {
     navigate('/login');
   };
 
-  const handleInviteDetected = (inviteToken) => {
-    setScannerOpen(false);
-    navigate(`/invite/${inviteToken}`);
+  const handleInviteDetected = (value) => {
+    const inviteToken = extractInviteToken(value);
+    if (inviteToken) {
+      setScannerOpen(false);
+      navigate(`/invite/${inviteToken}`);
+      return;
+    }
+
+    const loginPath = extractQrLoginPath(value);
+    if (loginPath) {
+      setScannerOpen(false);
+      navigate(loginPath);
+    }
   };
 
   useEffect(() => {
@@ -928,6 +949,7 @@ export default function AppShell() {
                   navigate={navigate}
                   onOpenCreateGroup={openCreateGroup}
                   onOpenEditProfile={openEditProfile}
+                  onOpenApiTokens={() => { setDropdownOpen(false); navigate('/api-tokens'); }}
                   onOpenPasskeys={openPasskeys}
                   onLogout={handleLogout}
                 />
@@ -1002,7 +1024,7 @@ export default function AppShell() {
       />
 
       {scannerOpen ? (
-        <InviteQrScannerModal
+        <QrScannerModal
           onClose={() => setScannerOpen(false)}
           onDetected={handleInviteDetected}
         />

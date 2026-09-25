@@ -4,13 +4,15 @@ import { ScanLine, QrCode } from 'lucide-react';
 import { get, post } from '../api/client.js';
 import PasskeyButton from '../components/PasskeyButton.jsx';
 import ErrorMessage from '../components/ErrorMessage.jsx';
-import InviteQrScannerModal from '../components/InviteQrScannerModal.jsx';
+import QrScannerModal from '../components/QrScannerModal.jsx';
 import QrLoginModal from '../components/QrLoginModal.jsx';
 import { usePasskeyAuth } from '../hooks/usePasskeyAuth.js';
 import { formatPhoneNumber, getPhonePlaceholder, sanitizePhoneInput } from '../lib/phone.js';
 import { useAppSettings } from '../hooks/useAppSettings.js';
 import { applyThemePreference, getStoredThemePreference, getSystemTheme } from '../lib/theme.js';
 import { PENDING_INVITE_TOKEN_KEY } from './InvitePage.jsx';
+import { extractInviteToken } from '../lib/inviteToken.js';
+import { extractQrLoginPath } from '../lib/qrCode.js';
 import { t } from '../lib/i18n.js';
 
 const registerInitialState = { full_name: '', phone: '' };
@@ -398,9 +400,22 @@ export default function Login() {
     }
   };
 
-  const handleInviteDetected = (inviteToken) => {
-    setIsScannerOpen(false);
-    navigate(`/invite/${inviteToken}`);
+  const handleScannedCode = (value) => {
+    const inviteToken = extractInviteToken(value);
+    if (inviteToken) {
+      setIsScannerOpen(false);
+      navigate(`/invite/${inviteToken}`);
+      return;
+    }
+
+    const loginPath = extractQrLoginPath(value);
+    if (loginPath) {
+      setIsScannerOpen(false);
+      navigate(loginPath);
+      return;
+    }
+
+    setError(t('scanner.invalidCode'));
   };
 
   return (
@@ -458,9 +473,9 @@ export default function Login() {
       </section>
 
       {isScannerOpen ? (
-        <InviteQrScannerModal
+        <QrScannerModal
           onClose={() => setIsScannerOpen(false)}
-          onDetected={handleInviteDetected}
+          onDetected={handleScannedCode}
         />
       ) : null}
 
