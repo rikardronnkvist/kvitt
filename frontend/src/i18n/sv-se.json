@@ -242,7 +242,18 @@
     "pwaAndroidStep2Alt": "Steg 2: tryck på Installera",
     "pwaAndroidStep2Text": "Tryck på Installera i dialogrutan som visas.",
     "pwaAndroidStep3Alt": "Steg 3: tillåt notiser",
-    "pwaAndroidStep3Text": "Tillåt notiser när appen frågar för att få meddelanden om nya utgifter."
+    "pwaAndroidStep3Text": "Tillåt notiser när appen frågar för att få meddelanden om nya utgifter.",
+    "mcpHeading": "LÄGG TILL TJÄNSTEN SOM MCP",
+    "mcpIntro": "För att koppla ett externt verktyg till Kvitt behöver du lägga till tjänsten som en anpassad connector. Här ser du hur du anger serveradressen, skapar token och lägger till avancerad konfiguration om tjänsten behöver autentisering.",
+    "mcpConnectorAlt": "Steg 2: dialog för att lägga till anpassad connector",
+    "mcpConnectorText": "Steg 2: Lägg till tjänsten genom att ange namn och MCP-serverns HTTPS-URL.",
+    "mcpTokenAlt": "Steg 1: dialog för att skapa token för MCP",
+    "mcpTokenText": "Steg 1: Skapa en token för tjänsten innan du lägger till den som connector.",
+    "mcpAdvancedAlt": "Steg 3: avancerad konfiguration av connector",
+    "mcpAdvancedText": "Steg 3: Expandera Avancerad och lägg till Baerer följt av din token för Authorization-headern.",
+    "mcpAdvancedTextExample": "Exempel",
+    "mcpAdvancedTextExampleValue": "Bearer kvitt_pat_0000123-1234....abc123"
+
   },
   "expenseModals": {
     "discardConfirm": "Avbryta? Det du fyllt i kommer att försvinna.",

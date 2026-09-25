@@ -156,6 +156,54 @@ export default function About() {
           </article>
         </div>
       </div>
+
+      <div className="surface-card p-5">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">{t('about.mcpHeading')}</h2>
+        <p className="text-[var(--text-secondary)]">
+          {t('about.mcpIntro')}
+        </p>
+
+        <div className="mt-4 space-y-4">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
+              <img
+                src="/mcp-create-token.png"
+                alt={t('about.mcpTokenAlt')}
+                className="mx-auto rounded-lg border border-[var(--border-subtle)] bg-white"
+              />
+              <p className="mt-3 text-sm text-[var(--text-secondary)]">
+                {t('about.mcpTokenText')}
+              </p>
+            </article>
+
+            <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
+              <img
+                src="/mcp-add-connector.png"
+                alt={t('about.mcpConnectorAlt')}
+                className="mx-auto rounded-lg border border-[var(--border-subtle)] bg-white"
+              />
+              <p className="mt-3 text-sm text-[var(--text-secondary)]">
+                {t('about.mcpConnectorText')}
+              </p>
+            </article>
+          </div>
+
+          <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
+            <img
+              src="/mcp-advanced-config.png"
+              alt={t('about.mcpAdvancedAlt')}
+              className="mx-auto w-[50%] rounded-lg border border-[var(--border-subtle)] bg-white"
+            />
+            <p className="mt-3 text-sm text-[var(--text-secondary)]">
+              {t('about.mcpAdvancedText')}
+            </p>
+            <p className="mt-2 text-sm text-[var(--text-secondary)]">
+              <span className="font-normal text-[var(--text-primary)]">{t('about.mcpAdvancedTextExample')}</span>{': '}
+              <span className="font-medium text-[var(--text-primary)]">{t('about.mcpAdvancedTextExampleValue')}</span>
+            </p>
+          </article>
+        </div>
+      </div>
         </div>
       </main>
     </div>
