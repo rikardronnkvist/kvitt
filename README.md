@@ -194,6 +194,7 @@ services:
       labels:
         - "traefik.enable=true"
         - "traefik.http.routers.kvitt.rule=Host(`kvitt.mydomain.se`)"
+        - "traefik.http.routers.kvitt.priority=10"
         - "traefik.http.routers.kvitt.entrypoints=websecure"
         - "traefik.http.routers.kvitt.tls=true"
         - "traefik.http.routers.kvitt.tls.certresolver=le"
@@ -221,6 +222,26 @@ services:
       - backend
     deploy:
       replicas: 1
+
+  mcp:
+    image: ghcr.io/rikardronnkvist/kvitt-mcp:latest
+    environment:
+      KVITT_BASE_URL: http://backend:3000
+      PORT: 3001
+    networks:
+      - backend
+      - traefik
+    deploy:
+      replicas: 1
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=traefik"
+        - "traefik.http.routers.kvitt-mcp.rule=Host(`kvitt.mydomain.se`) && PathPrefix(`/mcp`)"
+        - "traefik.http.routers.kvitt-mcp.priority=100"
+        - "traefik.http.routers.kvitt-mcp.entrypoints=websecure"
+        - "traefik.http.routers.kvitt-mcp.tls=true"
+        - "traefik.http.routers.kvitt-mcp.tls.certresolver=le"
+        - "traefik.http.services.kvitt-mcp.loadbalancer.server.port=3001"
 
 networks:
   traefik:
