@@ -118,9 +118,9 @@ function AdminStatusCard({ status }) {
   }
 
   const rows = [
-    { label: t('admin.statusRelease'), value: formatStatusValue(status.release?.release_id || status.release?.version) },
-    { label: t('admin.statusVersion'), value: formatStatusValue(status.release?.version) },
-    { label: t('admin.statusCommit'), value: formatStatusValue(status.release?.commit_sha ? status.release.commit_sha.slice(0, 8) : null) },
+    { label: t('admin.statusFrontend'), value: formatStatusValue(status.release?.version) },
+    { label: t('admin.statusBackend'), value: formatStatusValue(status.release?.version) },
+    { label: t('admin.statusMcp'), value: formatStatusValue(status.release?.version) },
     { label: t('admin.statusEnvironment'), value: formatStatusValue(status.release?.environment) },
     { label: t('admin.statusServer'), value: formatStatusValue(status.server?.hostname) },
     { label: t('admin.statusUptime'), value: formatUptime(status.server?.uptime_seconds) },

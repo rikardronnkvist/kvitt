@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { createRequire } from 'node:module';
 import express from 'express';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
@@ -14,6 +15,9 @@ import adminRoutes from './routes/admin.js';
 import inviteRoutes from './routes/invites.js';
 import pushRoutes from './routes/push.js';
 import { avatarDirectory, ensureAvatarDirectory } from './utils/avatar.js';
+
+const require = createRequire(import.meta.url);
+const { version } = require('../package.json');
 
 initializeDatabase();
 ensureAvatarDirectory();
@@ -170,7 +174,7 @@ app.use((error, _req, res, _next) => {
 app.listen(port, () => {
   const isDevMode = isDevboxEnabled();
 
-  console.log(`Kvitt backend listening on port ${port}`);
+  console.log(`Kvitt backend v${version} listening on port ${port}`);
   console.log(`Backend mode: ${isDevMode ? 'development' : 'production'}`);
   const registrationUrl = getRegistrationUrl();
   if (registrationUrl) {

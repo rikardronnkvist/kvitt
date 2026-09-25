@@ -1,9 +1,13 @@
 import crypto from 'node:crypto';
+import { createRequire } from 'node:module';
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
+
+const require = createRequire(import.meta.url);
+const { version } = require('../package.json');
 
 const baseUrl = process.env.KVITT_BASE_URL?.replace(/\/$/u, '');
 const port = Number(process.env.PORT) || 3001;
@@ -339,5 +343,5 @@ app.use((error, _req, res, _next) => {
 });
 
 app.listen(port, () => {
-  console.log(`Kvitt MCP listening on port ${port}`);
+  console.log(`Kvitt MCP v${version} listening on port ${port}`);
 });

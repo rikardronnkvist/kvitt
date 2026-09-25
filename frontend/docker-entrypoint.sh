@@ -1,4 +1,7 @@
 #!/bin/sh
+version=$(cat /app-version)
+echo "Kvitt frontend v${version} listening on port 80"
+
 cat > /usr/share/nginx/html/config.js << JSEOF
 window.__kvittConfig = {
   tagline: "${VITE_TAGLINE:-}",
