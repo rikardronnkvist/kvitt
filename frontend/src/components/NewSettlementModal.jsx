@@ -78,11 +78,25 @@ export default function NewSettlementModal({
   const { settings: appSettings } = useAppSettings();
   const defaultPayerId = members.some((member) => String(member.id) === String(currentUserId)) ? String(currentUserId) : '';
 
-  const [formData, setFormData] = useState({
-    payer_id: defaultPayerId,
-    receiver_id: '',
-    amount: '',
-    settled_at: toLocalDateTimeInputValue(),
+  const [formData, setFormData] = useState(() => {
+    const baseFormData = {
+      payer_id: defaultPayerId,
+      receiver_id: '',
+      amount: '',
+      settled_at: toLocalDateTimeInputValue(),
+    };
+    // Auto-fill when the current user has exactly one settlement suggestion.
+    const ownBalances = balances.filter((balance) => (
+      String(balance.from.id) === String(currentUserId) || String(balance.to.id) === String(currentUserId)
+    ));
+    if (ownBalances.length !== 1) return baseFormData;
+    const [ownBalance] = ownBalances;
+    return {
+      ...baseFormData,
+      payer_id: String(ownBalance.from.id),
+      receiver_id: String(ownBalance.to.id),
+      amount: String(Math.round(ownBalance.amount)),
+    };
   });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);

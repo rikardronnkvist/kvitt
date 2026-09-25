@@ -9,6 +9,7 @@ import Admin from './pages/Admin.jsx';
 import GroupStatistics from './pages/GroupStatistics.jsx';
 import InvitePage from './pages/InvitePage.jsx';
 import About from './pages/About.jsx';
+import ApiTokens from './pages/ApiTokens.jsx';
 import AppShell from './components/AppShell.jsx';
 import { parseUser } from './lib/session.js';
 
@@ -46,6 +47,7 @@ export default function App() {
           <Route path="/groups/:slug" element={<GroupView />} />
           <Route path="/groups/:slug/statistics" element={<GroupStatistics />} />
           <Route path="/groups/:slug/expenses/new" element={<AddExpense />} />
+          <Route path="/api-tokens" element={<ApiTokens />} />
           <Route element={<AdminRoute />}>
             <Route path="/admin" element={<Admin />} />
           </Route>
