@@ -50,6 +50,7 @@ jobs:
           tags: |
             type=raw,value=${{ github.event.release.tag_name }}
             type=sha
+            type=raw,value=latest,enable=${{ !github.event.release.prerelease }}
 
       - name: Build and publish container image
         id: build
