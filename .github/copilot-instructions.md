@@ -38,7 +38,7 @@ The product helps users create groups, add expenses, calculate balances, and set
 
 ## Boundaries
 - Commit freely as work progresses or when a logical unit is complete.
-- Never run `git push`. Do not push to any remote under any circumstances.
+- Never run `git push` without asking first.
 
 ## MCP
 - The local MCP server uses the official Model Context Protocol JavaScript SDK: https://github.com/modelcontextprotocol/typescript-sdk
