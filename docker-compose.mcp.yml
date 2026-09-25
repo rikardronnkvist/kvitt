@@ -1,0 +1,35 @@
+services:
+  mcp:
+    image: ${KVITT_MCP_IMAGE:-ghcr.io/rikardronnkvist/kvitt-mcp:latest}
+    environment:
+      KVITT_BASE_URL: ${KVITT_BACKEND_URL:-http://kvitt_backend:3000}
+      PORT: 3001
+      MCP_ALLOWED_ORIGINS: ${MCP_ALLOWED_ORIGINS:-}
+    networks:
+      - backend
+      - traefik
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=traefik"
+        - "traefik.http.routers.kvitt-mcp.rule=Host(`${MCP_HOST:-kvitt.mydomain.se}`) && PathPrefix(`/mcp`)"
+        - "traefik.http.routers.kvitt-mcp.priority=100"
+        - "traefik.http.routers.kvitt-mcp.entrypoints=websecure"
+        - "traefik.http.routers.kvitt-mcp.tls=true"
+        - "traefik.http.routers.kvitt-mcp.tls.certresolver=le"
+        - "traefik.http.services.kvitt-mcp.loadbalancer.server.port=3001"
+
+networks:
+  backend:
+    external: true
+    name: kvitt_backend
+  traefik:
+    external: true

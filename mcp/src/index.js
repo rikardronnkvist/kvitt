@@ -1,15 +1,24 @@
+import crypto from 'node:crypto';
+import express from 'express';
+import rateLimit from 'express-rate-limit';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
 
 const baseUrl = process.env.KVITT_BASE_URL?.replace(/\/$/u, '');
-const apiToken = process.env.KVITT_API_TOKEN;
+const port = Number(process.env.PORT) || 3001;
+const allowedOrigins = new Set(
+  (process.env.MCP_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+);
 
-if (!baseUrl || !apiToken) {
-  throw new Error('KVITT_BASE_URL och KVITT_API_TOKEN måste vara satta.');
+if (!baseUrl) {
+  throw new Error('KVITT_BASE_URL måste vara satt.');
 }
 
-async function request(path, options = {}) {
+async function request(apiToken, path, options = {}) {
   const response = await fetch(`${baseUrl}${path}`, {
     ...options,
     headers: {
@@ -30,6 +39,34 @@ function textResult(data) {
 
 function errorResult(error) {
   return { content: [{ type: 'text', text: error.message }], isError: true };
+}
+
+function getBearerToken(req) {
+  const header = req.headers.authorization;
+  if (!header?.startsWith('Bearer ')) {
+    return null;
+  }
+
+  const token = header.slice('Bearer '.length).trim();
+  return token.startsWith('kvitt_pat_') ? token : null;
+}
+
+function tokensMatch(firstToken, secondToken) {
+  const firstBuffer = Buffer.from(firstToken);
+  const secondBuffer = Buffer.from(secondToken);
+  return firstBuffer.length === secondBuffer.length && crypto.timingSafeEqual(firstBuffer, secondBuffer);
+}
+
+async function validateToken(apiToken) {
+  const response = await fetch(`${baseUrl}/api/auth/mcp/me`, {
+    headers: { Authorization: `Bearer ${apiToken}` },
+  });
+  return response.ok;
+}
+
+function isAllowedOrigin(req) {
+  const origin = req.headers.origin;
+  return !origin || allowedOrigins.has(origin);
 }
 
 function compactExpense(expense) {
@@ -58,14 +95,15 @@ function compactSettlement(settlement) {
   };
 }
 
-const server = new McpServer({ name: 'kvitt', version: '1.0.0' });
+function createServer(apiToken) {
+  const server = new McpServer({ name: 'kvitt', version: '1.0.0' });
 
 server.registerTool('list_groups', {
   description: 'List groups available to the personal Kvitt API token holder. current_user_balance is whole currency units: positive means the current user is owed money; negative means they owe money.',
   annotations: { readOnlyHint: true },
 }, async () => {
   try {
-    return textResult(await request('/api/groups'));
+    return textResult(await request(apiToken, '/api/groups'));
   } catch (error) {
     return errorResult(error);
   }
@@ -77,7 +115,7 @@ server.registerTool('get_group', {
   inputSchema: { group_id: z.union([z.coerce.number().int().positive(), z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u)]) },
 }, async ({ group_id: groupId }) => {
   try {
-    return textResult(await request(`/api/groups/${encodeURIComponent(groupId)}`));
+    return textResult(await request(apiToken, `/api/groups/${encodeURIComponent(groupId)}`));
   } catch (error) {
     return errorResult(error);
   }
@@ -88,7 +126,7 @@ server.registerTool('list_expense_categories', {
   annotations: { readOnlyHint: true },
 }, async () => {
   try {
-    return textResult(await request('/api/expenses/categories'));
+    return textResult(await request(apiToken, '/api/expenses/categories'));
   } catch (error) {
     return errorResult(error);
   }
@@ -100,7 +138,7 @@ server.registerTool('list_expenses', {
   inputSchema: { group_id: z.coerce.number().int().positive() },
 }, async ({ group_id: groupId }) => {
   try {
-    const expenses = await request(`/api/expenses/${groupId}`);
+    const expenses = await request(apiToken, `/api/expenses/${groupId}`);
     return textResult(expenses.map(compactExpense));
   } catch (error) {
     return errorResult(error);
@@ -126,7 +164,7 @@ server.registerTool('create_expense', {
   },
 }, async ({ group_id: groupId, ...expense }) => {
   try {
-    return textResult(await request(`/api/expenses/${groupId}`, {
+    return textResult(await request(apiToken, `/api/expenses/${groupId}`, {
       method: 'POST',
       body: JSON.stringify(expense),
     }));
@@ -157,7 +195,7 @@ server.registerTool('update_expense', {
   inputSchema: expenseInputSchema,
 }, async ({ group_id: groupId, expense_id: expenseId, ...expense }) => {
   try {
-    return textResult(await request(`/api/expenses/${groupId}/${expenseId}`, {
+    return textResult(await request(apiToken, `/api/expenses/${groupId}/${expenseId}`, {
       method: 'PUT',
       body: JSON.stringify(expense),
     }));
@@ -175,7 +213,7 @@ server.registerTool('delete_expense', {
   },
 }, async ({ group_id: groupId, expense_id: expenseId }) => {
   try {
-    await request(`/api/expenses/${groupId}/${expenseId}`, { method: 'DELETE' });
+    await request(apiToken, `/api/expenses/${groupId}/${expenseId}`, { method: 'DELETE' });
     return textResult({ deleted: true, expense_id: expenseId });
   } catch (error) {
     return errorResult(error);
@@ -187,7 +225,7 @@ server.registerTool('whoami', {
   annotations: { readOnlyHint: true },
 }, async () => {
   try {
-    return textResult(await request('/api/auth/mcp/me'));
+    return textResult(await request(apiToken, '/api/auth/mcp/me'));
   } catch (error) {
     return errorResult(error);
   }
@@ -199,28 +237,107 @@ server.registerTool('list_settlements', {
   inputSchema: { group_id: z.coerce.number().int().positive() },
 }, async ({ group_id: groupId }) => {
   try {
-    const settlements = await request(`/api/settlements/${groupId}`);
+    const settlements = await request(apiToken, `/api/settlements/${groupId}`);
     return textResult(settlements.map(compactSettlement));
   } catch (error) {
     return errorResult(error);
   }
 });
 
-server.registerTool('get_balances', {
+  server.registerTool('get_balances', {
   description: 'Get simplified settlement suggestions for a group. Each item says who should pay whom and how much, in whole currency units.',
   annotations: { readOnlyHint: true },
   inputSchema: { group_id: z.coerce.number().int().positive() },
-}, async ({ group_id: groupId }) => {
+  }, async ({ group_id: groupId }) => {
   try {
-    const balances = await request(`/api/settlements/${groupId}/balances`);
+    const balances = await request(apiToken, `/api/settlements/${groupId}/balances`);
     return textResult(balances.map((balance) => ({
       from_user_id: balance.from.id,
       to_user_id: balance.to.id,
       amount: balance.amount,
     })));
   } catch (error) {
-    return errorResult(error);
+      return errorResult(error);
+    }
+  });
+
+  return server;
+}
+
+const app = express();
+const sessions = new Map();
+
+app.disable('x-powered-by');
+app.use(express.json({ limit: '256kb' }));
+const mcpRateLimit = rateLimit({
+  windowMs: 60_000,
+  limit: 120,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+});
+
+app.get('/healthz', (_req, res) => {
+  res.json({ status: 'ok' });
+});
+
+app.use('/mcp', mcpRateLimit, async (req, res, next) => {
+  try {
+    if (!isAllowedOrigin(req)) {
+      return res.status(403).json({ error: 'Origin is not allowed.' });
+    }
+
+    const apiToken = getBearerToken(req);
+    if (!apiToken) {
+      return res.status(401).json({ error: 'Missing Kvitt API token.' });
+    }
+
+    const sessionId = req.headers['mcp-session-id'];
+    let session = sessionId ? sessions.get(sessionId) : null;
+
+    if (session && !tokensMatch(session.apiToken, apiToken)) {
+      return res.status(401).json({ error: 'Token does not match MCP session.' });
+    }
+
+    if (!session) {
+      if (req.method !== 'POST' || req.body?.method !== 'initialize') {
+        return res.status(400).json({ error: 'MCP session is required.' });
+      }
+      if (!(await validateToken(apiToken))) {
+        return res.status(401).json({ error: 'Invalid or expired Kvitt API token.' });
+      }
+
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => crypto.randomUUID(),
+        onsessioninitialized: (newSessionId) => {
+          sessions.set(newSessionId, { apiToken, transport });
+        },
+      });
+      transport.onclose = () => {
+        if (transport.sessionId) {
+          sessions.delete(transport.sessionId);
+        }
+      };
+      session = { apiToken, transport };
+      await createServer(apiToken).connect(transport);
+    }
+
+    await session.transport.handleRequest(req, res, req.body);
+
+    if (req.method === 'DELETE' && sessionId) {
+      sessions.delete(sessionId);
+    }
+  } catch (error) {
+    next(error);
   }
 });
 
-await server.connect(new StdioServerTransport());
+app.use((error, _req, res, _next) => {
+  console.error(error.message);
+  if (!res.headersSent) {
+    res.status(500).json({ error: 'MCP server error.' });
+  }
+});
+
+app.listen(port, () => {
+  console.log(`Kvitt MCP listening on port ${port}`);
+});

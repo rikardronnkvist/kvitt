@@ -29,6 +29,7 @@ Image names:
 
 - `ghcr.io/<owner>/<repo>-backend`
 - `ghcr.io/<owner>/<repo>-frontend`
+- `ghcr.io/<owner>/<repo>-mcp`
 
 Use `main-<run_number>` for immutable CI deployments and `v*` tags for release deployments.
 
@@ -227,3 +228,28 @@ networks:
   backend:
     driver: overlay
 ```
+
+### Public MCP service with Traefik
+
+The MCP server is deployed separately from the main application stack and exposed through Streamable HTTP on the existing Kvitt host:
+
+```text
+https://kvitt.mydomain.se/mcp
+```
+
+The Traefik MCP router matches `Host(kvitt.mydomain.se) && PathPrefix(/mcp)` with higher priority than the frontend router. Set `MCP_HOST` during deployment when using another domain. No additional DNS record is needed. The existing Swarm networks must be named `kvitt_backend` and `traefik` (adjust `docker-compose.mcp.yml` if the stack name differs).
+
+After the MCP image has been published by the release workflow, deploy it with:
+
+```bash
+docker stack deploy -c docker-compose.mcp.yml kvitt-mcp
+```
+
+To select a specific image tag:
+
+```bash
+KVITT_MCP_IMAGE=ghcr.io/rikardronnkvist/kvitt-mcp:v1.2.2 \
+  docker stack deploy -c docker-compose.mcp.yml kvitt-mcp
+```
+
+Traefik terminates TLS and forwards the MCP endpoint to port `3001`. The MCP client supplies the user's Kvitt API token as a Bearer token; the MCP container does not need a shared Kvitt token.

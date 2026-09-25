@@ -27,6 +27,8 @@ jobs:
             platforms: linux/amd64
           - service: frontend
             platforms: linux/amd64,linux/arm64
+          - service: mcp
+            platforms: linux/amd64,linux/arm64
 
     steps:
       - name: Check out repository
