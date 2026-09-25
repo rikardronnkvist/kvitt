@@ -16,6 +16,7 @@ env:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment: production
     concurrency:
       group: publish-${{ github.ref }}-${{ matrix.service }}
       cancel-in-progress: false
