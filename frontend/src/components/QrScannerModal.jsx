@@ -3,10 +3,8 @@ import { Camera, Keyboard, Loader2 } from 'lucide-react';
 import { BrowserCodeReader, BrowserMultiFormatReader } from '@zxing/browser';
 import ModalShell from './ModalShell.jsx';
 import ErrorMessage from './ErrorMessage.jsx';
-import { extractInviteToken } from '../lib/inviteToken.js';
 import { t } from '../lib/i18n.js';
 
-// Sentinel used when device enumeration returns nothing (e.g. iOS before permission)
 const ENVIRONMENT_CAMERA = '__environment__';
 
 function getUserFacingError(message) {
@@ -23,7 +21,7 @@ function getUserFacingError(message) {
   return t('scanner.startFailed');
 }
 
-export default function InviteQrScannerModal({ onClose, onDetected }) {
+export default function QrScannerModal({ onClose, onDetected }) {
   const videoRef = useRef(null);
   const controlsRef = useRef(null);
   const handledRef = useRef(false);
@@ -33,8 +31,6 @@ export default function InviteQrScannerModal({ onClose, onDetected }) {
   const [devices, setDevices] = useState([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState(null);
 
-  // Load available devices once on mount.
-  // On iOS, enumeration returns empty before permission — fall back to ENVIRONMENT_CAMERA sentinel.
   useEffect(() => {
     if (!navigator?.mediaDevices?.getUserMedia) return;
 
@@ -50,7 +46,6 @@ export default function InviteQrScannerModal({ onClose, onDetected }) {
       });
   }, []);
 
-  // Start scanner when a device is selected
   useEffect(() => {
     if (!selectedDeviceId) return;
 
@@ -62,27 +57,20 @@ export default function InviteQrScannerModal({ onClose, onDetected }) {
     const start = async () => {
       try {
         const reader = new BrowserMultiFormatReader();
-
         const onResult = (result) => {
           if (!result || handledRef.current) return;
-          const token = extractInviteToken(result.getText());
-          if (!token) return;
           handledRef.current = true;
-          controls.stop();
-          if (active) {
-            onDetected(token);
-          }
+          controlsRef.current?.stop();
+          if (active) onDetected(result.getText());
         };
 
         let controls;
         if (selectedDeviceId === ENVIRONMENT_CAMERA) {
-          // iOS: enumerate devices only after permission is granted via getUserMedia
           controls = await reader.decodeFromConstraints(
             { video: { facingMode: { ideal: 'environment' } } },
             videoRef.current,
             onResult,
           );
-          // Re-enumerate now that permission is granted, so the camera switcher can appear
           if (active) {
             BrowserCodeReader.listVideoInputDevices()
               .then((videoDevices) => {
@@ -119,7 +107,6 @@ export default function InviteQrScannerModal({ onClose, onDetected }) {
     };
   }, [onDetected, selectedDeviceId]);
 
-  // Show error if media devices not supported (devices list stays empty after mount)
   useEffect(() => {
     if (!navigator?.mediaDevices?.getUserMedia) {
       setError(t('scanner.deviceUnsupported'));
@@ -128,12 +115,12 @@ export default function InviteQrScannerModal({ onClose, onDetected }) {
   }, []);
 
   const submitManual = () => {
-    const token = extractInviteToken(manualInput);
-    if (!token) {
-      setError(t('scanner.invalidInvite'));
+    const value = manualInput.trim();
+    if (!value) {
+      setError(t('scanner.invalidCode'));
       return;
     }
-    onDetected(token);
+    onDetected(value);
   };
 
   return (
@@ -175,9 +162,7 @@ export default function InviteQrScannerModal({ onClose, onDetected }) {
           ) : null}
         </div>
 
-        <p className="m-0 text-xs text-[var(--text-secondary)]">
-          {t('scanner.manualHelp')}
-        </p>
+        <p className="m-0 text-xs text-[var(--text-secondary)]">{t('scanner.manualHelp')}</p>
 
         <div className="flex gap-2">
           <input
@@ -187,14 +172,14 @@ export default function InviteQrScannerModal({ onClose, onDetected }) {
           />
           <button type="button" className="btn-secondary shrink-0" onClick={submitManual}>
             <Keyboard className="h-4 w-4" />
-            Öppna
+            {t('scanner.open')}
           </button>
         </div>
 
         {error ? (
           <ErrorMessage message={error} className="m-0" />
         ) : (
-          <p className="m-0 text-xs text-[var(--text-muted)] inline-flex items-center gap-1">
+          <p className="m-0 inline-flex items-center gap-1 text-xs text-[var(--text-muted)]">
             <Camera className="h-3.5 w-3.5" />
             {t('scanner.allowCameraHint')}
           </p>

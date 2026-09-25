@@ -3,10 +3,16 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import { z } from 'zod';
 import { db } from '../db/database.js';
-import requireAuth from '../middleware/auth.js';
+import requireAuth, { requireInteractiveSession } from '../middleware/auth.js';
 import passkeyRoutes from '../auth/passkey.routes.js';
 import qrLoginRoutes from '../auth/qr-login.routes.js';
-import { getAuthUserById, signToken } from '../auth/token.js';
+import {
+  API_TOKEN_SCOPES,
+  createApiToken,
+  getAuthUserById,
+  parseApiTokenScopes,
+  signToken,
+} from '../auth/token.js';
 import { resolveRequestIp, tryLogActivity } from '../utils/activity-log.js';
 import { cleanupUserAvatarFiles, getAvatarFilePath } from '../utils/avatar.js';
 import { isDevboxEnabled } from '../utils/devbox-mode.js';
@@ -28,6 +34,14 @@ const updateProfileSchema = z.object({
   avatar_data_url: z.string().trim().max(1_600_000).optional().or(z.literal('')),
   avatar_remove: z.boolean().optional(),
 });
+
+const createApiTokenSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  can_write_expenses: z.boolean().default(false),
+  expires_in_days: z.union([z.literal(30), z.literal(90), z.literal(365)]).nullable().optional().default(90),
+});
+
+const API_TOKEN_LIMIT = 10;
 
 const AVATAR_DATA_URL_PREFIX = 'data:image/png;base64,';
 const MAX_AVATAR_BYTES = 768 * 1024;
@@ -140,6 +154,7 @@ router.get('/devbox/users', (_req, res) => {
   const users = db.prepare(`
     SELECT id, full_name, is_admin
     FROM users
+    WHERE is_placeholder = 0
     ORDER BY COALESCE(NULLIF(full_name, ''), id) COLLATE NOCASE
   `).all();
 
@@ -183,7 +198,7 @@ router.post('/devbox/login', (req, res) => {
   return res.json({ token: signToken(user), user });
 });
 
-router.get('/me', requireAuth, (req, res) => {
+router.get('/me', requireAuth, requireInteractiveSession, (req, res) => {
   const user = getAuthUserById(req.user.id);
   if (!user) {
     return res.status(404).json({ error: 'Användaren hittades inte.' });
@@ -195,7 +210,7 @@ router.post('/logout', (_req, res) => {
   return res.status(204).send();
 });
 
-router.put('/profile', requireAuth, async (req, res) => {
+router.put('/profile', requireAuth, requireInteractiveSession, async (req, res) => {
   const parsed = updateProfileSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: 'Ogiltig data.', details: parsed.error.flatten() });
@@ -275,6 +290,130 @@ router.put('/profile', requireAuth, async (req, res) => {
 
   const updatedUser = getAuthUserById(req.user.id);
   return res.json({ token: signToken(updatedUser, { currentPasskeyId: req.user.current_passkey_id }), user: updatedUser });
+});
+
+function serializeApiToken(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    scopes: parseApiTokenScopes(row.scopes),
+    created_at: row.created_at,
+    last_used_at: row.last_used_at,
+    expires_at: row.expires_at,
+    revoked_at: row.revoked_at,
+  };
+}
+
+router.get('/api-tokens', requireAuth, requireInteractiveSession, (req, res) => {
+  const tokens = db.prepare(`
+    SELECT id, name, scopes, created_at, last_used_at, expires_at, revoked_at
+    FROM api_tokens
+    WHERE user_id = ?
+    ORDER BY created_at DESC, id DESC
+  `).all(req.user.id);
+
+  return res.json({ tokens: tokens.map(serializeApiToken) });
+});
+
+router.post('/api-tokens', requireAuth, requireInteractiveSession, (req, res) => {
+  const parsed = createApiTokenSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Ogiltig tokendata.', details: parsed.error.flatten() });
+  }
+
+  const activeCount = db.prepare(`
+    SELECT COUNT(*) AS count
+    FROM api_tokens
+    WHERE user_id = ?
+      AND revoked_at IS NULL
+      AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+  `).get(req.user.id);
+  if (Number(activeCount.count) >= API_TOKEN_LIMIT) {
+    return res.status(409).json({ error: 'Du kan ha högst 10 aktiva tokens.' });
+  }
+
+  const { id, token, secretHash } = createApiToken();
+  const scopes = [
+    API_TOKEN_SCOPES.groupsRead,
+    API_TOKEN_SCOPES.expensesRead,
+    API_TOKEN_SCOPES.settlementsRead,
+  ];
+  if (parsed.data.can_write_expenses) {
+    scopes.push(API_TOKEN_SCOPES.expensesWrite);
+  }
+
+  db.prepare(`
+    INSERT INTO api_tokens (id, user_id, name, secret_hash, scopes, expires_at)
+    VALUES (?, ?, ?, ?, ?, CASE WHEN ? IS NULL THEN NULL ELSE datetime('now', '+' || ? || ' days') END)
+  `).run(
+    id,
+    req.user.id,
+    parsed.data.name,
+    secretHash,
+    JSON.stringify(scopes),
+    parsed.data.expires_in_days,
+    parsed.data.expires_in_days,
+  );
+
+  const record = db.prepare(`
+    SELECT id, name, scopes, created_at, last_used_at, expires_at, revoked_at
+    FROM api_tokens
+    WHERE id = ? AND user_id = ?
+  `).get(id, req.user.id);
+
+  tryLogActivity({
+    eventType: 'api_token.created',
+    action: 'create',
+    actorUserId: req.user.id,
+    targetUserId: req.user.id,
+    entityType: 'api_token',
+    metadata: {
+      token_id: id,
+      name: parsed.data.name,
+      scopes,
+      expires_at: record.expires_at,
+    },
+    ipAddress: resolveRequestIp(req),
+  });
+
+  return res.status(201).json({ token, api_token: serializeApiToken(record) });
+});
+
+router.delete('/api-tokens/:tokenId', requireAuth, requireInteractiveSession, (req, res) => {
+  const result = db.prepare(`
+    UPDATE api_tokens
+    SET revoked_at = CURRENT_TIMESTAMP
+    WHERE id = ? AND user_id = ? AND revoked_at IS NULL
+  `).run(req.params.tokenId, req.user.id);
+  if (result.changes === 0) {
+    return res.status(404).json({ error: 'Tokenen hittades inte.' });
+  }
+
+  tryLogActivity({
+    eventType: 'api_token.revoked',
+    action: 'revoke',
+    actorUserId: req.user.id,
+    targetUserId: req.user.id,
+    entityType: 'api_token',
+    metadata: { token_id: req.params.tokenId },
+    ipAddress: resolveRequestIp(req),
+  });
+
+  return res.status(204).send();
+});
+
+router.get('/mcp/me', requireAuth, (req, res) => {
+  return res.json({
+    user: {
+      id: req.user.id,
+      full_name: req.user.full_name,
+      user_handle: req.user.user_handle,
+    },
+    token: req.auth?.type === 'api_token' ? {
+      id: req.auth.tokenId,
+      scopes: req.auth.scopes,
+    } : null,
+  });
 });
 
 export default router;
