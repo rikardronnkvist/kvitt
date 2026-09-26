@@ -197,8 +197,21 @@ function authenticatedRequest(extra, path, options) {
   return request(extra.authInfo.token, path, options);
 }
 
+// Advertised in serverInfo (MCP spec 2025-11-25, SEP-973) so clients can show
+// the Kvitt logo instead of guessing a favicon from the registrable domain.
+const serverIcons = [
+  { src: `${publicUrl}/icon-192-v2.png`, mimeType: 'image/png', sizes: ['192x192'] },
+  { src: `${publicUrl}/icon-512-v2.png`, mimeType: 'image/png', sizes: ['512x512'] },
+];
+
 function createServer() {
-  const server = new McpServer({ name: 'kvitt', version }, {
+  const server = new McpServer({
+    name: 'kvitt',
+    title: 'Kvitt',
+    version,
+    websiteUrl: publicUrl,
+    icons: serverIcons,
+  }, {
     instructions: 'When the user does not name a group, omit group_id in create_expense; the most recently used group is chosen. Always tell the user which group the expense was added to.',
   });
 

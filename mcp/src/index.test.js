@@ -188,6 +188,29 @@ test('serves protected resource metadata at both RFC 9728 paths', async () => {
   assert.deepEqual(await rootMetadata.json(), await (await fetch(`${mcpUrl}/.well-known/oauth-protected-resource/mcp`)).json());
 });
 
+test('advertises title, website and icons in serverInfo', async () => {
+  const response = await mcpRequest('kvitt_pat_test', {
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'initialize',
+    params: {
+      protocolVersion: '2025-11-25',
+      capabilities: {},
+      clientInfo: { name: 'kvitt-mcp-test', version: '1.0.0' },
+    },
+  });
+  assert.equal(response.status, 200);
+  const { serverInfo } = (await responseJson(response)).result;
+
+  assert.equal(serverInfo.name, 'kvitt');
+  assert.equal(serverInfo.title, 'Kvitt');
+  assert.equal(serverInfo.websiteUrl, publicUrl);
+  assert.deepEqual(serverInfo.icons, [
+    { src: `${publicUrl}/icon-192-v2.png`, mimeType: 'image/png', sizes: ['192x192'] },
+    { src: `${publicUrl}/icon-512-v2.png`, mimeType: 'image/png', sizes: ['512x512'] },
+  ]);
+});
+
 test('returns discovery challenges for missing and invalid tokens', async () => {
   const missing = await fetch(`${mcpUrl}/mcp`, { method: 'POST' });
   const missingChallenge = missing.headers.get('www-authenticate');
