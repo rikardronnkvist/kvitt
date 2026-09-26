@@ -1,17 +1,13 @@
 import { t } from '../lib/i18n.js';
 import { registerErrorDetails } from '../lib/errorDetails.js';
+import { buildSafeApiUrl } from './safeUrl.js';
 
 const getToken = () => localStorage.getItem('token');
 
 function buildSafeUrl(url) {
-  if (typeof url !== 'string' || !url.startsWith('/api/') || /[\\#]/u.test(url)) {
-    throw new Error(t('common.genericError'));
-  }
-  const { origin, pathname, search } = new URL(url, window.location.origin);
-  if (origin !== window.location.origin || !pathname.startsWith('/api/')) {
-    throw new Error(t('common.genericError'));
-  }
-  return pathname + search;
+  const safeUrl = buildSafeApiUrl(url, window.location.origin);
+  if (!safeUrl) throw new Error(t('common.genericError'));
+  return safeUrl;
 }
 
 function redirectToLogin() {

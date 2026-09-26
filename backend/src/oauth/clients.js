@@ -67,8 +67,11 @@ function isPrivateIpv4(address) {
     || (a === 172 && b >= 16 && b <= 31)
     || (a === 192 && b === 168)
     || (a === 192 && b === 0 && parts[2] === 0)
+    || (a === 192 && b === 0 && parts[2] === 2)
     || (a === 192 && b === 88 && parts[2] === 99)
     || (a === 198 && (b === 18 || b === 19))
+    || (a === 198 && b === 51 && parts[2] === 100)
+    || (a === 203 && b === 0 && parts[2] === 113)
     || (a === 100 && b >= 64 && b <= 127)
     || a >= 224
   );
@@ -85,10 +88,18 @@ function isPrivateIpv6(address) {
   }
 
   const firstHextet = Number.parseInt(normalized.split(':')[0] || '0', 16);
+  const secondHextet = Number.parseInt(normalized.split(':')[1] || '0', 16);
+  // Reject non-global, transition, and documentation ranges before connecting.
   return (
-    (firstHextet & 0xfe00) === 0xfc00
+    firstHextet === 0
+    || (firstHextet & 0xfe00) === 0xfc00
     || (firstHextet & 0xffc0) === 0xfe80
+    || (firstHextet & 0xffc0) === 0xfec0
     || (firstHextet & 0xff00) === 0xff00
+    || (firstHextet & 0xe000) !== 0x2000
+    || firstHextet === 0x2002
+    || (firstHextet === 0x2001 && (secondHextet === 0 || secondHextet === 0x0db8))
+    || (firstHextet === 0x3fff && secondHextet < 0x1000)
   );
 }
 

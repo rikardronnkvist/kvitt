@@ -79,6 +79,20 @@ test('never stores raw OAuth authorization parameters', () => {
   });
 });
 
+test('discards a poisoned stored OAuth handle before navigation', () => {
+  withSessionStorage((values) => {
+    values.set(OAUTH_REQUEST_HANDLE_KEY, '../admin');
+    let destination;
+
+    navigateAfterLogin((path) => {
+      destination = path;
+    }, {}, '');
+
+    assert.equal(destination, '/');
+    assert.equal(values.has(OAUTH_REQUEST_HANDLE_KEY), false);
+  });
+});
+
 test('clears a resolved authorization handle before later logins', () => {
   withSessionStorage((values) => {
     assert.equal(rememberOAuthRequestHandle(handle), true);

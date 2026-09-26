@@ -22,6 +22,8 @@ test('rejects unsafe or different navigation targets', () => {
     'data:text/html,hello',
     'http://app.example/callback',
     'https://attacker.example/callback',
+    'https://user@app.example/callback',
+    'https://app.example:444/callback',
     'https://user:password@app.example/callback',
     'https://app.example/other',
   ]) {
