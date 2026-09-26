@@ -89,10 +89,27 @@ router.get('/', (req, res) => {
     SELECT g.id, g.name, g.slug, g.theme_color, g.mileage_rate, g.created_at, g.archived_at,
            COUNT(gm2.user_id) AS member_count,
            COALESCE(
-             (SELECT MAX(COALESCE(e.occurred_at, e.created_at)) FROM expenses e WHERE e.group_id = g.id),
-             (SELECT MAX(s.settled_at) FROM settlements s WHERE s.group_id = g.id),
+             (
+               SELECT MAX(activity_at)
+               FROM (
+                 SELECT COALESCE(e.occurred_at, e.created_at) AS activity_at
+                 FROM expenses e
+                 WHERE e.group_id = g.id
+                 UNION ALL
+                 SELECT s.settled_at AS activity_at
+                 FROM settlements s
+                 WHERE s.group_id = g.id
+               )
+             ),
              g.created_at
-           ) AS last_activity_at
+           ) AS last_activity_at,
+           (
+             SELECT MAX(al.created_at)
+             FROM activity_logs al
+             WHERE al.group_id = g.id
+               AND al.actor_user_id = ?
+               AND (al.event_type LIKE 'expense.%' OR al.event_type LIKE 'settlement.%')
+           ) AS last_used_by_me_at
     FROM groups g
     JOIN group_members gm ON gm.group_id = g.id
     LEFT JOIN group_members gm2 ON gm2.group_id = g.id
@@ -102,7 +119,19 @@ router.get('/', (req, res) => {
       CASE WHEN g.archived_at IS NULL THEN 0 ELSE 1 END ASC,
       last_activity_at DESC,
       g.created_at DESC
-  `).all(req.user.id);
+  `).all(req.user.id, req.user.id);
+
+  const activeGroups = groups.filter((group) => group.archived_at === null);
+  const mostRecentlyUsedGroup = activeGroups.reduce((latest, group) => {
+    if (!group.last_used_by_me_at) {
+      return latest;
+    }
+    if (!latest || group.last_used_by_me_at > latest.last_used_by_me_at) {
+      return group;
+    }
+    return latest;
+  }, null);
+  const defaultGroupId = mostRecentlyUsedGroup?.id ?? activeGroups[0]?.id;
 
   return res.json(groups.map((group) => {
     const currentMember = calculateMemberBalances(group.id).find((member) => Number(member.id) === Number(req.user.id));
@@ -111,6 +140,7 @@ router.get('/', (req, res) => {
       ...group,
       member_count: Number(group.member_count),
       current_user_balance: Number(currentMember?.balance || 0),
+      is_default: group.id === defaultGroupId,
     };
   }));
 });

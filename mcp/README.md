@@ -30,3 +30,5 @@ PORT=3001 npm start
 Ange tillåtna browser-origins som en kommaseparerad miljövariabel i `MCP_ALLOWED_ORIGINS`. För server-till-server-klienter behövs normalt ingen Origin-header.
 
 Verktyg: `whoami`, `list_groups`, `get_group`, `list_expense_categories`, `list_expenses`, `list_settlements`, `get_balances`, `create_expense`, `update_expense` och `delete_expense`. Belopp anges som hela valutaenheter; skrivverktygen kräver en token med skrivbehörighet.
+
+Om `group_id` utelämnas från `create_expense` används användarens senast använda grupp, och om `paid_by_user_id` utelämnas används den inloggade användaren.
