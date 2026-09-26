@@ -76,7 +76,9 @@ export function verifyOAuthAccessToken(token) {
       token.grant_id,
       token.scopes,
       token.resource,
-      grant.user_id
+      CAST(strftime('%s', token.expires_at) AS INTEGER) AS expires_at,
+      grant.user_id,
+      grant.client_id
     FROM oauth_tokens token
     JOIN oauth_grants grant ON grant.id = token.grant_id
     WHERE token.id = ?
@@ -105,6 +107,8 @@ export function verifyOAuthAccessToken(token) {
   return {
     id: record.id,
     grantId: record.grant_id,
+    clientId: record.client_id,
+    expiresAt: Number(record.expires_at),
     scopes: parseApiTokenScopes(record.scopes),
     resource: record.resource,
     user,

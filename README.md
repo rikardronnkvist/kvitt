@@ -229,6 +229,8 @@ services:
     image: ghcr.io/rikardronnkvist/kvitt-mcp:latest
     environment:
       KVITT_BASE_URL: http://backend:3000
+      KVITT_PUBLIC_URL: https://kvitt.mydomain.se
+      MCP_RESOURCE_URL: https://kvitt.mydomain.se/mcp
       PORT: 3001
     networks:
       - backend
@@ -238,7 +240,7 @@ services:
       labels:
         - "traefik.enable=true"
         - "traefik.docker.network=traefik"
-        - "traefik.http.routers.kvitt-mcp.rule=Host(`kvitt.mydomain.se`) && PathPrefix(`/mcp`)"
+        - "traefik.http.routers.kvitt-mcp.rule=Host(`kvitt.mydomain.se`) && (PathPrefix(`/mcp`) || PathPrefix(`/.well-known/oauth-protected-resource`))"
         - "traefik.http.routers.kvitt-mcp.priority=100"
         - "traefik.http.routers.kvitt-mcp.entrypoints=websecure"
         - "traefik.http.routers.kvitt-mcp.tls=true"
@@ -260,7 +262,7 @@ The MCP server is deployed separately from the main application stack and expose
 https://kvitt.mydomain.se/mcp
 ```
 
-The Traefik MCP router matches `Host(kvitt.mydomain.se) && PathPrefix(/mcp)` with higher priority than the frontend router. Set `MCP_HOST` during deployment when using another domain. No additional DNS record is needed. The existing Swarm networks must be named `kvitt_backend` and `traefik` (adjust `docker-compose.mcp.yml` if the stack name differs).
+The Traefik MCP router sends `/mcp` and `/.well-known/oauth-protected-resource*` to the MCP service with higher priority than the frontend router. Set `MCP_HOST`, `KVITT_PUBLIC_URL`, and `MCP_RESOURCE_URL` during deployment when using another domain. The frontend proxy sends authorization-server metadata and `/oauth/token`, `/oauth/register`, and `/oauth/revoke` to the backend, while `/oauth/authorize` remains in the SPA. No additional DNS record is needed. The existing Swarm networks must be named `kvitt_backend` and `traefik` (adjust `docker-compose.mcp.yml` if the stack name differs).
 
 After the MCP image has been published by the release workflow, deploy it with:
 
@@ -275,4 +277,4 @@ KVITT_MCP_IMAGE=ghcr.io/rikardronnkvist/kvitt-mcp:v1.2.2 \
   docker stack deploy -c docker-compose.mcp.yml kvitt-mcp
 ```
 
-Traefik terminates TLS and forwards the MCP endpoint to port `3001`. The MCP client supplies the user's Kvitt API token as a Bearer token; the MCP container does not need a shared Kvitt token.
+Traefik terminates TLS and forwards the MCP endpoint to port `3001`. OAuth-capable clients only need the connector URL and discover Kvitt's login and consent flow automatically. Existing personal `kvitt_pat_` API tokens remain supported as Bearer tokens for scripts and advanced client configuration; the MCP container does not need a shared user token.

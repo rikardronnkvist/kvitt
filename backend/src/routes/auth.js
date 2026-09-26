@@ -404,7 +404,14 @@ router.delete('/api-tokens/:tokenId', requireAuth, requireInteractiveSession, (r
 
 router.get('/mcp/me', requireAuth, (req, res) => {
   const oauthToken = req.auth?.type === 'oauth'
-    ? { type: 'oauth', id: req.auth.tokenId, scopes: req.auth.scopes }
+    ? {
+      type: 'oauth',
+      id: req.auth.tokenId,
+      grant_id: req.auth.grantId,
+      client_id: req.auth.clientId,
+      expires_at: req.auth.expiresAt,
+      scopes: req.auth.scopes,
+    }
     : null;
   return res.json({
     user: {
@@ -414,6 +421,7 @@ router.get('/mcp/me', requireAuth, (req, res) => {
     },
     token: oauthToken || (req.auth?.type === 'api_token' ? {
       id: req.auth.tokenId,
+      expires_at: req.auth.expiresAt,
       scopes: req.auth.scopes,
     } : null),
   });

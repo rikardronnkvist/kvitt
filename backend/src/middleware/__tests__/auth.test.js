@@ -83,6 +83,7 @@ describe('authMiddleware', () => {
     const user = { id: 4, full_name: 'Micke', is_admin: false, user_handle: 'micke' };
     mocks.verifyApiToken.mockReturnValue({
       id: '00000000-0000-0000-0000-000000000000',
+      expiresAt: null,
       scopes: ['groups:read'],
       user,
     });
@@ -93,6 +94,7 @@ describe('authMiddleware', () => {
     expect(request.auth).toEqual({
       type: 'api_token',
       tokenId: '00000000-0000-0000-0000-000000000000',
+      expiresAt: null,
       scopes: ['groups:read'],
     });
     expect(next).toHaveBeenCalledOnce();
@@ -133,6 +135,8 @@ describe('authMiddleware', () => {
     mocks.verifyOAuthAccessToken.mockReturnValue({
       id: 'oauth-token-id',
       grantId: 'grant-id',
+      clientId: 'client-id',
+      expiresAt: 2_000_000_000,
       scopes: ['groups:read'],
       resource: 'https://kvitt.example/mcp/',
       user,
@@ -144,7 +148,9 @@ describe('authMiddleware', () => {
     expect(request.auth).toEqual({
       type: 'oauth',
       grantId: 'grant-id',
+      clientId: 'client-id',
       tokenId: 'oauth-token-id',
+      expiresAt: 2_000_000_000,
       scopes: ['groups:read'],
     });
     expect(next).toHaveBeenCalledOnce();

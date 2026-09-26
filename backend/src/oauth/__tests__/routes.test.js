@@ -192,6 +192,9 @@ describe('OAuth authorization server routes', () => {
       user: { id: userId },
       token: {
         type: 'oauth',
+        grant_id: expect.any(String),
+        client_id: registration.client_id,
+        expires_at: expect.any(Number),
         scopes: expect.arrayContaining(['groups:read']),
       },
     });

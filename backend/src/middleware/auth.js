@@ -78,6 +78,7 @@ export default function authMiddleware(req, res, next) {
     req.auth = {
       type: 'api_token',
       tokenId: apiToken.id,
+      expiresAt: apiToken.expiresAt,
       scopes: apiToken.scopes,
     };
     return next();
@@ -98,7 +99,9 @@ export default function authMiddleware(req, res, next) {
     req.auth = {
       type: 'oauth',
       grantId: oauthToken.grantId,
+      clientId: oauthToken.clientId,
       tokenId: oauthToken.id,
+      expiresAt: oauthToken.expiresAt,
       scopes: oauthToken.scopes,
     };
     return next();

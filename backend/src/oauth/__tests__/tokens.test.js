@@ -68,6 +68,8 @@ describe('OAuth token primitives', () => {
 
     expect(verifyOAuthAccessToken(pair.accessToken)).toMatchObject({
       grantId,
+      clientId,
+      expiresAt: expect.any(Number),
       scopes,
       resource,
       user: { id: userId },
