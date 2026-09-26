@@ -1,4 +1,4 @@
-FROM node:24-alpine AS builder
+FROM node:24-alpine3.24 AS builder
 WORKDIR /app
 RUN apk add --no-cache g++
 RUN apk add --no-cache make
@@ -8,7 +8,7 @@ RUN npm ci --ignore-scripts
 RUN npm_config_build_from_source=true npm rebuild better-sqlite3
 COPY . .
 
-FROM node:24-alpine
+FROM node:24-alpine3.24
 WORKDIR /app
 RUN apk upgrade --no-cache libcrypto3 libssl3 \
     && rm -rf /usr/local/lib/node_modules/npm \

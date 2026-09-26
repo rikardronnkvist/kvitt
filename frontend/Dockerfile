@@ -1,4 +1,4 @@
-FROM node:24-alpine AS builder
+FROM node:24-alpine3.24 AS builder
 ARG VITE_TAGLINE
 ENV VITE_TAGLINE=${VITE_TAGLINE}
 WORKDIR /app
@@ -8,7 +8,7 @@ COPY . .
 RUN npm run build
 RUN node -p "require('./package.json').version" > /app/version
 
-FROM nginx:alpine
+FROM nginx:alpine3.24
 RUN apk upgrade --no-cache libexpat libuuid
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY --from=builder /app/version /app-version
