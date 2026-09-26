@@ -38,8 +38,8 @@ export default function NewExpenseModal({ groupId, members, categories, mileageR
       }
     };
 
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
+    document.addEventListener('keyup', handleEscape);
+    return () => document.removeEventListener('keyup', handleEscape);
   }, [handleClose]);
 
   const handleSubmit = async (payload) => {
