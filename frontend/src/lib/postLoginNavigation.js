@@ -1,46 +1,37 @@
 export const PENDING_INVITE_TOKEN_KEY = 'pending_invite_token';
+export const OAUTH_REQUEST_HANDLE_KEY = 'oauth_request_handle';
 
-const OAUTH_QUERY_MAX_LENGTH = 16 * 1024;
-const OAUTH_REQUEST_LIFETIME_MS = 5 * 60 * 1000;
-const OAUTH_QUERY_KEYS = new Set([
-  'client_id',
-  'code_challenge',
-  'code_challenge_method',
-  'redirect_uri',
-  'resource',
-  'response_type',
-  'scope',
-  'state',
-]);
-let pendingOAuthRequest = null;
+const OAUTH_REQUEST_HANDLE_PATTERN = /^[A-Za-z0-9_-]{43}$/u;
 
-function allowlistedOAuthQuery(search) {
+export function isValidOAuthRequestHandle(value) {
+  return typeof value === 'string' && OAUTH_REQUEST_HANDLE_PATTERN.test(value);
+}
+
+export function getOAuthRequestHandle(search, parameter = 'oauth_request') {
   if (typeof search !== 'string') return null;
-  const query = search.startsWith('?') ? search.slice(1) : search;
-  if (!query || query.length > OAUTH_QUERY_MAX_LENGTH || query.includes('#')) return null;
-
-  const seen = new Set();
-  for (const [key] of new URLSearchParams(query)) {
-    if (!OAUTH_QUERY_KEYS.has(key) || seen.has(key)) return null;
-    seen.add(key);
-  }
-  return seen.size > 0 ? query : null;
+  const params = new URLSearchParams(search);
+  const entries = [...params.entries()];
+  if (entries.length !== 1 || entries[0][0] !== parameter) return null;
+  return isValidOAuthRequestHandle(entries[0][1]) ? entries[0][1] : null;
 }
 
-export function storePendingOAuthRequest(search) {
-  const query = allowlistedOAuthQuery(search);
-  pendingOAuthRequest = query === null
-    ? null
-    : { query, expiresAt: Date.now() + OAUTH_REQUEST_LIFETIME_MS };
+export function rememberOAuthRequestHandle(handle) {
+  if (!isValidOAuthRequestHandle(handle)) return false;
+  sessionStorage.setItem(OAUTH_REQUEST_HANDLE_KEY, handle);
+  return true;
 }
 
-function consumePendingOAuthPath() {
-  const request = pendingOAuthRequest;
-  pendingOAuthRequest = null;
-  if (!request || request.expiresAt <= Date.now()) return null;
+export function buildOAuthLoginPath(handle) {
+  if (!rememberOAuthRequestHandle(handle)) return '/login';
+  return `/login?oauth_request=${encodeURIComponent(handle)}`;
+}
 
-  const query = allowlistedOAuthQuery(request.query);
-  return query === null ? null : `/oauth/authorize?${query}`;
+function consumePendingOAuthPath(search) {
+  const queryHandle = getOAuthRequestHandle(search);
+  const storedHandle = sessionStorage.getItem(OAUTH_REQUEST_HANDLE_KEY);
+  sessionStorage.removeItem(OAUTH_REQUEST_HANDLE_KEY);
+  const handle = queryHandle || (isValidOAuthRequestHandle(storedHandle) ? storedHandle : null);
+  return handle ? `/oauth/authorize?request=${encodeURIComponent(handle)}` : null;
 }
 
 function consumePendingInvitePath() {
@@ -52,7 +43,11 @@ function consumePendingInvitePath() {
   return null;
 }
 
-export function navigateAfterLogin(navigate, options = {}) {
-  const destination = consumePendingOAuthPath() ?? consumePendingInvitePath() ?? '/';
+export function navigateAfterLogin(
+  navigate,
+  options = {},
+  search = globalThis.location?.search || '',
+) {
+  const destination = consumePendingOAuthPath(search) ?? consumePendingInvitePath() ?? '/';
   navigate(destination, options);
 }

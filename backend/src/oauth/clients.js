@@ -197,74 +197,105 @@ function readHeader(headers, name) {
 function requestCimdDocument(url, hostname, validatedAddresses, requestImpl) {
   return new Promise((resolve, reject) => {
     let settled = false;
+    let request;
+    let response;
+    const deadline = setTimeout(() => {
+      rejectRequest();
+    }, CIMD_REQUEST_TIMEOUT_MS);
+    deadline.unref?.();
+
+    const destroyStreams = () => {
+      if (response && !response.destroyed) {
+        response.destroy();
+      }
+      if (request && !request.destroyed) {
+        request.destroy();
+      }
+    };
     const rejectRequest = (error = new OAuthClientError()) => {
       if (settled) {
         return;
       }
       settled = true;
+      clearTimeout(deadline);
+      destroyStreams();
       reject(error instanceof OAuthClientError ? error : new OAuthClientError());
     };
 
-    const request = requestImpl({
-      protocol: 'https:',
-      hostname,
-      port: url.port || undefined,
-      path: `${url.pathname}${url.search}`,
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-        Host: url.host,
-      },
-      lookup: createPinnedDnsLookup(hostname, validatedAddresses),
-      servername: isIP(hostname) ? undefined : hostname,
-    }, (response) => {
-      const contentType = readHeader(response.headers, 'content-type') || '';
-      const contentLength = Number(readHeader(response.headers, 'content-length'));
-      if (
-        !Number.isInteger(response.statusCode)
-        || response.statusCode < 200
-        || response.statusCode >= 300
-        || !/^application\/json(?:\s*;|$)/iu.test(contentType)
-        || (Number.isFinite(contentLength) && contentLength > CIMD_MAX_BYTES)
-      ) {
-        response.resume();
-        rejectRequest();
-        return;
-      }
-
-      const chunks = [];
-      let total = 0;
-      response.on('data', (chunk) => {
+    try {
+      request = requestImpl({
+        protocol: 'https:',
+        hostname,
+        port: url.port || undefined,
+        path: `${url.pathname}${url.search}`,
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          Host: url.host,
+        },
+        lookup: createPinnedDnsLookup(hostname, validatedAddresses),
+        servername: isIP(hostname) ? undefined : hostname,
+      }, (incomingResponse) => {
+        response = incomingResponse;
         if (settled) {
+          destroyStreams();
           return;
         }
-        const buffer = Buffer.from(chunk);
-        total += buffer.length;
-        if (total > CIMD_MAX_BYTES) {
-          response.destroy();
+        const contentType = readHeader(response.headers, 'content-type') || '';
+        const contentLengthHeader = readHeader(response.headers, 'content-length');
+        const contentLength = Number(contentLengthHeader);
+        if (
+          !Number.isInteger(response.statusCode)
+          || response.statusCode < 200
+          || response.statusCode >= 300
+          || !/^application\/json(?:\s*;|$)/iu.test(contentType)
+          || (
+            contentLengthHeader !== undefined
+            && (
+              !Number.isSafeInteger(contentLength)
+              || contentLength < 0
+              || contentLength > CIMD_MAX_BYTES
+            )
+          )
+        ) {
           rejectRequest();
           return;
         }
-        chunks.push(buffer);
-      });
-      response.on('end', () => {
-        if (settled) {
-          return;
-        }
-        settled = true;
-        resolve({
-          body: Buffer.concat(chunks).toString('utf8'),
-          cacheControl: readHeader(response.headers, 'cache-control'),
-        });
-      });
-      response.on('error', rejectRequest);
-    });
 
-    request.on('error', rejectRequest);
-    request.setTimeout(CIMD_REQUEST_TIMEOUT_MS, () => {
-      request.destroy(new Error('CIMD request timed out'));
-    });
-    request.end();
+        const chunks = [];
+        let total = 0;
+        response.on('data', (chunk) => {
+          if (settled) {
+            return;
+          }
+          const buffer = Buffer.from(chunk);
+          total += buffer.length;
+          if (total > CIMD_MAX_BYTES) {
+            rejectRequest();
+            return;
+          }
+          chunks.push(buffer);
+        });
+        response.on('end', () => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          clearTimeout(deadline);
+          resolve({
+            body: Buffer.concat(chunks).toString('utf8'),
+            cacheControl: readHeader(response.headers, 'cache-control'),
+          });
+        });
+        response.on('error', rejectRequest);
+        response.on('aborted', rejectRequest);
+      });
+
+      request.on('error', rejectRequest);
+      request.end();
+    } catch {
+      rejectRequest();
+    }
   });
 }
 

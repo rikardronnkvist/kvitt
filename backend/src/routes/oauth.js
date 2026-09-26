@@ -10,6 +10,12 @@ import {
   verifyDcrClientSecret,
 } from '../oauth/clients.js';
 import {
+  AUTHORIZATION_REQUEST_TTL_MS,
+  AuthorizationRequestCapacityError,
+  AuthorizationRequestError,
+  authorizationRequestStore,
+} from '../oauth/authorization-requests.js';
+import {
   getMcpResourceUrl,
   getOAuthIssuer,
   OAUTH_DEFAULT_SCOPES,
@@ -71,6 +77,16 @@ const authorizationRateLimit = rateLimit({
   message: {
     error: 'temporarily_unavailable',
     error_description: oauthMessages.authorizationRateLimited,
+  },
+});
+const authorizationRequestRateLimit = rateLimit({
+  windowMs: 60_000,
+  limit: 30,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: {
+    error: 'temporarily_unavailable',
+    error_description: oauthMessages.authorizationRequestRateLimited,
   },
 });
 const grantReadRateLimit = rateLimit({
@@ -446,6 +462,63 @@ const authorizationDecisionHandlers = new Map([
   [true, approveAuthorizationRequest],
   [false, denyAuthorizationRequest],
 ]);
+
+oauthApiRouter.post(
+  '/authorize/request',
+  authorizationRequestRateLimit,
+  (req, res) => {
+    const keys = req.body && typeof req.body === 'object' && !Array.isArray(req.body)
+      ? Object.keys(req.body)
+      : [];
+    if (keys.length !== 1 || keys[0] !== 'query') {
+      return res.status(400).json({
+        error: 'invalid_request',
+        error_description: oauthMessages.invalidAuthorizationRequestHandle,
+      });
+    }
+
+    try {
+      const { handle } = authorizationRequestStore.create(req.body.query);
+      res.set('Cache-Control', 'no-store');
+      return res.status(201).json({
+        request: handle,
+        expires_in: Math.floor(AUTHORIZATION_REQUEST_TTL_MS / 1000),
+      });
+    } catch (error) {
+      if (!(error instanceof AuthorizationRequestError)) {
+        throw error;
+      }
+      const status = error instanceof AuthorizationRequestCapacityError ? 503 : 400;
+      return res.status(status).json({
+        error: status === 400 ? 'invalid_request' : 'temporarily_unavailable',
+        error_description: status === 400
+          ? oauthMessages.invalidAuthorizationRequestHandle
+          : oauthMessages.authorizationRequestUnavailable,
+      });
+    }
+  },
+);
+
+oauthApiRouter.get(
+  '/authorize/request/:handle',
+  authorizationRateLimit,
+  requireAuth,
+  requireInteractiveSession,
+  (req, res) => {
+    const storedRequest = authorizationRequestStore.resolve(req.params.handle, req.user.id);
+    res.set('Cache-Control', 'no-store');
+    if (!storedRequest) {
+      return res.status(404).json({
+        error: 'invalid_request',
+        error_description: oauthMessages.authorizationRequestExpired,
+      });
+    }
+    return res.json({
+      request: storedRequest.parameters,
+      expires_at: new Date(storedRequest.expiresAt).toISOString(),
+    });
+  },
+);
 
 oauthApiRouter.post(
   '/authorize/validate',

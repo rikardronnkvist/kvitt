@@ -83,6 +83,8 @@
     "submitting": "Skickar…",
     "errorTitle": "Anslutningen kunde inte öppnas",
     "invalidRequest": "OAuth-begäran är ogiltig eller kommer från en okänd app.",
+    "requestExpired": "OAuth-begäran är ogiltig eller har gått ut. Starta anslutningen igen från appen.",
+    "requestSaveFailed": "OAuth-begäran kunde inte sparas. Försök igen från appen.",
     "loadFailed": "Kunde inte kontrollera anslutningen. Försök igen.",
     "userLoadFailed": "Kunde inte hämta den inloggade användaren.",
     "decisionFailed": "Kunde inte slutföra anslutningen. Försök igen.",

@@ -28,23 +28,34 @@ function responseRequest(body, {
 } = {}) {
   const calls = [];
   const requests = [];
+  const responses = [];
   const requestImpl = vi.fn((options, callback) => {
     calls.push(options);
     const request = new EventEmitter();
+    request.destroyed = false;
     requests.push(request);
-    request.setTimeout = vi.fn();
-    request.destroy = vi.fn((error) => queueMicrotask(() => request.emit('error', error)));
+    request.destroy = vi.fn(() => {
+      request.destroyed = true;
+    });
     request.end = vi.fn(() => {
       queueMicrotask(() => {
         const response = Readable.from([body]);
         response.statusCode = statusCode;
         response.headers = { 'content-type': 'application/json', ...headers };
+        const destroy = response.destroy.bind(response);
+        response.destroy = vi.fn((...args) => destroy(...args));
+        responses.push(response);
         callback(response);
       });
     });
     return request;
   });
-  return { calls, requestImpl, requests };
+  return {
+    calls,
+    requestImpl,
+    requests,
+    responses,
+  };
 }
 
 function jsonRequest(body, options = {}) {
@@ -114,7 +125,7 @@ describe('CIMD client resolution', () => {
       address: '203.0.113.10',
       family: 4,
     });
-    expect(requests[0].setTimeout).toHaveBeenCalledWith(5_000, expect.any(Function));
+    expect(requests[0].destroy).not.toHaveBeenCalled();
   });
 
   it('pins connection lookup to the validated addresses and hostname', async () => {
@@ -199,29 +210,114 @@ describe('CIMD client resolution', () => {
   });
 
   it('rejects a metadata response larger than 10 KB', async () => {
-    const { requestImpl } = responseRequest('x'.repeat(10 * 1024 + 1));
+    const { requestImpl, requests, responses } = responseRequest('x'.repeat(10 * 1024 + 1));
 
     await expect(resolveCimdClient(clientId, { requestImpl, lookupImpl: publicLookup }))
       .rejects.toBeInstanceOf(OAuthClientError);
+    expect(responses[0].destroy).toHaveBeenCalled();
+    expect(requests[0].destroy).toHaveBeenCalledOnce();
   });
 
   it('rejects redirects instead of following them', async () => {
-    const { requestImpl } = responseRequest('', {
+    const { requestImpl, requests, responses } = responseRequest('', {
       statusCode: 302,
       headers: { location: 'https://attacker.example/client.json' },
     });
 
     await expect(resolveCimdClient(clientId, { requestImpl, lookupImpl: publicLookup }))
       .rejects.toBeInstanceOf(OAuthClientError);
+    expect(responses[0].destroy).toHaveBeenCalledOnce();
+    expect(requests[0].destroy).toHaveBeenCalledOnce();
   });
 
   it('requires a JSON response content type', async () => {
-    const { requestImpl } = responseRequest('{}', {
+    const { requestImpl, requests, responses } = responseRequest('{}', {
       headers: { 'content-type': 'text/plain' },
     });
 
     await expect(resolveCimdClient(clientId, { requestImpl, lookupImpl: publicLookup }))
       .rejects.toBeInstanceOf(OAuthClientError);
+    expect(responses[0].destroy).toHaveBeenCalledOnce();
+    expect(requests[0].destroy).toHaveBeenCalledOnce();
+  });
+
+  it('enforces an absolute deadline while the connection is stalled', async () => {
+    vi.useFakeTimers();
+    try {
+      const request = new EventEmitter();
+      request.destroyed = false;
+      request.destroy = vi.fn(() => {
+        request.destroyed = true;
+      });
+      request.end = vi.fn();
+      const pending = resolveCimdClient(clientId, {
+        lookupImpl: publicLookup,
+        requestImpl: vi.fn(() => request),
+      });
+      const rejection = expect(pending).rejects.toBeInstanceOf(OAuthClientError);
+
+      await vi.advanceTimersByTimeAsync(5_000);
+      await rejection;
+      request.emit('error', new Error('late socket error'));
+      expect(request.end).toHaveBeenCalledOnce();
+      expect(request.destroy).toHaveBeenCalledOnce();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('enforces the same wall-clock deadline when a response trickles data', async () => {
+    vi.useFakeTimers();
+    try {
+      const request = new EventEmitter();
+      request.destroyed = false;
+      request.destroy = vi.fn(() => {
+        request.destroyed = true;
+      });
+      let response;
+      const requestImpl = vi.fn((_options, callback) => {
+        request.end = vi.fn(() => {
+          response = new Readable({ read() {} });
+          response.statusCode = 200;
+          response.headers = { 'content-type': 'application/json' };
+          const destroy = response.destroy.bind(response);
+          response.destroy = vi.fn((...args) => destroy(...args));
+          callback(response);
+        });
+        return request;
+      });
+
+      const pending = resolveCimdClient(clientId, { requestImpl, lookupImpl: publicLookup });
+      const rejection = expect(pending).rejects.toBeInstanceOf(OAuthClientError);
+      await vi.advanceTimersByTimeAsync(1_000);
+      response.push('{"client_');
+      await vi.advanceTimersByTimeAsync(1_000);
+      response.push('id":"https');
+      await vi.advanceTimersByTimeAsync(3_000);
+
+      await rejection;
+      expect(response.destroy).toHaveBeenCalledOnce();
+      expect(request.destroy).toHaveBeenCalledOnce();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('rejects an advertised body over 10 KB without draining it', async () => {
+    const {
+      requestImpl,
+      requests,
+      responses,
+    } = responseRequest('not read', {
+      headers: { 'content-length': String(10 * 1024 + 1) },
+    });
+
+    await expect(resolveCimdClient(clientId, { requestImpl, lookupImpl: publicLookup }))
+      .rejects.toBeInstanceOf(OAuthClientError);
+    expect(responses[0].destroy).toHaveBeenCalled();
+    expect(requests[0].destroy).toHaveBeenCalledOnce();
   });
 });
 

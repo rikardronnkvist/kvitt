@@ -1,9 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  buildOAuthLoginPath,
+  getOAuthRequestHandle,
   navigateAfterLogin,
-  storePendingOAuthRequest,
+  OAUTH_REQUEST_HANDLE_KEY,
+  rememberOAuthRequestHandle,
 } from './postLoginNavigation.js';
+
+const handle = 'abcdefghijklmnopqrstuvwxyzABCDEFGH012345678';
 
 function withSessionStorage(run) {
   const values = new Map();
@@ -13,47 +18,62 @@ function withSessionStorage(run) {
     setItem: (key, value) => values.set(key, value),
   };
   try {
-    run();
+    run(values);
   } finally {
     delete globalThis.sessionStorage;
   }
 }
 
-test('preserves an allowlisted raw OAuth query for one post-login navigation', () => {
+test('navigates after login using only a validated opaque handle', () => {
   withSessionStorage(() => {
-    const rawQuery = [
-      'response_type=code',
-      'client_id=https%3A%2F%2Fclient.example%2Fmetadata.json',
-      'redirect_uri=https%3A%2F%2Fclient.example%2Fcallback',
-      'state=state%2Bwith%2Bencoding',
-      'code_challenge=challenge',
-      'code_challenge_method=S256',
-      'scope=groups%3Aread+expenses%3Aread',
-      'resource=https%3A%2F%2Fkvitt.example%2Fmcp',
-    ].join('&');
     const navigations = [];
+    assert.equal(buildOAuthLoginPath(handle), `/login?oauth_request=${handle}`);
 
-    storePendingOAuthRequest(`?${rawQuery}`);
-    navigateAfterLogin((path) => navigations.push(path));
-    navigateAfterLogin((path) => navigations.push(path));
+    navigateAfterLogin(
+      (path) => navigations.push(path),
+      {},
+      `?oauth_request=${handle}`,
+    );
+    navigateAfterLogin((path) => navigations.push(path), {}, '');
 
-    assert.deepEqual(navigations, [`/oauth/authorize?${rawQuery}`, '/']);
+    assert.deepEqual(navigations, [`/oauth/authorize?request=${handle}`, '/']);
   });
 });
 
-test('rejects non-OAuth keys and duplicate query parameters', () => {
+test('survives a reload or intermediate authentication route through session storage', () => {
+  withSessionStorage((values) => {
+    const navigations = [];
+    assert.equal(rememberOAuthRequestHandle(handle), true);
+    assert.equal(values.get(OAUTH_REQUEST_HANDLE_KEY), handle);
+
+    navigateAfterLogin((path) => navigations.push(path), {}, '?token=recovery-token');
+
+    assert.deepEqual(navigations, [`/oauth/authorize?request=${handle}`]);
+    assert.equal(values.has(OAUTH_REQUEST_HANDLE_KEY), false);
+  });
+});
+
+test('rejects invalid handles, duplicate parameters and arbitrary return targets', () => {
   withSessionStorage(() => {
-    for (const query of [
-      '?client_id=client&next=https%3A%2F%2Fattacker.example',
-      '?client_id=first&client_id=second',
-      '?client_id=client#fragment',
+    for (const search of [
+      '?oauth_request=short',
+      `?oauth_request=${handle}&oauth_request=${handle}`,
+      `?oauth_request=${handle}&next=https%3A%2F%2Fattacker.example`,
+      '?next=https%3A%2F%2Fattacker.example',
     ]) {
+      assert.equal(getOAuthRequestHandle(search), null);
       let destination;
-      storePendingOAuthRequest(query);
       navigateAfterLogin((path) => {
         destination = path;
-      });
+      }, {}, search);
       assert.equal(destination, '/');
     }
+  });
+});
+
+test('never stores raw OAuth authorization parameters', () => {
+  withSessionStorage((values) => {
+    assert.equal(rememberOAuthRequestHandle('client_id=client&redirect_uri=https://attacker.example'), false);
+    assert.equal(values.size, 0);
   });
 });

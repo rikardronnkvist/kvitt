@@ -6,7 +6,11 @@ import ErrorMessage from '../components/ErrorMessage.jsx';
 import UserAvatar from '../components/UserAvatar.jsx';
 import { t } from '../lib/i18n.js';
 import { isSafeOAuthRedirectTarget } from '../lib/oauthRedirect.js';
-import { storePendingOAuthRequest } from '../lib/postLoginNavigation.js';
+import {
+  buildOAuthLoginPath,
+  getOAuthRequestHandle,
+  rememberOAuthRequestHandle,
+} from '../lib/postLoginNavigation.js';
 import { getUserDisplayName } from '../lib/users.js';
 
 const scopeLabels = {
@@ -49,6 +53,37 @@ async function loadCurrentUser(token, signal) {
   return { response, data };
 }
 
+async function createAuthorizationRequest(query, signal) {
+  const response = await fetch('/api/oauth/authorize/request', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query }),
+    signal,
+  });
+  let data = {};
+  try {
+    data = await response.json();
+  } catch {
+    // A localized fallback is shown below when the response has no JSON body.
+  }
+  return { response, data };
+}
+
+async function loadAuthorizationRequest(handle, token, signal) {
+  const authorization = ['Bearer', token].join(' ');
+  const response = await fetch(
+    `/api/oauth/authorize/request/${encodeURIComponent(handle)}`,
+    { headers: { Authorization: authorization }, signal },
+  );
+  let data = {};
+  try {
+    data = await response.json();
+  } catch {
+    // A localized fallback is shown below when the response has no JSON body.
+  }
+  return { response, data };
+}
+
 function redirectIfPossible(data, registeredTarget) {
   if (
     data?.redirect_uri !== registeredTarget
@@ -63,10 +98,11 @@ function redirectIfPossible(data, registeredTarget) {
 export default function OAuthAuthorize() {
   const location = useLocation();
   const navigate = useNavigate();
-  const request = useMemo(
-    () => Object.fromEntries(new URLSearchParams(location.search)),
+  const authorizationHandle = useMemo(
+    () => getOAuthRequestHandle(location.search, 'request'),
     [location.search],
   );
+  const [request, setRequest] = useState(null);
   const [validation, setValidation] = useState(null);
   const [user, setUser] = useState(null);
   const [allowWrite, setAllowWrite] = useState(false);
@@ -76,31 +112,81 @@ export default function OAuthAuthorize() {
   const [clientLogoFailed, setClientLogoFailed] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      storePendingOAuthRequest(location.search);
-      navigate('/login', { replace: true });
-      return undefined;
-    }
-
     const controller = new AbortController();
+    const token = localStorage.getItem('token');
     setLoading(true);
     setError('');
+    setValidation(null);
+    setRequest(null);
 
-    Promise.all([
-      sendOAuthRequest('/api/oauth/authorize/validate', request, token, controller.signal),
-      loadCurrentUser(token, controller.signal),
-    ]).then(([validationResult, userResult]) => {
-      if (validationResult.response.status === 401 || userResult.response.status === 401) {
-        storePendingOAuthRequest(location.search);
+    const load = async () => {
+      if (!authorizationHandle) {
+        const rawQuery = location.search.startsWith('?')
+          ? location.search.slice(1)
+          : location.search;
+        if (!rawQuery) {
+          setError(t('oauthAuthorize.invalidRequest'));
+          return;
+        }
+        const creationResult = await createAuthorizationRequest(rawQuery, controller.signal);
+        const handle = creationResult.data?.request;
+        if (
+          !creationResult.response.ok
+          || !rememberOAuthRequestHandle(handle)
+        ) {
+          setError(
+            creationResult.data?.error_description
+              || t('oauthAuthorize.requestSaveFailed'),
+          );
+          return;
+        }
+        navigate(
+          token
+            ? `/oauth/authorize?request=${encodeURIComponent(handle)}`
+            : buildOAuthLoginPath(handle),
+          { replace: true },
+        );
+        return;
+      }
+
+      rememberOAuthRequestHandle(authorizationHandle);
+      if (!token) {
+        navigate(buildOAuthLoginPath(authorizationHandle), { replace: true });
+        return;
+      }
+
+      const [storedResult, userResult] = await Promise.all([
+        loadAuthorizationRequest(authorizationHandle, token, controller.signal),
+        loadCurrentUser(token, controller.signal),
+      ]);
+      if (storedResult.response.status === 401 || userResult.response.status === 401) {
         localStorage.removeItem('token');
-        navigate('/login', { replace: true });
+        navigate(buildOAuthLoginPath(authorizationHandle), { replace: true });
+        return;
+      }
+      if (!storedResult.response.ok || !storedResult.data?.request) {
+        setError(
+          storedResult.data?.error_description
+            || t('oauthAuthorize.requestExpired'),
+        );
+        return;
+      }
+      const restoredRequest = storedResult.data.request;
+      const validationResult = await sendOAuthRequest(
+        '/api/oauth/authorize/validate',
+        restoredRequest,
+        token,
+        controller.signal,
+      );
+      if (validationResult.response.status === 401) {
+        localStorage.removeItem('token');
+        navigate(buildOAuthLoginPath(authorizationHandle), { replace: true });
         return;
       }
       if (!validationResult.response.ok) {
         if (!redirectIfPossible(
           validationResult.data,
-          request.redirect_uri,
+          restoredRequest.redirect_uri,
         )) {
           setError(validationResult.data?.error_description || t('oauthAuthorize.invalidRequest'));
         }
@@ -111,27 +197,28 @@ export default function OAuthAuthorize() {
         return;
       }
 
+      setRequest(restoredRequest);
       setValidation(validationResult.data);
       setUser(userResult.data.user);
       setAllowWrite(
         validationResult.data.existing_grant_scopes?.includes('expenses:write') || false,
       );
-    }).catch((requestError) => {
+    };
+
+    load().catch((requestError) => {
       if (requestError.name !== 'AbortError') {
         setError(t('oauthAuthorize.loadFailed'));
       }
     }).finally(() => {
       if (!controller.signal.aborted) setLoading(false);
     });
-
     return () => controller.abort();
-  }, [location.search, navigate, request]);
+  }, [authorizationHandle, location.search, navigate]);
 
   const decide = async (approved) => {
     const token = localStorage.getItem('token');
     if (!token) {
-      storePendingOAuthRequest(location.search);
-      navigate('/login', { replace: true });
+      navigate(buildOAuthLoginPath(authorizationHandle), { replace: true });
       return;
     }
 
@@ -144,9 +231,8 @@ export default function OAuthAuthorize() {
         token,
       );
       if (response.status === 401) {
-        storePendingOAuthRequest(location.search);
         localStorage.removeItem('token');
-        navigate('/login', { replace: true });
+        navigate(buildOAuthLoginPath(authorizationHandle), { replace: true });
         return;
       }
       if (redirectIfPossible(data, validation?.redirect_uri)) return;

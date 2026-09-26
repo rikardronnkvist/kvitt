@@ -12,6 +12,7 @@ process.env.MCP_RESOURCE_URL = 'https://kvitt.example/mcp';
 const { db, initializeDatabase } = await import('../../db/database.js');
 const { signToken } = await import('../../auth/token.js');
 const { registerDcrClient } = await import('../clients.js');
+const { authorizationRequestStore } = await import('../authorization-requests.js');
 const { verifyOAuthAccessToken } = await import('../tokens.js');
 const {
   default: oauthRouter,
@@ -71,6 +72,7 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
+  authorizationRequestStore.clear();
   db.exec(`
     DELETE FROM activity_logs;
     DELETE FROM oauth_authorization_codes;
@@ -100,6 +102,51 @@ afterAll(async () => {
 });
 
 describe('OAuth authorization server routes', () => {
+  it('stores a public authorization query behind an opaque authenticated handle', async () => {
+    const query = new URLSearchParams(authorizationInput()).toString();
+    const creationResponse = await request('/api/oauth/authorize/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+    });
+    expect(creationResponse.status).toBe(201);
+    expect(creationResponse.headers.get('cache-control')).toBe('no-store');
+    const creation = await creationResponse.json();
+    expect(creation.request).toMatch(/^[A-Za-z0-9_-]{43}$/u);
+    expect(creation).not.toHaveProperty('query');
+
+    const unauthenticatedResponse = await request(
+      `/api/oauth/authorize/request/${creation.request}`,
+    );
+    expect(unauthenticatedResponse.status).toBe(401);
+
+    const resolutionResponse = await request(
+      `/api/oauth/authorize/request/${creation.request}`,
+      { headers: { Authorization: ['Bearer', sessionToken].join(' ') } },
+    );
+    expect(resolutionResponse.status).toBe(200);
+    expect(resolutionResponse.headers.get('cache-control')).toBe('no-store');
+    await expect(resolutionResponse.json()).resolves.toMatchObject({
+      request: authorizationInput(),
+    });
+  });
+
+  it('rejects duplicate, unknown and oversized authorization request parameters', async () => {
+    for (const query of [
+      'client_id=one&client_id=two',
+      'client_id=client&return_to=https%3A%2F%2Fattacker.example',
+      `state=${'x'.repeat(2049)}`,
+    ]) {
+      const response = await request('/api/oauth/authorize/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      });
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toMatchObject({ error: 'invalid_request' });
+    }
+  });
+
   it('serves authorization server metadata at both discovery endpoints', async () => {
     for (const path of [
       '/.well-known/oauth-authorization-server',
