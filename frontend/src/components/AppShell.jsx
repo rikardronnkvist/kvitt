@@ -547,6 +547,19 @@ function PasskeysModal({
   onDeletePasskey,
   onAddPasskey,
 }) {
+  useEffect(() => {
+    if (!managingPasskeys) return undefined;
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setManagingPasskeys(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [managingPasskeys, setManagingPasskeys]);
+
   if (!managingPasskeys) {
     return null;
   }
@@ -556,7 +569,16 @@ function PasskeysModal({
   };
 
   return (
-    <div className="modal-backdrop app-shell-modal-backdrop">
+    <dialog
+      open
+      className="modal-backdrop app-shell-modal-backdrop"
+      aria-label={t('shell.passkeysTitle')}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          setManagingPasskeys(false);
+        }
+      }}
+    >
       <div className="modal-sheet app-shell-modal-sheet md:w-[480px]">
         <div className="space-y-5 p-5 sm:p-6">
           <div className="space-y-1">
@@ -587,7 +609,7 @@ function PasskeysModal({
           </div>
         </div>
       </div>
-    </div>
+    </dialog>
   );
 }
 
