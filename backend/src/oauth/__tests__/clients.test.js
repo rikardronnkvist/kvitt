@@ -201,6 +201,9 @@ describe('CIMD client resolution', () => {
     'https://10.1.2.3/client.json',
     'https://169.254.169.254/client.json',
     'https://100.64.0.1/client.json',
+    'https://192.0.0.1/client.json',
+    'https://192.88.99.1/client.json',
+    'https://198.18.0.1/client.json',
     'https://[::1]/client.json',
     'https://[fd00::1]/client.json',
   ])('rejects private CIMD address %s', async (privateClientId) => {

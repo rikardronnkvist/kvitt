@@ -7,12 +7,9 @@ import ErrorMessage from './ErrorMessage.jsx';
 import { get, post } from '../api/client.js';
 import { t } from '../lib/i18n.js';
 import { navigateAfterLogin } from '../lib/postLoginNavigation.js';
+import { getValidatedJwt, isQrLoginToken } from '../lib/qrLoginValidation.js';
 
 const POLL_INTERVAL_MS = 3000;
-
-function getValidatedJwt(result) {
-  return typeof result?.jwt === 'string' && result.jwt.trim() ? result.jwt : null;
-}
 
 export default function QrLoginModal({ onClose }) {
   const navigate = useNavigate();
@@ -34,12 +31,12 @@ export default function QrLoginModal({ onClose }) {
   const claimSession = useCallback(async (token, claimSecret) => {
     stopPolling();
     try {
-      const encodedToken = encodeURIComponent(token);
-      const result = await post(`/api/auth/qr-login/${encodedToken}/claim`, { claimSecret });
+      if (!isQrLoginToken(token)) throw new Error(t('qrLogin.claimFailed'));
+      const result = await post(`/api/auth/qr-login/${token}/claim`, { claimSecret });
       if (!activeRef.current) return;
       const jwt = getValidatedJwt(result);
       if (!jwt) {
-        throw new Error('Ogiltigt QR-inloggningssvar.');
+        throw new Error(t('qrLogin.claimFailed'));
       }
       localStorage.setItem('token', jwt);
       navigateAfterLogin(navigate);
@@ -56,6 +53,9 @@ export default function QrLoginModal({ onClose }) {
     post('/api/auth/qr-login', {})
       .then((data) => {
         if (!activeRef.current) return;
+        if (!isQrLoginToken(data?.token) || typeof data.loginUrl !== 'string') {
+          throw new Error(t('qrLogin.createFailed'));
+        }
         setSession(data);
         setStatus('pending');
 
@@ -76,8 +76,7 @@ export default function QrLoginModal({ onClose }) {
         pollRef.current = setInterval(async () => {
           if (!activeRef.current) return;
           try {
-            const encodedToken = encodeURIComponent(data.token);
-            const result = await get(`/api/auth/qr-login/${encodedToken}/status`);
+            const result = await get(`/api/auth/qr-login/${data.token}/status`);
             if (!activeRef.current) return;
             if (result.status === 'completed') {
               setStatus('completed');
