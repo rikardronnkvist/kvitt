@@ -37,7 +37,7 @@ const updateProfileSchema = z.object({
 
 const createApiTokenSchema = z.object({
   name: z.string().trim().min(1).max(100),
-  can_write_expenses: z.boolean().default(false),
+  can_write_expenses: z.boolean().default(true),
   expires_in_days: z.union([z.literal(30), z.literal(90), z.literal(365)]).nullable().optional().default(90),
 });
 

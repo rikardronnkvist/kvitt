@@ -26,7 +26,7 @@ export default function ApiTokens() {
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name: '', can_write_expenses: false, expires_in_days: 90 });
+  const [form, setForm] = useState({ name: '', can_write_expenses: true, expires_in_days: 90 });
   const [createdToken, setCreatedToken] = useState('');
   const [copied, setCopied] = useState(false);
 
@@ -67,7 +67,7 @@ export default function ApiTokens() {
       const data = await post('/api/auth/api-tokens', form);
       setCreatedToken(data.token);
       setCreating(false);
-      setForm({ name: '', can_write_expenses: false, expires_in_days: 90 });
+      setForm({ name: '', can_write_expenses: true, expires_in_days: 90 });
       await loadTokens();
     } catch (requestError) {
       setError(requestError.message || t('apiTokens.createFailed'));
