@@ -5,6 +5,7 @@ import { post } from '../api/client.js';
 import { getPasskeyErrorMessage } from '../auth/passkey.js';
 import { t } from '../lib/i18n.js';
 import ErrorMessage from '../components/ErrorMessage.jsx';
+import { navigateAfterLogin } from '../lib/postLoginNavigation.js';
 
 function startRegistrationCompat(optionsJSON) {
   try {
@@ -48,7 +49,7 @@ export default function Recover() {
       });
       localStorage.setItem('token', data.token);
       setDone(true);
-      setTimeout(() => navigate('/'), 1500);
+      setTimeout(() => navigateAfterLogin(navigate), 1500);
     } catch (err) {
       const msg = err?.message || '';
       // Surface expired/used token errors directly; wrap other errors in a generic message

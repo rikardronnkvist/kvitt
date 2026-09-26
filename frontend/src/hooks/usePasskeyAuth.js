@@ -5,8 +5,8 @@ import {
   loginWithPasskey,
   registerWithPasskey,
 } from '../auth/passkey.js';
-import { PENDING_INVITE_TOKEN_KEY } from '../pages/InvitePage.jsx';
 import { t } from '../lib/i18n.js';
+import { navigateAfterLogin } from '../lib/postLoginNavigation.js';
 
 export function usePasskeyAuth({ navigate, setError }) {
   const [passkeyLoading, setPasskeyLoading] = useState(false);
@@ -33,13 +33,7 @@ export function usePasskeyAuth({ navigate, setError }) {
 
   const finishAuth = (data) => {
     localStorage.setItem('token', data.token);
-    const pendingInvite = sessionStorage.getItem(PENDING_INVITE_TOKEN_KEY);
-    if (pendingInvite) {
-      sessionStorage.removeItem(PENDING_INVITE_TOKEN_KEY);
-      navigate(`/invite/${pendingInvite}`);
-    } else {
-      navigate('/');
-    }
+    navigateAfterLogin(navigate);
   };
 
   const ensurePasskeySupport = () => {

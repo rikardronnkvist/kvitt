@@ -10,10 +10,10 @@ import { usePasskeyAuth } from '../hooks/usePasskeyAuth.js';
 import { formatPhoneNumber, getPhonePlaceholder, sanitizePhoneInput } from '../lib/phone.js';
 import { useAppSettings } from '../hooks/useAppSettings.js';
 import { applyThemePreference, getStoredThemePreference, getSystemTheme } from '../lib/theme.js';
-import { PENDING_INVITE_TOKEN_KEY } from './InvitePage.jsx';
 import { extractInviteToken } from '../lib/inviteToken.js';
 import { extractQrLoginPath } from '../lib/qrCode.js';
 import { t } from '../lib/i18n.js';
+import { navigateAfterLogin } from '../lib/postLoginNavigation.js';
 
 const registerInitialState = { full_name: '', phone: '' };
 
@@ -31,16 +31,6 @@ function parseRegistrationToken(search) {
 
   const params = new URLSearchParams(search);
   return params.get('token') || params.get('invite') || params.get('key') || '';
-}
-
-function navigateAfterLogin(navigate) {
-  const pendingInvite = sessionStorage.getItem(PENDING_INVITE_TOKEN_KEY);
-  if (pendingInvite) {
-    sessionStorage.removeItem(PENDING_INVITE_TOKEN_KEY);
-    navigate(`/invite/${pendingInvite}`);
-    return;
-  }
-  navigate('/');
 }
 
 function useRegistrationAccess({ isRegisterMode, registrationToken, navigate }) {
