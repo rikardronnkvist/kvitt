@@ -288,8 +288,8 @@
     "pwaAndroidStep2Text": "Tryck på Installera i dialogrutan som visas.",
     "pwaAndroidStep3Alt": "Steg 3: tillåt notiser",
     "pwaAndroidStep3Text": "Tillåt notiser när appen frågar för att få meddelanden om nya utgifter.",
-    "mcpHeading": "LÄGG TILL TJÄNSTEN SOM MCP",
-    "mcpIntro": "Lägg till Kvitt som en anpassad connector. OAuth-inloggningen startar automatiskt och du behöver inte skapa eller kopiera någon token.",
+    "mcpHeading": "Lägg till tjänsten som MCP",
+    "mcpIntro": "Lägg till Kvitt som en anpassad connector. Du kan använda en Token-baserad autentisering. Detta är användbart om du inte vill använda OAuth-inloggning för alla klienter och script.",
     "mcpConnectorAlt": "Dialog för att lägga till Kvitt som anpassad connector",
     "mcpConnectorText": "Lägg till en anpassad connector med URL:en {url} – du loggas in automatiskt.",
     "mcpAdvancedTitle": "Avancerat / skript",
@@ -300,8 +300,10 @@
     "mcpAdvancedText": "Lägg till Bearer följt av din personliga token i Authorization-headern.",
     "mcpAdvancedTextExample": "Exempel",
     "mcpAdvancedTextExampleValue": "Bearer kvitt_pat_0000123-1234....abc123",
-    "claudeHeading": "Anslut Claude Desktop",
-    "claudeIntro": "Med Claude Desktop kan du koppla Kvitt som en anpassad connector. Följ stegen nedan för att lägga till servern, autentisera och börja använda kvitt i Claude.",
+    "claudeHeading": "Anslut Claude",
+    "claudeIntro": "Med Claude (eller liknande) kan du koppla Kvitt som en anpassad connector. Följ stegen nedan för att lägga till servern, autentisera och börja använda kvitt i Claude på webben, i din mobil eller i din desktop-appen.",
+    "claudeAddKvitt": "Lägg till Kvitt i Claude",
+    "chatgptAddKvitt": "Lägg till Kvitt i ChatGPT",
     "claudeStep1Alt": "Steg 1: lägg till en anpassad connector i Claude",
     "claudeStep1Text": "Steg 1: Klicka på Add custom connector för att skapa en ny MCP-anslutning.",
     "claudeStep2Alt": "Steg 2: ange namn och MCP URL",
@@ -320,7 +322,13 @@
     "claudeStep8Text": "Steg 8: Kvitt-verktygen visas i Claude och är redo att användas i konversationer.",
     "claudeDemoAlt": "Demo av Kvitt i Claude Desktop",
     "claudeDemoText1": "När anslutningen är klar kan du be Claude att hämta grupper, utgifter och balansinformation direkt från Kvitt.",
-    "claudeDemoText2": "Du kan nu använda Kvitt-verktygen i Claude för att hantera dina kostnader och saldon."
+    "claudeDemoText2": "Du kan nu använda Kvitt-verktygen i Claude för att hantera dina kostnader och saldon.",
+    "hermesHeading": "Anslut Hermes Agent",
+    "hermesIntro": "Lägg till Kvitt som MCP-server i Hermes Agent.",
+    "hermesInstructions": "Kör kommandot via SSH:",
+    "hermesCommand": "hermes mcp add Kvitt --url https://kvitt.mydomain.se/mcp --auth oauth",
+    "hermesConfigInfo": "Kommandot lägger till servern i ~/.hermes/config.yaml. Konfigurationen ser ut så här:",
+    "hermesConfig": "mcp_servers:\n  Kvitt:\n    url: https://kvitt.mydomain.se/mcp\n    auth: oauth\n    enabled: true"
 
   },
   "expenseModals": {
