@@ -14,7 +14,7 @@ import settlementRoutes from './routes/settlements.js';
 import adminRoutes from './routes/admin.js';
 import inviteRoutes from './routes/invites.js';
 import pushRoutes from './routes/push.js';
-import oauthRoutes from './routes/oauth.js';
+import oauthRoutes, { oauthApiRouter, oauthMetadataRouter } from './routes/oauth.js';
 import { avatarDirectory, ensureAvatarDirectory } from './utils/avatar.js';
 
 const require = createRequire(import.meta.url);
@@ -152,7 +152,9 @@ app.get('/api/settings', (_req, res) => {
   return res.json(getPublicSettings());
 });
 
+app.use(oauthMetadataRouter);
 app.use('/oauth', oauthRoutes);
+app.use('/api/oauth', oauthApiRouter);
 app.use('/api/auth', authRateLimit, authRoutes);
 app.use('/api/groups', apiRateLimit, groupRoutes);
 app.use('/api/expenses', apiRateLimit, expenseRoutes);

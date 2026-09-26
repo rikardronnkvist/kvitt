@@ -214,6 +214,8 @@ services:
       PASSKEY_RP_ID: kvitt.mydomain.se
       PASSKEY_RP_NAME: Kvitt
       PASSKEY_ORIGIN: https://kvitt.mydomain.se
+      OAUTH_ISSUER: https://kvitt.mydomain.se
+      MCP_RESOURCE_URL: https://kvitt.mydomain.se/mcp
       DB_PATH: /app/data/kvitt.db
       VAPID_PUBLIC_KEY: ABCxxxxxxxxxxxxxx123
       VAPID_PRIVATE_KEY: ZXYxxxxxxxxxxxxxx987

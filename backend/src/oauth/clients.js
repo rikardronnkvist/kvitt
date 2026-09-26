@@ -28,20 +28,20 @@ function isAbsoluteUrl(value) {
 }
 
 const cimdSchema = z.object({
-  client_id: z.string(),
+  client_id: z.string().max(2048),
   client_name: z.string().trim().min(1).max(200).optional(),
-  client_uri: z.string().refine(isAbsoluteUrl).optional(),
-  logo_uri: z.string().refine(isAbsoluteUrl).optional(),
-  redirect_uris: z.array(z.string().refine(isAbsoluteUrl)).min(1),
+  client_uri: z.string().max(2048).refine(isAbsoluteUrl).optional(),
+  logo_uri: z.string().max(2048).refine(isAbsoluteUrl).optional(),
+  redirect_uris: z.array(z.string().max(4096).refine(isAbsoluteUrl)).min(1).max(20),
   token_endpoint_auth_method: z.literal('none').default('none'),
 });
 
 export const dcrClientSchema = z.object({
-  redirect_uris: z.array(z.string()).min(1)
+  redirect_uris: z.array(z.string().max(4096)).min(1).max(20)
     .refine((uris) => uris.every(isValidDcrRedirectUri)),
   client_name: z.string().trim().min(1).max(200).optional(),
-  client_uri: z.string().refine(isAbsoluteUrl).optional(),
-  logo_uri: z.string().refine(isAbsoluteUrl).optional(),
+  client_uri: z.string().max(2048).refine(isAbsoluteUrl).optional(),
+  logo_uri: z.string().max(2048).refine(isAbsoluteUrl).optional(),
   token_endpoint_auth_method: z.enum(['none', 'client_secret_post', 'client_secret_basic']).default('none'),
   grant_types: z.array(z.enum(['authorization_code', 'refresh_token'])).min(1)
     .default(['authorization_code', 'refresh_token']),

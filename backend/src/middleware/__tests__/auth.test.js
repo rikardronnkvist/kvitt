@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   getAuthUserById: vi.fn(),
   verify: vi.fn(),
   verifyApiToken: vi.fn(),
+  verifyOAuthAccessToken: vi.fn(),
 }));
 
 vi.mock('jsonwebtoken', () => ({
@@ -14,6 +15,15 @@ vi.mock('../../auth/token.js', () => ({
   getAuthUserById: mocks.getAuthUserById,
   jwtSecret: 'test-secret',
   verifyApiToken: mocks.verifyApiToken,
+}));
+
+vi.mock('../../oauth/tokens.js', () => ({
+  verifyOAuthAccessToken: mocks.verifyOAuthAccessToken,
+}));
+
+vi.mock('../../oauth/config.js', () => ({
+  getMcpResourceUrl: () => 'https://kvitt.example/mcp',
+  oauthResourceMatches: (left, right) => left?.replace(/\/$/u, '') === right?.replace(/\/$/u, ''),
 }));
 
 import authMiddleware, { requireInteractiveSession, requireScope } from '../auth.js';
@@ -103,14 +113,79 @@ describe('authMiddleware', () => {
       user: { id: 4 },
     });
 
+
     authMiddleware(request, response, next);
 
     expect(response.status).toHaveBeenCalledWith(403);
     expect(next).not.toHaveBeenCalled();
   });
 
+  it('accepts a resource-bound OAuth access token on the PAT allowlist', () => {
+    const request = {
+      baseUrl: '/api/groups',
+      headers: { authorization: 'Bearer kvitt_oat_token' },
+      method: 'GET',
+      path: '/',
+    };
+    const response = createResponse();
+    const next = vi.fn();
+    const user = { id: 4, full_name: 'Micke', user_handle: 'micke' };
+    mocks.verifyOAuthAccessToken.mockReturnValue({
+      id: 'oauth-token-id',
+      grantId: 'grant-id',
+      scopes: ['groups:read'],
+      resource: 'https://kvitt.example/mcp/',
+      user,
+    });
+
+    authMiddleware(request, response, next);
+
+    expect(request.user).toEqual(user);
+    expect(request.auth).toEqual({
+      type: 'oauth',
+      grantId: 'grant-id',
+      tokenId: 'oauth-token-id',
+      scopes: ['groups:read'],
+    });
+    expect(next).toHaveBeenCalledOnce();
+  });
+
+  it('rejects OAuth access tokens bound to another resource', () => {
+    const request = {
+      baseUrl: '/api/groups',
+      headers: { authorization: 'Bearer kvitt_oat_token' },
+      method: 'GET',
+      path: '/',
+    };
+    const response = createResponse();
+    const next = vi.fn();
+    mocks.verifyOAuthAccessToken.mockReturnValue({
+      id: 'oauth-token-id',
+      grantId: 'grant-id',
+      scopes: ['groups:read'],
+      resource: 'https://other.example/mcp',
+      user: { id: 4 },
+    });
+
+    authMiddleware(request, response, next);
+
+    expect(response.status).toHaveBeenCalledWith(401);
+    expect(next).not.toHaveBeenCalled();
+  });
+
   it('rejects an API token without the required scope', () => {
     const request = { auth: { type: 'api_token', scopes: ['groups:read'] } };
+    const response = createResponse();
+    const next = vi.fn();
+
+    requireScope('expenses:write')(request, response, next);
+
+    expect(response.status).toHaveBeenCalledWith(403);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('requires scopes from OAuth tokens', () => {
+    const request = { auth: { type: 'oauth', scopes: ['groups:read'] } };
     const response = createResponse();
     const next = vi.fn();
 
@@ -154,6 +229,17 @@ describe('authMiddleware', () => {
 
   it('requires an interactive session for account operations', () => {
     const request = { auth: { type: 'api_token', scopes: [] } };
+    const response = createResponse();
+    const next = vi.fn();
+
+    requireInteractiveSession(request, response, next);
+
+    expect(response.status).toHaveBeenCalledWith(403);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('rejects OAuth tokens for interactive account operations', () => {
+    const request = { auth: { type: 'oauth', scopes: [] } };
     const response = createResponse();
     const next = vi.fn();
 

@@ -186,6 +186,36 @@ export function revokeGrant(grantId) {
   return revoke();
 }
 
+export function revokeOAuthToken(token, clientId = null) {
+  const parsedAccess = parseOAuthToken(token, 'access');
+  const parsedRefresh = parseOAuthToken(token, 'refresh');
+  const parsed = parsedAccess || parsedRefresh;
+  if (!parsed) {
+    return false;
+  }
+
+  const record = db.prepare(`
+    SELECT token.id, token.token_type, token.family_id, grant.client_id
+    FROM oauth_tokens token
+    JOIN oauth_grants grant ON grant.id = token.grant_id
+    WHERE token.id = ? AND token.secret_hash = ?
+  `).get(parsed.id, parsed.secretHash);
+  if (!record || (clientId && record.client_id !== clientId)) {
+    return false;
+  }
+
+  if (record.token_type === 'refresh') {
+    revokeFamily(record.family_id);
+  } else {
+    db.prepare(`
+      UPDATE oauth_tokens
+      SET revoked_at = COALESCE(revoked_at, CURRENT_TIMESTAMP)
+      WHERE id = ?
+    `).run(record.id);
+  }
+  return true;
+}
+
 export function rotateRefreshToken(token, clientId, resource, scopes) {
   const parsed = parseOAuthToken(token, 'refresh');
   if (!parsed) {
