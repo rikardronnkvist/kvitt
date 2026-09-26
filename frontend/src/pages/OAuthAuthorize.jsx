@@ -5,6 +5,7 @@ import EmptyState from '../components/EmptyState.jsx';
 import ErrorMessage from '../components/ErrorMessage.jsx';
 import UserAvatar from '../components/UserAvatar.jsx';
 import { t } from '../lib/i18n.js';
+import { isSafeOAuthRedirectTarget } from '../lib/oauthRedirect.js';
 import { storePendingOAuthRequest } from '../lib/postLoginNavigation.js';
 import { getUserDisplayName } from '../lib/users.js';
 
@@ -48,8 +49,13 @@ async function loadCurrentUser(token, signal) {
   return { response, data };
 }
 
-function redirectIfPossible(data) {
-  if (typeof data?.redirect_to !== 'string' || !data.redirect_to) return false;
+function redirectIfPossible(data, registeredTarget) {
+  if (
+    data?.redirect_uri !== registeredTarget
+    || !isSafeOAuthRedirectTarget(data?.redirect_to, registeredTarget)
+  ) {
+    return false;
+  }
   window.location.assign(data.redirect_to);
   return true;
 }
@@ -92,7 +98,10 @@ export default function OAuthAuthorize() {
         return;
       }
       if (!validationResult.response.ok) {
-        if (!redirectIfPossible(validationResult.data)) {
+        if (!redirectIfPossible(
+          validationResult.data,
+          request.redirect_uri,
+        )) {
           setError(validationResult.data?.error_description || t('oauthAuthorize.invalidRequest'));
         }
         return;
@@ -140,7 +149,7 @@ export default function OAuthAuthorize() {
         navigate('/login', { replace: true });
         return;
       }
-      if (redirectIfPossible(data)) return;
+      if (redirectIfPossible(data, validation?.redirect_uri)) return;
       setError(data?.error_description || t('oauthAuthorize.decisionFailed'));
     } catch {
       setError(t('oauthAuthorize.decisionFailed'));
@@ -175,7 +184,10 @@ export default function OAuthAuthorize() {
   }
 
   const clientName = validation.client?.name || t('oauthAuthorize.unknownClient');
-  const clientHost = validation.client?.host || validation.redirect_host;
+  const trustHost = validation.client?.trust_host;
+  const trustLabel = validation.client?.trust_source === 'client_metadata'
+    ? 'oauthAuthorize.clientMetadataHost'
+    : 'oauthAuthorize.redirectHost';
   const requestedScopes = validation.requested_scopes || [];
   const requestsWrite = requestedScopes.includes('expenses:write');
 
@@ -203,7 +215,7 @@ export default function OAuthAuthorize() {
             </h1>
             <p className="mb-0 mt-2 flex items-center gap-1.5 text-sm font-semibold text-[var(--text-primary)]">
               <ExternalLink className="h-4 w-4 text-[var(--text-secondary)]" />
-              {t('oauthAuthorize.viaHost', { host: clientHost })}
+              {t(trustLabel, { host: trustHost })}
             </p>
           </div>
         </div>

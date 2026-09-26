@@ -3,7 +3,7 @@ import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import { z } from 'zod';
 import { db } from '../db/database.js';
-import { isValidDcrRedirectUri } from './redirect.js';
+import { isValidOAuthRedirectUri } from './redirect.js';
 
 const CIMD_MAX_BYTES = 10 * 1024;
 const CIMD_MAX_CACHE_SECONDS = 60 * 60;
@@ -32,13 +32,15 @@ const cimdSchema = z.object({
   client_name: z.string().trim().min(1).max(200).optional(),
   client_uri: z.string().max(2048).refine(isAbsoluteUrl).optional(),
   logo_uri: z.string().max(2048).refine(isAbsoluteUrl).optional(),
-  redirect_uris: z.array(z.string().max(4096).refine(isAbsoluteUrl)).min(1).max(20),
+  redirect_uris: z.array(
+    z.string().max(4096).refine(isValidOAuthRedirectUri),
+  ).min(1).max(20),
   token_endpoint_auth_method: z.literal('none').default('none'),
 });
 
 export const dcrClientSchema = z.object({
   redirect_uris: z.array(z.string().max(4096)).min(1).max(20)
-    .refine((uris) => uris.every(isValidDcrRedirectUri)),
+    .refine((uris) => uris.every(isValidOAuthRedirectUri)),
   client_name: z.string().trim().min(1).max(200).optional(),
   client_uri: z.string().max(2048).refine(isAbsoluteUrl).optional(),
   logo_uri: z.string().max(2048).refine(isAbsoluteUrl).optional(),

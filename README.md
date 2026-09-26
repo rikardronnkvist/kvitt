@@ -55,6 +55,7 @@ Policy:
 | `PORT` | `backend` | `3000` | Backend HTTP port inside the backend container or during local backend development. |
 | `FRONTEND_PORT` | Compose (host) | `8080` | Host port mapped to the frontend container. |
 | `DB_PATH` | `backend` | `/app/data/kvitt.db` | SQLite database path used by the backend. |
+| `TRUST_PROXY` | `backend` | `loopback, linklocal, uniquelocal` | Express trusted nginx IPs/subnets. Only the first proxy hop is trusted. The default matches the private Compose network; keep the backend port private, or restrict this to the exact proxy subnet/address when exposing the backend separately. |
 | `PASSKEY_RP_ID` | `backend` | `localhost` | WebAuthn relying party ID. Use your domain in production. |
 | `PASSKEY_RP_NAME` | `backend` | `Kvitt` | Displayed relying party name for passkey prompts. |
 | `PASSKEY_ORIGIN` | `backend` | `http://localhost:5173` | Allowed WebAuthn origin(s), comma-separated if needed. |

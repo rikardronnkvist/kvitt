@@ -78,6 +78,32 @@ describe('CIMD client resolution', () => {
   });
 
   it.each([
+    'javascript:alert(1)',
+    'data:text/html,hello',
+    'http://client.example/callback',
+    'https://user:password@client.example/callback',
+    'https://client.example/callback#fragment',
+  ])('rejects unsafe metadata redirect URI %s', async (redirectUri) => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({
+      client_id: clientId,
+      redirect_uris: [redirectUri],
+    }));
+
+    await expect(resolveCimdClient(clientId, { fetchImpl, lookupImpl: publicLookup }))
+      .rejects.toBeInstanceOf(OAuthClientError);
+  });
+
+  it('allows an RFC 8252 loopback HTTP redirect in client metadata', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({
+      client_id: clientId,
+      redirect_uris: ['http://127.0.0.1:43210/callback'],
+    }));
+
+    await expect(resolveCimdClient(clientId, { fetchImpl, lookupImpl: publicLookup }))
+      .resolves.toMatchObject({ redirectUris: ['http://127.0.0.1:43210/callback'] });
+  });
+
+  it.each([
     'https://127.0.0.1/client.json',
     'https://10.1.2.3/client.json',
     'https://169.254.169.254/client.json',
@@ -132,6 +158,9 @@ describe('DCR client registration', () => {
   it.each([
     'http://app.example/callback',
     'https://app.example/callback#fragment',
+    'https://user:password@app.example/callback',
+    'javascript:alert(1)',
+    'data:text/html,hello',
     'not-a-url',
   ])('rejects invalid redirect URI %s', (redirectUri) => {
     expect(() => registerDcrClient({ redirect_uris: [redirectUri] })).toThrow(OAuthClientError);

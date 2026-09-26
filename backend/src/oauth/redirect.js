@@ -17,13 +17,15 @@ export function isLoopbackRedirectUri(value) {
   );
 }
 
-export function isValidDcrRedirectUri(value) {
+export function isValidOAuthRedirectUri(value) {
   const url = parseUrl(value);
   if (!url || url.hash || url.username || url.password) {
     return false;
   }
   return url.protocol === 'https:' || isLoopbackRedirectUri(value);
 }
+
+export const isValidDcrRedirectUri = isValidOAuthRedirectUri;
 
 export function redirectUriMatches(requestedUri, registeredUris) {
   if (registeredUris.includes(requestedUri)) {

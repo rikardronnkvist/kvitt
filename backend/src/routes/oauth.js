@@ -131,6 +131,7 @@ function redirectableError(redirectUri, state, error, errorDescription) {
   return {
     error,
     error_description: errorDescription,
+    redirect_uri: redirectUri,
     redirect_to: buildAuthorizationRedirect(redirectUri, {
       error,
       error_description: errorDescription,
@@ -150,6 +151,14 @@ function getClientHost(client) {
   } catch {
     return null;
   }
+}
+
+function getConsentTrustIndicator(client, redirectUri) {
+  const source = client.kind === 'cimd' ? client.clientId : redirectUri;
+  return {
+    host: new URL(source).host,
+    source: client.kind === 'cimd' ? 'client_metadata' : 'redirect_uri',
+  };
 }
 
 function parseRequestedScopes(value) {
@@ -249,6 +258,7 @@ async function validateAuthorizationRequest(input, userId) {
     FROM oauth_grants
     WHERE user_id = ? AND client_id = ? AND resource = ? AND revoked_at IS NULL
   `).get(userId, client.clientId, getMcpResourceUrl());
+  const trustIndicator = getConsentTrustIndicator(client, redirectUri);
 
   return {
     ok: true,
@@ -264,10 +274,13 @@ async function validateAuthorizationRequest(input, userId) {
         name: client.clientName,
         uri: client.clientUri,
         logo_uri: client.logoUri,
-        host: getClientHost(client),
+        host: trustIndicator.host,
         kind: client.kind,
+        trust_host: trustIndicator.host,
+        trust_source: trustIndicator.source,
       },
       redirect_host: new URL(redirectUri).hostname,
+      redirect_uri: redirectUri,
       requested_scopes: requestedScopes,
       existing_grant_scopes: existingGrant ? parseApiTokenScopes(existingGrant.scopes) : [],
     },
@@ -324,6 +337,7 @@ oauthApiRouter.post(
         ipAddress: resolveRequestIp(req),
       });
       return res.json({
+        redirect_uri: validation.redirectUri,
         redirect_to: buildAuthorizationRedirect(validation.redirectUri, {
           error: 'access_denied',
           error_description: oauthMessages.accessDenied,
@@ -340,6 +354,31 @@ oauthApiRouter.post(
     const authorizationCode = randomBytes(32).toString('base64url');
     const codeHash = createHash('sha256').update(authorizationCode).digest('hex');
     const approve = db.transaction(() => {
+      const previousGrant = db.prepare(`
+        SELECT id, scopes, revoked_at
+        FROM oauth_grants
+        WHERE user_id = ? AND client_id = ? AND resource = ?
+      `).get(req.user.id, validation.clientId, validation.resource);
+      const previousScopes = previousGrant
+        ? parseApiTokenScopes(previousGrant.scopes)
+        : [];
+      const scopesChanged = previousGrant && (
+        previousScopes.length !== finalScopes.length
+        || previousScopes.some((scope) => !finalScopes.includes(scope))
+      );
+
+      if (previousGrant && (previousGrant.revoked_at || scopesChanged)) {
+        db.prepare(`
+          UPDATE oauth_tokens
+          SET revoked_at = COALESCE(revoked_at, CURRENT_TIMESTAMP)
+          WHERE grant_id = ?
+        `).run(previousGrant.id);
+        db.prepare(`
+          DELETE FROM oauth_authorization_codes
+          WHERE grant_id = ?
+        `).run(previousGrant.id);
+      }
+
       db.prepare(`
         INSERT INTO oauth_grants (id, user_id, client_id, client_name, scopes, resource)
         VALUES (?, ?, ?, ?, ?, ?)
@@ -401,6 +440,7 @@ oauthApiRouter.post(
     });
 
     return res.json({
+      redirect_uri: validation.redirectUri,
       redirect_to: buildAuthorizationRedirect(validation.redirectUri, {
         code: authorizationCode,
         state: validation.state,
@@ -522,10 +562,6 @@ function exchangeAuthorizationCode(body, client) {
     if (!record) {
       return { error: 'invalid_grant', description: oauthMessages.invalidAuthorizationCode };
     }
-    if (record.used_at) {
-      revokeGrant(record.grant_id);
-      return { error: 'invalid_grant', description: oauthMessages.invalidAuthorizationCode };
-    }
     const now = db.prepare('SELECT CURRENT_TIMESTAMP AS now').get().now;
     if (
       record.expires_at <= now
@@ -535,6 +571,10 @@ function exchangeAuthorizationCode(body, client) {
       || !pkceMatches(body.code_verifier, record.code_challenge)
       || (body.resource && !oauthResourceMatches(body.resource, record.resource))
     ) {
+      return { error: 'invalid_grant', description: oauthMessages.invalidAuthorizationCode };
+    }
+    if (record.used_at) {
+      revokeGrant(record.grant_id);
       return { error: 'invalid_grant', description: oauthMessages.invalidAuthorizationCode };
     }
 
@@ -597,16 +637,13 @@ oauthRouter.post('/token', preventTokenResponseCaching, tokenRateLimit, formPars
 });
 
 oauthRouter.post('/revoke', preventTokenResponseCaching, tokenRateLimit, formParser, async (req, res) => {
-  let clientId = null;
-  if (req.body.client_id || req.headers.authorization) {
-    try {
-      const client = await authenticateClient(req);
-      clientId = client.clientId;
-    } catch {
-      return res.status(200).send();
-    }
+  let client;
+  try {
+    client = await authenticateClient(req);
+  } catch {
+    return tokenError(res, 'invalid_client', oauthMessages.invalidClientAuthentication, 401);
   }
-  revokeOAuthToken(req.body.token, clientId);
+  revokeOAuthToken(req.body.token, client.clientId);
   return res.status(200).send();
 });
 

@@ -136,6 +136,7 @@ describe('OAuth authorization server routes', () => {
     expect(response.status).toBe(400);
     const body = await response.json();
     expect(body.error).toBe('unsupported_response_type');
+    expect(body.redirect_uri).toBe('https://app.example/callback?existing=1');
     expect(new URL(body.redirect_to).origin).toBe('https://app.example');
     expect(new URL(body.redirect_to).searchParams.get('state')).toBe('opaque-state');
     expect(new URL(body.redirect_to).searchParams.get('iss')).toBe('https://kvitt.example');
@@ -225,6 +226,159 @@ describe('OAuth authorization server routes', () => {
     expect(verifyOAuthAccessToken(refreshed.access_token)).toBeNull();
   });
 
+  it('requires authenticated client identification for revocation and enforces ownership', async () => {
+    const decisionResponse = await postJson('/api/oauth/authorize/decision', {
+      ...authorizationInput(),
+      approved: true,
+      allow_write: true,
+    });
+    const code = new URL((await decisionResponse.json()).redirect_to).searchParams.get('code');
+    const tokenResponse = await request('/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        client_id: registration.client_id,
+        code,
+        redirect_uri: 'https://app.example/callback?existing=1',
+        code_verifier: verifier,
+      }),
+    });
+    const tokens = await tokenResponse.json();
+
+    const unidentified = await request('/oauth/revoke', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ token: tokens.access_token }),
+    });
+    expect(unidentified.status).toBe(401);
+    await expect(unidentified.json()).resolves.toMatchObject({ error: 'invalid_client' });
+    expect(verifyOAuthAccessToken(tokens.access_token)).not.toBeNull();
+
+    const otherClient = registerDcrClient({
+      redirect_uris: ['https://other.example/callback'],
+      token_endpoint_auth_method: 'none',
+    });
+    const wrongOwner = await request('/oauth/revoke', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: otherClient.client_id,
+        token: tokens.access_token,
+      }),
+    });
+    expect(wrongOwner.status).toBe(200);
+    expect(verifyOAuthAccessToken(tokens.access_token)).not.toBeNull();
+
+    const confidentialClient = registerDcrClient({
+      redirect_uris: ['https://confidential.example/callback'],
+      token_endpoint_auth_method: 'client_secret_basic',
+    });
+    const invalidSecret = await request('/oauth/revoke', {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${confidentialClient.client_id}:wrong`).toString('base64')}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ token: tokens.access_token }),
+    });
+    expect(invalidSecret.status).toBe(401);
+
+    const authenticatedOtherClient = await request('/oauth/revoke', {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${Buffer.from(
+          `${confidentialClient.client_id}:${confidentialClient.client_secret}`,
+        ).toString('base64')}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ token: tokens.access_token }),
+    });
+    expect(authenticatedOtherClient.status).toBe(200);
+    expect(verifyOAuthAccessToken(tokens.access_token)).not.toBeNull();
+  });
+
+  it('revokes existing tokens and authorization codes when consent scopes change', async () => {
+    const firstDecision = await postJson('/api/oauth/authorize/decision', {
+      ...authorizationInput(),
+      approved: true,
+      allow_write: true,
+    });
+    const firstCode = new URL((await firstDecision.json()).redirect_to).searchParams.get('code');
+    const firstTokenResponse = await request('/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        client_id: registration.client_id,
+        code: firstCode,
+        redirect_uri: 'https://app.example/callback?existing=1',
+        code_verifier: verifier,
+      }),
+    });
+    const oldTokens = await firstTokenResponse.json();
+
+    const outstandingDecision = await postJson('/api/oauth/authorize/decision', {
+      ...authorizationInput(),
+      approved: true,
+      allow_write: true,
+    });
+    const outstandingCode = new URL(
+      (await outstandingDecision.json()).redirect_to,
+    ).searchParams.get('code');
+
+    const downgradedDecision = await postJson('/api/oauth/authorize/decision', {
+      ...authorizationInput(),
+      approved: true,
+      allow_write: false,
+    });
+    expect(downgradedDecision.status).toBe(200);
+    const downgradedCode = new URL(
+      (await downgradedDecision.json()).redirect_to,
+    ).searchParams.get('code');
+    expect(verifyOAuthAccessToken(oldTokens.access_token)).toBeNull();
+
+    const oldRefresh = await request('/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        client_id: registration.client_id,
+        refresh_token: oldTokens.refresh_token,
+      }),
+    });
+    expect(oldRefresh.status).toBe(400);
+    await expect(oldRefresh.json()).resolves.toMatchObject({ error: 'invalid_grant' });
+
+    const oldCodeExchange = await request('/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        client_id: registration.client_id,
+        code: outstandingCode,
+        redirect_uri: 'https://app.example/callback?existing=1',
+        code_verifier: verifier,
+      }),
+    });
+    expect(oldCodeExchange.status).toBe(400);
+    await expect(oldCodeExchange.json()).resolves.toMatchObject({ error: 'invalid_grant' });
+
+    const downgradedExchange = await request('/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        client_id: registration.client_id,
+        code: downgradedCode,
+        redirect_uri: 'https://app.example/callback?existing=1',
+        code_verifier: verifier,
+      }),
+    });
+    expect(downgradedExchange.status).toBe(200);
+    expect((await downgradedExchange.json()).scope).not.toContain('expenses:write');
+  });
+
   it('revokes grant tokens when an authorization code is replayed', async () => {
     const decisionResponse = await postJson('/api/oauth/authorize/decision', {
       ...authorizationInput(),
@@ -246,6 +400,14 @@ describe('OAuth authorization server routes', () => {
     });
     const accessToken = (await first.json()).access_token;
 
+    const invalidReplay = await request('/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ ...form, code_verifier: `${verifier}x` }),
+    });
+    expect(invalidReplay.status).toBe(400);
+    expect(verifyOAuthAccessToken(accessToken)).not.toBeNull();
+
     const replay = await request('/oauth/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -254,6 +416,26 @@ describe('OAuth authorization server routes', () => {
     expect(replay.status).toBe(400);
     await expect(replay.json()).resolves.toMatchObject({ error: 'invalid_grant' });
     expect(verifyOAuthAccessToken(accessToken)).toBeNull();
+  });
+
+  it('returns a trustworthy consent host based on client kind', async () => {
+    db.prepare('DELETE FROM oauth_clients WHERE client_id = ?').run(registration.client_id);
+    registration = registerDcrClient({
+      redirect_uris: ['https://redirect.example/callback?existing=1'],
+      client_name: 'Claimed name',
+      client_uri: 'https://self-asserted.example',
+    });
+
+    const response = await postJson('/api/oauth/authorize/validate', authorizationInput({
+      redirect_uri: 'https://redirect.example/callback?existing=1',
+    }));
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      client: {
+        trust_host: 'redirect.example',
+        trust_source: 'redirect_uri',
+      },
+    });
   });
 
   it('lists and revokes grants for the interactive user', async () => {
