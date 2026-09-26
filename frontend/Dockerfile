@@ -9,6 +9,7 @@ RUN npm run build
 RUN node -p "require('./package.json').version" > /app/version
 
 FROM nginx:alpine
+RUN apk upgrade --no-cache libexpat libuuid
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY --from=builder /app/version /app-version
 COPY nginx.conf /etc/nginx/conf.d/default.conf

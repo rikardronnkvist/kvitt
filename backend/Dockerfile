@@ -10,8 +10,10 @@ COPY . .
 
 FROM node:24-alpine
 WORKDIR /app
-# pin npm to latest stable to ensure up-to-date bundled deps
-RUN npm install -g npm@12.0.2 --ignore-scripts --no-update-notifier && mkdir -p /app/data
+RUN apk upgrade --no-cache libcrypto3 libssl3 \
+    && rm -rf /usr/local/lib/node_modules/npm \
+    && rm -f /usr/local/bin/npm /usr/local/bin/npx \
+    && mkdir -p /app/data
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/package.json .
