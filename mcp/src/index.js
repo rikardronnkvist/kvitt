@@ -198,10 +198,12 @@ function authenticatedRequest(extra, path, options) {
 }
 
 function createServer() {
-  const server = new McpServer({ name: 'kvitt', version });
+  const server = new McpServer({ name: 'kvitt', version }, {
+    instructions: 'When the user does not name a group, omit group_id in create_expense; the most recently used group is chosen. Always tell the user which group the expense was added to.',
+  });
 
 server.registerTool('list_groups', {
-  description: 'List groups available to the authenticated Kvitt user. current_user_balance is whole currency units: positive means the current user is owed money; negative means they owe money.',
+  description: 'List groups available to the authenticated Kvitt user. is_default marks the group used when group_id is omitted from create_expense. current_user_balance is whole currency units: positive means the current user is owed money; negative means they owe money.',
   annotations: { readOnlyHint: true },
 }, async (extra) => {
   try {
@@ -248,13 +250,13 @@ server.registerTool('list_expenses', {
 });
 
 server.registerTool('create_expense', {
-  description: 'Create a persistent expense in a group where the authenticated Kvitt user is a member. Amounts are whole currency units. If splits are omitted, the expense is split equally across all members and any remainder is assigned in member order. Requires permission to create expenses.',
+  description: "Create a persistent expense in a group where the authenticated Kvitt user is a member. Amounts are whole currency units. If group_id is omitted, the user's most recently used group (is_default in list_groups) is used. If paid_by_user_id is omitted, the authenticated user is the payer. If splits are omitted, the expense is split equally across all members and any remainder is assigned in member order. Requires permission to create expenses.",
   annotations: { destructiveHint: false },
   inputSchema: {
-    group_id: z.coerce.number().int().positive(),
+    group_id: z.coerce.number().int().positive().optional(),
     title: z.string().trim().min(1).max(200),
     amount: z.coerce.number().int().positive(),
-    paid_by_user_id: z.coerce.number().int().positive(),
+    paid_by_user_id: z.coerce.number().int().positive().optional(),
     currency: z.string().trim().min(1).max(10).default('SEK'),
     category_id: z.coerce.number().int().positive().optional(),
     occurred_at: z.string().trim().optional(),
@@ -264,12 +266,33 @@ server.registerTool('create_expense', {
       amount_owed: z.coerce.number().int().positive(),
     })).optional(),
   },
-}, async ({ group_id: groupId, ...expense }, extra) => {
+}, async ({ group_id: requestedGroupId, paid_by_user_id: requestedPayerId, ...expense }, extra) => {
   try {
-    return textResult(await authenticatedRequest(extra, `/api/expenses/${groupId}`, {
+    let groupId = requestedGroupId;
+    let groupName;
+    if (groupId === undefined) {
+      const groups = await authenticatedRequest(extra, '/api/groups');
+      const defaultGroup = groups.find((group) => group.is_default === true);
+      if (!defaultGroup) {
+        return errorResult(new Error('Ingen standardgrupp hittades. Ange group_id (se list_groups).'));
+      }
+      groupId = defaultGroup.id;
+      groupName = defaultGroup.name;
+    }
+
+    if (!groupName) {
+      const group = await authenticatedRequest(extra, `/api/groups/${encodeURIComponent(groupId)}`);
+      groupName = group.name;
+    }
+
+    const createdExpense = await authenticatedRequest(extra, `/api/expenses/${groupId}`, {
       method: 'POST',
-      body: JSON.stringify(expense),
-    }));
+      body: JSON.stringify({
+        ...expense,
+        paid_by_user_id: requestedPayerId ?? extra.authInfo.extra.userId,
+      }),
+    });
+    return textResult({ ...createdExpense, group_name: groupName });
   } catch (error) {
     return errorResult(error);
   }

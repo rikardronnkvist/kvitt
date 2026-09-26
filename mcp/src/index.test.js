@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { after, before, test } from 'node:test';
+import { after, before, beforeEach, test } from 'node:test';
 import express from 'express';
 
 const publicUrl = 'https://kvitt.example';
@@ -46,6 +46,10 @@ const identities = new Map([
 
 const validationCounts = new Map();
 let lastGroupsAuthorization;
+let groupsResponse;
+let groupsRequestCount;
+let expenseRequests;
+let groupDetailRequests;
 let backendServer;
 let mcpServer;
 let mcpUrl;
@@ -98,8 +102,35 @@ async function initialize(token) {
   return sessionId;
 }
 
+async function responseJson(response) {
+  const body = await response.text();
+  const data = body.split('\n')
+    .find((line) => line.startsWith('data: '))
+    ?.slice('data: '.length);
+  return JSON.parse(data || body);
+}
+
+async function callTool(token, name, args) {
+  const sessionId = await initialize(token);
+  const initialized = await mcpRequest(token, {
+    jsonrpc: '2.0',
+    method: 'notifications/initialized',
+  }, sessionId);
+  assert.equal(initialized.status, 202);
+
+  const response = await mcpRequest(token, {
+    jsonrpc: '2.0',
+    id: 100,
+    method: 'tools/call',
+    params: { name, arguments: args },
+  }, sessionId);
+  assert.equal(response.status, 200);
+  return (await responseJson(response)).result;
+}
+
 before(async () => {
   const backend = express();
+  backend.use(express.json());
   backend.get('/api/auth/mcp/me', (req, res) => {
     const token = tokenFrom(req);
     validationCounts.set(token, (validationCounts.get(token) || 0) + 1);
@@ -108,7 +139,16 @@ before(async () => {
   });
   backend.get('/api/groups', (req, res) => {
     lastGroupsAuthorization = req.headers.authorization;
-    res.json([{ id: 1, name: 'Test group' }]);
+    groupsRequestCount += 1;
+    res.json(groupsResponse);
+  });
+  backend.get('/api/groups/:groupId', (req, res) => {
+    groupDetailRequests.push(req.params.groupId);
+    res.json({ id: Number(req.params.groupId), name: `Group ${req.params.groupId}` });
+  });
+  backend.post('/api/expenses/:groupId', (req, res) => {
+    expenseRequests.push({ groupId: req.params.groupId, body: req.body });
+    res.status(201).json({ id: 42, group_id: Number(req.params.groupId), ...req.body });
   });
   backendServer = await listen(backend);
 
@@ -119,6 +159,13 @@ before(async () => {
   const { app } = await import('./index.js');
   mcpServer = await listen(app);
   mcpUrl = `http://127.0.0.1:${mcpServer.address().port}`;
+});
+
+beforeEach(() => {
+  groupsResponse = [{ id: 1, name: 'Test group', is_default: true }];
+  groupsRequestCount = 0;
+  expenseRequests = [];
+  groupDetailRequests = [];
 });
 
 after(async () => {
@@ -194,4 +241,58 @@ test('preserves PAT authentication and caches its validation', async () => {
   assert.equal(toolList.status, 200);
   await toolList.text();
   assert.equal(validationCounts.get('kvitt_pat_test'), 1);
+});
+
+test('create_expense uses the default group when group_id is omitted', async () => {
+  groupsResponse = [
+    { id: 1, name: 'First group', is_default: false },
+    { id: 2, name: 'Default group', is_default: true },
+  ];
+
+  const result = await callTool('kvitt_pat_test', 'create_expense', {
+    title: 'Lunch',
+    amount: 120,
+    paid_by_user_id: 7,
+  });
+
+  assert.equal(expenseRequests[0].groupId, '2');
+  assert.equal(JSON.parse(result.content[0].text).group_name, 'Default group');
+});
+
+test('create_expense uses the authenticated user when paid_by_user_id is omitted', async () => {
+  const result = await callTool('kvitt_pat_test', 'create_expense', {
+    title: 'Lunch',
+    amount: 120,
+  });
+
+  assert.equal(expenseRequests[0].body.paid_by_user_id, 7);
+  assert.equal(JSON.parse(result.content[0].text).paid_by_user_id, 7);
+});
+
+test('create_expense returns an error when no default group exists', async () => {
+  groupsResponse = [{ id: 1, name: 'Archived group', is_default: false }];
+
+  const result = await callTool('kvitt_pat_test', 'create_expense', {
+    title: 'Lunch',
+    amount: 120,
+  });
+
+  assert.equal(result.isError, true);
+  assert.equal(result.content[0].text, 'Ingen standardgrupp hittades. Ange group_id (se list_groups).');
+  assert.equal(expenseRequests.length, 0);
+});
+
+test('create_expense preserves an explicit group_id without listing groups', async () => {
+  const result = await callTool('kvitt_pat_test', 'create_expense', {
+    group_id: 9,
+    title: 'Lunch',
+    amount: 120,
+    paid_by_user_id: 8,
+  });
+
+  assert.equal(groupsRequestCount, 0);
+  assert.deepEqual(groupDetailRequests, ['9']);
+  assert.equal(expenseRequests[0].groupId, '9');
+  assert.equal(expenseRequests[0].body.paid_by_user_id, 8);
+  assert.equal(JSON.parse(result.content[0].text).group_name, 'Group 9');
 });
