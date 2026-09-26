@@ -6,7 +6,9 @@ Kvitt MCP körs som en separat Streamable HTTP-tjänst bakom samma host som Kvit
 https://kvitt.mydomain.se/mcp
 ```
 
-Klienten skickar användarens personliga Kvitt API-token som:
+OAuth-kompatibla klienter behöver bara connector-URL:en ovan. De upptäcker automatiskt Kvitts auktoriseringsserver, skickar användaren till inloggning och samtycke och använder därefter en OAuth access token (`kvitt_oat_…`).
+
+Befintliga personliga API-token (`kvitt_pat_…`) stöds fortfarande för skript och avancerad klientkonfiguration. Båda token-typerna skickas som:
 
 ```http
 Authorization: Bearer kvitt_pat_...
@@ -17,8 +19,13 @@ Servern validerar tokenen mot Kvitt och använder samma scope-regler som övriga
 För lokal utveckling:
 
 ```sh
-KVITT_BASE_URL=http://localhost:3000 PORT=3001 npm start
+KVITT_BASE_URL=http://localhost:3000 \
+KVITT_PUBLIC_URL=http://localhost:8080 \
+MCP_RESOURCE_URL=http://localhost:8080/mcp \
+PORT=3001 npm start
 ```
+
+`MCP_RESOURCE_URL` är valfri och får standardvärdet `${KVITT_PUBLIC_URL}/mcp`.
 
 Ange tillåtna browser-origins som en kommaseparerad miljövariabel i `MCP_ALLOWED_ORIGINS`. För server-till-server-klienter behövs normalt ingen Origin-header.
 

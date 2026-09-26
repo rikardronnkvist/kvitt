@@ -10,6 +10,7 @@ import GroupStatistics from './pages/GroupStatistics.jsx';
 import InvitePage from './pages/InvitePage.jsx';
 import About from './pages/About.jsx';
 import ApiTokens from './pages/ApiTokens.jsx';
+import OAuthAuthorize from './pages/OAuthAuthorize.jsx';
 import AppShell from './components/AppShell.jsx';
 import { parseUser } from './lib/session.js';
 
@@ -41,6 +42,7 @@ export default function App() {
       <Route path="/recover" element={<Recover />} />
       <Route path="/qr-login/:token" element={<QrLoginPage />} />
       <Route path="/invite/:token" element={<InvitePage />} />
+      <Route path="/oauth/authorize" element={<OAuthAuthorize />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
           <Route path="/" element={<Dashboard />} />

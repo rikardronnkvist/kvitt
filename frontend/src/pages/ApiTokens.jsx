@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Copy, KeyRound, Plus, ShieldCheck, Trash2 } from 'lucide-react';
+import { Cable, Copy, KeyRound, Plus, ShieldCheck, Trash2 } from 'lucide-react';
 import { del, get, post } from '../api/client.js';
 import ErrorMessage from '../components/ErrorMessage.jsx';
 import { formatDateTime } from '../lib/format.js';
@@ -20,7 +20,9 @@ function tokenStatus(token) {
 
 export default function ApiTokens() {
   const [tokens, setTokens] = useState([]);
+  const [grants, setGrants] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [grantsLoading, setGrantsLoading] = useState(true);
   const [error, setError] = useState('');
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -40,7 +42,22 @@ export default function ApiTokens() {
     }
   };
 
-  useEffect(() => { loadTokens(); }, []);
+  const loadGrants = async () => {
+    setGrantsLoading(true);
+    try {
+      const data = await get('/api/oauth/grants');
+      setGrants(data.grants || []);
+    } catch (requestError) {
+      setError(requestError.message || t('apiTokens.grantsLoadFailed'));
+    } finally {
+      setGrantsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadTokens();
+    loadGrants();
+  }, []);
 
   const createToken = async (event) => {
     event.preventDefault();
@@ -79,6 +96,19 @@ export default function ApiTokens() {
     }
   };
 
+  const revokeGrant = async (grant) => {
+    if (!window.confirm(t('apiTokens.grantRevokeConfirm', {
+      client: grant.client_name || t('apiTokens.unknownApp'),
+    }))) return;
+    setError('');
+    try {
+      await del(`/api/oauth/grants/${grant.id}`);
+      await loadGrants();
+    } catch (requestError) {
+      setError(requestError.message || t('apiTokens.grantRevokeFailed'));
+    }
+  };
+
   if (createdToken) {
     return (
       <section className="mx-auto max-w-xl space-y-5">
@@ -106,17 +136,83 @@ export default function ApiTokens() {
 
   return (
     <section className="mx-auto max-w-3xl space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <p className="section-eyebrow">{t('apiTokens.eyebrow')}</p>
+        <h1 className="m-0 text-2xl font-semibold">{t('apiTokens.title')}</h1>
+        <p className="mb-0 mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">{t('apiTokens.description')}</p>
+      </div>
+      <ErrorMessage message={error} className="m-0" />
+
+      <div className="surface-card space-y-3 p-5">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--app-surface-muted)] text-[var(--accent)]">
+            <Cable className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="m-0 text-lg font-semibold">{t('apiTokens.mcpTitle')}</h2>
+            <p className="m-0 text-sm text-[var(--text-secondary)]">{t('apiTokens.mcpDescription')}</p>
+          </div>
+        </div>
+        <code className="block break-all rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3 text-sm text-[var(--text-primary)]">
+          {`${window.location.origin}/mcp`}
+        </code>
+        <p className="m-0 text-sm text-[var(--text-secondary)]">{t('apiTokens.mcpLoginHint')}</p>
+      </div>
+
+      <div className="space-y-3">
         <div>
-          <p className="section-eyebrow">{t('apiTokens.eyebrow')}</p>
-          <h1 className="m-0 text-2xl font-semibold">{t('apiTokens.title')}</h1>
-          <p className="mb-0 mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">{t('apiTokens.description')}</p>
+          <h2 className="m-0 text-lg font-semibold">{t('apiTokens.connectedAppsTitle')}</h2>
+          <p className="mb-0 mt-1 text-sm text-[var(--text-secondary)]">{t('apiTokens.connectedAppsDescription')}</p>
+        </div>
+        {grantsLoading ? <p className="text-sm text-[var(--text-secondary)]">{t('apiTokens.loadingConnectedApps')}</p> : null}
+        {!grantsLoading && grants.length === 0 ? (
+          <div className="surface-card p-5">
+            <h3 className="m-0 text-base font-semibold">{t('apiTokens.connectedAppsEmptyTitle')}</h3>
+            <p className="mb-0 mt-2 text-sm text-[var(--text-secondary)]">{t('apiTokens.connectedAppsEmptyDescription')}</p>
+          </div>
+        ) : null}
+        {grants.map((grant) => (
+          <article key={grant.id} className="surface-card flex flex-wrap items-center justify-between gap-4 p-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <Cable className="h-4 w-4 shrink-0 text-[var(--text-secondary)]" />
+                <h3 className="m-0 truncate text-base font-semibold">
+                  {grant.client_name || t('apiTokens.unknownApp')}
+                </h3>
+              </div>
+              {grant.client_host ? (
+                <p className="mb-0 mt-1 text-xs font-medium text-[var(--text-secondary)]">
+                  {t('apiTokens.connectedVia', { host: grant.client_host })}
+                </p>
+              ) : null}
+              <p className="mb-0 mt-2 text-xs text-[var(--text-secondary)]">
+                {grant.scopes.map((scope) => t(scopeLabels[scope] || scope)).join(' · ')}
+                {' · '}{t('shell.createdAt')} {formatDateTime(grant.created_at)}
+                {' · '}{t('shell.lastUsed')} {grant.last_used_at ? formatDateTime(grant.last_used_at) : t('shell.never')}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="icon-button text-[var(--danger)]"
+              title={t('apiTokens.revokeApp')}
+              aria-label={t('apiTokens.revokeApp')}
+              onClick={() => revokeGrant(grant)}
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </article>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-end justify-between gap-4 border-t border-[var(--border-subtle)] pt-5">
+        <div>
+          <h2 className="m-0 text-lg font-semibold">{t('apiTokens.advancedTitle')}</h2>
+          <p className="mb-0 mt-1 max-w-2xl text-sm text-[var(--text-secondary)]">{t('apiTokens.advancedDescription')}</p>
         </div>
         <button type="button" className="btn-primary" onClick={() => setCreating(true)}>
           <Plus className="h-4 w-4" /> {t('apiTokens.create')}
         </button>
       </div>
-      <ErrorMessage message={error} className="m-0" />
       {creating ? (
         <form className="surface-card grid gap-4 p-5" onSubmit={createToken}>
           <label className="field-label">{t('apiTokens.name')}<input autoFocus required value={form.name} onChange={(event) => setForm((value) => ({ ...value, name: event.target.value }))} placeholder={t('apiTokens.namePlaceholder')} /></label>

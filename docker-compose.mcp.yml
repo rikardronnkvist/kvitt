@@ -3,6 +3,8 @@ services:
     image: ${KVITT_MCP_IMAGE:-ghcr.io/rikardronnkvist/kvitt-mcp:latest}
     environment:
       KVITT_BASE_URL: ${KVITT_BACKEND_URL:-http://kvitt_backend:3000}
+      KVITT_PUBLIC_URL: ${KVITT_PUBLIC_URL:-https://${MCP_HOST:-kvitt.mydomain.se}}
+      MCP_RESOURCE_URL: ${MCP_RESOURCE_URL:-https://${MCP_HOST:-kvitt.mydomain.se}/mcp}
       PORT: 3001
       MCP_ALLOWED_ORIGINS: ${MCP_ALLOWED_ORIGINS:-}
     networks:
@@ -20,7 +22,7 @@ services:
       labels:
         - "traefik.enable=true"
         - "traefik.docker.network=traefik"
-        - "traefik.http.routers.kvitt-mcp.rule=Host(`${MCP_HOST:-kvitt.mydomain.se}`) && PathPrefix(`/mcp`)"
+        - "traefik.http.routers.kvitt-mcp.rule=Host(`${MCP_HOST:-kvitt.mydomain.se}`) && (PathPrefix(`/mcp`) || PathPrefix(`/.well-known/oauth-protected-resource`))"
         - "traefik.http.routers.kvitt-mcp.priority=100"
         - "traefik.http.routers.kvitt-mcp.entrypoints=websecure"
         - "traefik.http.routers.kvitt-mcp.tls=true"

@@ -67,7 +67,7 @@ export function verifyApiToken(token) {
   }
 
   const record = db.prepare(`
-    SELECT id, user_id, scopes
+    SELECT id, user_id, scopes, CAST(strftime('%s', expires_at) AS INTEGER) AS expires_at
     FROM api_tokens
     WHERE id = ?
       AND secret_hash = ?
@@ -92,6 +92,7 @@ export function verifyApiToken(token) {
 
   return {
     id: record.id,
+    expiresAt: record.expires_at == null ? null : Number(record.expires_at),
     scopes: parseApiTokenScopes(record.scopes),
     user,
   };

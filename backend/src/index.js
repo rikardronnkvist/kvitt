@@ -14,7 +14,9 @@ import settlementRoutes from './routes/settlements.js';
 import adminRoutes from './routes/admin.js';
 import inviteRoutes from './routes/invites.js';
 import pushRoutes from './routes/push.js';
+import oauthRoutes, { oauthApiRouter, oauthMetadataRouter } from './routes/oauth.js';
 import { avatarDirectory, ensureAvatarDirectory } from './utils/avatar.js';
+import { configureTrustProxy } from './utils/trust-proxy.js';
 
 const require = createRequire(import.meta.url);
 const { version } = require('../package.json');
@@ -27,6 +29,7 @@ const port = Number(process.env.PORT) || 3000;
 
 // Avoid disclosing framework details via default response headers.
 app.disable('x-powered-by');
+configureTrustProxy(app);
 
 const REGISTRATION_QUERY_MAX_LENGTH = 512;
 
@@ -151,6 +154,9 @@ app.get('/api/settings', (_req, res) => {
   return res.json(getPublicSettings());
 });
 
+app.use(oauthMetadataRouter);
+app.use('/oauth', oauthRoutes);
+app.use('/api/oauth', oauthApiRouter);
 app.use('/api/auth', authRateLimit, authRoutes);
 app.use('/api/groups', apiRateLimit, groupRoutes);
 app.use('/api/expenses', apiRateLimit, expenseRoutes);

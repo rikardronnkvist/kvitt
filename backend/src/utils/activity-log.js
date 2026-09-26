@@ -1,24 +1,10 @@
 import { db } from '../db/database.js';
 
-function getPrimaryForwardedIp(forwardedFor) {
-  if (!forwardedFor) {
-    return null;
-  }
-  const first = String(forwardedFor).split(',')[0]?.trim();
-  return first || null;
-}
-
 export function resolveRequestIp(req) {
   if (!req) {
     return null;
   }
-
-  const forwarded = req.headers?.['x-forwarded-for'];
-  const forwardedIp = Array.isArray(forwarded)
-    ? getPrimaryForwardedIp(forwarded[0])
-    : getPrimaryForwardedIp(forwarded);
-
-  return forwardedIp || req.ip || req.socket?.remoteAddress || null;
+  return req.ip || req.socket?.remoteAddress || null;
 }
 
 function toNullableInteger(value) {

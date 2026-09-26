@@ -250,6 +250,56 @@ function createCoreSchema() {
       revoked_at DATETIME
     );
 
+    CREATE TABLE IF NOT EXISTS oauth_clients (
+      client_id TEXT PRIMARY KEY,
+      client_secret_hash TEXT,
+      client_name TEXT,
+      client_uri TEXT,
+      logo_uri TEXT,
+      redirect_uris TEXT NOT NULL,
+      token_endpoint_auth_method TEXT NOT NULL DEFAULT 'none',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      last_used_at DATETIME
+    );
+
+    CREATE TABLE IF NOT EXISTS oauth_grants (
+      id TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      client_id TEXT NOT NULL,
+      client_name TEXT,
+      scopes TEXT NOT NULL,
+      resource TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      last_used_at DATETIME,
+      revoked_at DATETIME
+    );
+
+    CREATE TABLE IF NOT EXISTS oauth_authorization_codes (
+      code_hash TEXT PRIMARY KEY,
+      grant_id TEXT NOT NULL REFERENCES oauth_grants(id) ON DELETE CASCADE,
+      client_id TEXT NOT NULL,
+      redirect_uri TEXT NOT NULL,
+      code_challenge TEXT NOT NULL,
+      scopes TEXT NOT NULL,
+      resource TEXT NOT NULL,
+      expires_at DATETIME NOT NULL,
+      used_at DATETIME
+    );
+
+    CREATE TABLE IF NOT EXISTS oauth_tokens (
+      id TEXT PRIMARY KEY,
+      grant_id TEXT NOT NULL REFERENCES oauth_grants(id) ON DELETE CASCADE,
+      token_type TEXT NOT NULL CHECK (token_type IN ('access','refresh')),
+      secret_hash TEXT NOT NULL,
+      scopes TEXT NOT NULL,
+      resource TEXT NOT NULL,
+      family_id TEXT NOT NULL,
+      expires_at DATETIME NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      used_at DATETIME,
+      revoked_at DATETIME
+    );
+
     CREATE TABLE IF NOT EXISTS app_settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
@@ -299,6 +349,10 @@ function createCoreSchema() {
     CREATE INDEX IF NOT EXISTS idx_passkeys_credential_id ON passkeys(credential_id);
     CREATE INDEX IF NOT EXISTS idx_api_tokens_user_id ON api_tokens(user_id);
     CREATE INDEX IF NOT EXISTS idx_api_tokens_active ON api_tokens(id, revoked_at, expires_at);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_oauth_grants_identity ON oauth_grants(user_id, client_id, resource);
+    CREATE INDEX IF NOT EXISTS idx_oauth_grants_user_id ON oauth_grants(user_id);
+    CREATE INDEX IF NOT EXISTS idx_oauth_tokens_grant_id ON oauth_tokens(grant_id);
+    CREATE INDEX IF NOT EXISTS idx_oauth_tokens_family_id ON oauth_tokens(family_id);
     CREATE INDEX IF NOT EXISTS idx_activity_logs_created_at ON activity_logs(created_at);
     CREATE INDEX IF NOT EXISTS idx_activity_logs_actor_user_id ON activity_logs(actor_user_id);
     CREATE INDEX IF NOT EXISTS idx_activity_logs_group_id ON activity_logs(group_id);

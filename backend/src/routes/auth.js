@@ -403,16 +403,27 @@ router.delete('/api-tokens/:tokenId', requireAuth, requireInteractiveSession, (r
 });
 
 router.get('/mcp/me', requireAuth, (req, res) => {
+  const oauthToken = req.auth?.type === 'oauth'
+    ? {
+      type: 'oauth',
+      id: req.auth.tokenId,
+      grant_id: req.auth.grantId,
+      client_id: req.auth.clientId,
+      expires_at: req.auth.expiresAt,
+      scopes: req.auth.scopes,
+    }
+    : null;
   return res.json({
     user: {
       id: req.user.id,
       full_name: req.user.full_name,
       user_handle: req.user.user_handle,
     },
-    token: req.auth?.type === 'api_token' ? {
+    token: oauthToken || (req.auth?.type === 'api_token' ? {
       id: req.auth.tokenId,
+      expires_at: req.auth.expiresAt,
       scopes: req.auth.scopes,
-    } : null,
+    } : null),
   });
 });
 

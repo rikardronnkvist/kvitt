@@ -164,44 +164,41 @@ export default function About() {
         </p>
 
         <div className="mt-4 space-y-4">
-          <div className="grid gap-4 lg:grid-cols-2">
-            <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
-              <img
-                src="/mcp-create-token.png"
-                alt={t('about.mcpTokenAlt')}
-                className="mx-auto rounded-lg border border-[var(--border-subtle)] bg-white"
-              />
-              <p className="mt-3 text-sm text-[var(--text-secondary)]">
-                {t('about.mcpTokenText')}
-              </p>
-            </article>
-
-            <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
-              <img
-                src="/mcp-add-connector.png"
-                alt={t('about.mcpConnectorAlt')}
-                className="mx-auto rounded-lg border border-[var(--border-subtle)] bg-white"
-              />
-              <p className="mt-3 text-sm text-[var(--text-secondary)]">
-                {t('about.mcpConnectorText')}
-              </p>
-            </article>
-          </div>
-
           <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
             <img
-              src="/mcp-advanced-config.png"
-              alt={t('about.mcpAdvancedAlt')}
-              className="mx-auto w-[50%] rounded-lg border border-[var(--border-subtle)] bg-white"
+              src="/mcp-add-connector.png"
+              alt={t('about.mcpConnectorAlt')}
+              className="mx-auto rounded-lg border border-[var(--border-subtle)] bg-white"
             />
             <p className="mt-3 text-sm text-[var(--text-secondary)]">
-              {t('about.mcpAdvancedText')}
-            </p>
-            <p className="mt-2 text-sm text-[var(--text-secondary)]">
-              <span className="font-normal text-[var(--text-primary)]">{t('about.mcpAdvancedTextExample')}</span>{': '}
-              <span className="font-medium text-[var(--text-primary)]">{t('about.mcpAdvancedTextExampleValue')}</span>
+              {t('about.mcpConnectorText', { url: `${window.location.origin}/mcp` })}
             </p>
           </article>
+
+          <details className="rounded-xl border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
+            <summary className="cursor-pointer font-semibold text-[var(--text-primary)]">
+              {t('about.mcpAdvancedTitle')}
+            </summary>
+            <p className="text-sm text-[var(--text-secondary)]">{t('about.mcpAdvancedIntro')}</p>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div>
+                <img
+                  src="/mcp-create-token.png"
+                  alt={t('about.mcpTokenAlt')}
+                  className="mx-auto rounded-lg border border-[var(--border-subtle)] bg-white"
+                />
+                <p className="mt-3 text-sm text-[var(--text-secondary)]">{t('about.mcpTokenText')}</p>
+              </div>
+              <div>
+                <img
+                  src="/mcp-advanced-config.png"
+                  alt={t('about.mcpAdvancedAlt')}
+                  className="mx-auto rounded-lg border border-[var(--border-subtle)] bg-white"
+                />
+                <p className="mt-3 text-sm text-[var(--text-secondary)]">{t('about.mcpAdvancedText')}</p>
+              </div>
+            </div>
+          </details>
         </div>
       </div>
         </div>

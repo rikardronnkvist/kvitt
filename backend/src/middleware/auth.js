@@ -1,13 +1,19 @@
 import jwt from 'jsonwebtoken';
 import { getAuthUserById, jwtSecret, verifyApiToken } from '../auth/token.js';
+import { getMcpResourceUrl, oauthResourceMatches } from '../oauth/config.js';
+import { verifyOAuthAccessToken } from '../oauth/tokens.js';
+import { oauthMessages } from '../i18n/sv-se.js';
 
 export function requireScope(scope) {
   return (req, res, next) => {
-    if (req.auth?.type !== 'api_token' || req.auth.scopes?.includes(scope)) {
+    if (!['api_token', 'oauth'].includes(req.auth?.type) || req.auth.scopes?.includes(scope)) {
       return next();
     }
 
-    return res.status(403).json({ error: 'Din API-token saknar behörighet för den här åtgärden.' });
+    const error = req.auth?.type === 'oauth'
+      ? oauthMessages.missingScope
+      : 'Din API-token saknar behörighet för den här åtgärden.';
+    return res.status(403).json({ error });
   };
 }
 
@@ -72,7 +78,31 @@ export default function authMiddleware(req, res, next) {
     req.auth = {
       type: 'api_token',
       tokenId: apiToken.id,
+      expiresAt: apiToken.expiresAt,
       scopes: apiToken.scopes,
+    };
+    return next();
+  }
+
+  if (token.startsWith('kvitt_oat_')) {
+    const oauthToken = verifyOAuthAccessToken(token);
+    if (!oauthToken || !oauthResourceMatches(oauthToken.resource, getMcpResourceUrl())) {
+      return res.status(401).json({ error: oauthMessages.invalidAccessToken });
+    }
+    // Kvitt's authorization server, MCP service and API form one trust domain.
+    // Forwarding this resource-bound token to the API is therefore not third-party token passthrough.
+    if (!isAllowedApiTokenRequest(req, oauthToken.scopes)) {
+      return res.status(403).json({ error: oauthMessages.missingScope });
+    }
+
+    req.user = oauthToken.user;
+    req.auth = {
+      type: 'oauth',
+      grantId: oauthToken.grantId,
+      clientId: oauthToken.clientId,
+      tokenId: oauthToken.id,
+      expiresAt: oauthToken.expiresAt,
+      scopes: oauthToken.scopes,
     };
     return next();
   }

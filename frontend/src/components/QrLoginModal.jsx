@@ -6,6 +6,7 @@ import ModalShell from './ModalShell.jsx';
 import ErrorMessage from './ErrorMessage.jsx';
 import { get, post } from '../api/client.js';
 import { t } from '../lib/i18n.js';
+import { navigateAfterLogin } from '../lib/postLoginNavigation.js';
 
 const POLL_INTERVAL_MS = 3000;
 
@@ -41,7 +42,7 @@ export default function QrLoginModal({ onClose }) {
         throw new Error('Ogiltigt QR-inloggningssvar.');
       }
       localStorage.setItem('token', jwt);
-      navigate('/');
+      navigateAfterLogin(navigate);
     } catch {
       if (!activeRef.current) return;
       setError(t('qrLogin.claimFailed'));
