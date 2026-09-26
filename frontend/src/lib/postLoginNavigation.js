@@ -43,19 +43,16 @@ function consumePendingOAuthPath() {
   return query === null ? null : `/oauth/authorize?${query}`;
 }
 
-export function navigateAfterLogin(navigate, options = {}) {
-  const pendingOAuthPath = consumePendingOAuthPath();
-  if (pendingOAuthPath !== null) {
-    navigate(pendingOAuthPath, options);
-    return;
-  }
-
+function consumePendingInvitePath() {
   const pendingInvite = sessionStorage.getItem(PENDING_INVITE_TOKEN_KEY);
   if (pendingInvite) {
     sessionStorage.removeItem(PENDING_INVITE_TOKEN_KEY);
-    navigate(`/invite/${encodeURIComponent(pendingInvite)}`, options);
-    return;
+    return `/invite/${encodeURIComponent(pendingInvite)}`;
   }
+  return null;
+}
 
-  navigate('/', options);
+export function navigateAfterLogin(navigate, options = {}) {
+  const destination = consumePendingOAuthPath() ?? consumePendingInvitePath() ?? '/';
+  navigate(destination, options);
 }
