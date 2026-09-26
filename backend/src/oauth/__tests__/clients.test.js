@@ -20,7 +20,7 @@ const {
 const { redirectUriMatches } = await import('../redirect.js');
 
 const clientId = 'https://client.example/oauth/client.json';
-const publicLookup = async () => [{ address: '203.0.113.10', family: 4 }];
+const publicLookup = async () => [{ address: '8.8.8.8', family: 4 }];
 
 function responseRequest(body, {
   headers = {},
@@ -122,7 +122,7 @@ describe('CIMD client resolution', () => {
       },
     });
     await expect(runLookup(calls[0].lookup, 'client.example')).resolves.toEqual({
-      address: '203.0.113.10',
+      address: '8.8.8.8',
       family: 4,
     });
     expect(requests[0].destroy).not.toHaveBeenCalled();
@@ -130,17 +130,17 @@ describe('CIMD client resolution', () => {
 
   it('pins connection lookup to the validated addresses and hostname', async () => {
     const pinnedLookup = createPinnedDnsLookup('client.example', [
-      { address: '203.0.113.10', family: 4 },
-      { address: '2001:db8::10', family: 6 },
+      { address: '8.8.8.8', family: 4 },
+      { address: '2001:4860:4860::8888', family: 6 },
     ]);
 
     await expect(runLookup(pinnedLookup, 'client.example', { family: 4 }))
-      .resolves.toEqual({ address: '203.0.113.10', family: 4 });
+      .resolves.toEqual({ address: '8.8.8.8', family: 4 });
     await expect(runLookup(pinnedLookup, 'client.example', { all: true }))
       .resolves.toEqual({
         address: [
-          { address: '203.0.113.10', family: 4 },
-          { address: '2001:db8::10', family: 6 },
+          { address: '8.8.8.8', family: 4 },
+          { address: '2001:4860:4860::8888', family: 6 },
         ],
         family: undefined,
       });
@@ -151,7 +151,7 @@ describe('CIMD client resolution', () => {
   it('rejects DNS results containing a private rebound address before fetching', async () => {
     const requestImpl = vi.fn();
     const lookupImpl = vi.fn().mockResolvedValue([
-      { address: '203.0.113.10', family: 4 },
+      { address: '8.8.8.8', family: 4 },
       { address: '127.0.0.1', family: 4 },
     ]);
 
@@ -206,10 +206,36 @@ describe('CIMD client resolution', () => {
     'https://198.18.0.1/client.json',
     'https://[::1]/client.json',
     'https://[fd00::1]/client.json',
-  ])('rejects private CIMD address %s', async (privateClientId) => {
+    'https://[::8.8.8.8]/client.json',
+    'https://[fec0::1]/client.json',
+    'https://[2001:db8::1]/client.json',
+    'https://[2002:0a00:0001::1]/client.json',
+    'https://[64:ff9b::a00:1]/client.json',
+    'https://192.0.2.1/client.json',
+    'https://198.51.100.1/client.json',
+    'https://203.0.113.1/client.json',
+  ])('rejects non-public CIMD address %s', async (privateClientId) => {
     const requestImpl = vi.fn();
     await expect(resolveCimdClient(privateClientId, { requestImpl })).rejects.toBeInstanceOf(OAuthClientError);
     expect(requestImpl).not.toHaveBeenCalled();
+  });
+
+  it('allows literal public IPv4 and IPv6 CIMD metadata hosts', async () => {
+    for (const publicClientId of [
+      'https://8.8.8.8/oauth/client.json',
+      'https://[2001:4860:4860::8888]/oauth/client.json',
+    ]) {
+      const { calls, requestImpl } = jsonRequest({
+        client_id: publicClientId,
+        redirect_uris: ['https://client.example/callback'],
+      });
+      const lookupImpl = vi.fn();
+
+      await expect(resolveCimdClient(publicClientId, { requestImpl, lookupImpl }))
+        .resolves.toMatchObject({ clientId: publicClientId, kind: 'cimd' });
+      expect(lookupImpl).not.toHaveBeenCalled();
+      expect(calls[0].hostname).toBe(new URL(publicClientId).hostname.replace(/^\[|\]$/gu, ''));
+    }
   });
 
   it('rejects a metadata response larger than 10 KB', async () => {

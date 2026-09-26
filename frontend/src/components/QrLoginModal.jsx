@@ -7,7 +7,7 @@ import ErrorMessage from './ErrorMessage.jsx';
 import { get, post } from '../api/client.js';
 import { t } from '../lib/i18n.js';
 import { navigateAfterLogin } from '../lib/postLoginNavigation.js';
-import { getValidatedJwt, isQrLoginToken } from '../lib/qrLoginValidation.js';
+import { getValidatedJwt, isQrLoginToken, verifyQrLoginJwt } from '../lib/qrLoginValidation.js';
 
 const POLL_INTERVAL_MS = 3000;
 
@@ -36,6 +36,9 @@ export default function QrLoginModal({ onClose }) {
       if (!activeRef.current) return;
       const jwt = getValidatedJwt(result);
       if (!jwt) {
+        throw new Error(t('qrLogin.claimFailed'));
+      }
+      if (!await verifyQrLoginJwt(jwt)) {
         throw new Error(t('qrLogin.claimFailed'));
       }
       localStorage.setItem('token', jwt);
@@ -76,7 +79,7 @@ export default function QrLoginModal({ onClose }) {
         pollRef.current = setInterval(async () => {
           if (!activeRef.current) return;
           try {
-            const result = await get(`/api/auth/qr-login/${data.token}/status`);
+            const result = await get(`/api/auth/qr-login/${encodeURIComponent(data.token)}/status`);
             if (!activeRef.current) return;
             if (result.status === 'completed') {
               setStatus('completed');

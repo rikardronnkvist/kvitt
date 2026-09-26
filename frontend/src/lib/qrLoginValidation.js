@@ -9,3 +9,17 @@ export function getValidatedJwt(result) {
   return typeof result?.jwt === 'string' && result.jwt.length <= 4096 && JWT_PATTERN.test(result.jwt)
     ? result.jwt : null;
 }
+
+export async function verifyQrLoginJwt(jwt, fetchImpl = fetch) {
+  if (typeof jwt !== 'string' || jwt.length > 4096 || !JWT_PATTERN.test(jwt)) {
+    return false;
+  }
+
+  const response = await fetchImpl('/api/auth/me', {
+    headers: { Authorization: `Bearer ${jwt}` },
+  });
+  if (!response.ok) return false;
+
+  const data = await response.json();
+  return Number.isSafeInteger(data?.user?.id) && data.user.id > 0;
+}

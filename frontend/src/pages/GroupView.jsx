@@ -103,6 +103,15 @@ function GroupSkeleton() {
   );
 }
 
+function ArchivedNotice({ isArchived }) {
+  if (!isArchived) return null;
+  return (
+    <p className="m-0 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-4 py-3 text-sm text-[var(--text-secondary)]">
+      Gruppen är arkiverad och skrivskyddad.
+    </p>
+  );
+}
+
 function SettlementItem({ settlement, onEdit, readOnly = false }) {
   const payerUser = {
     full_name: settlement.payer_full_name || settlement.payer_display_name,
@@ -1382,11 +1391,7 @@ export default function GroupView() {
                 </div>
               </article>
             </div>
-            {isArchived ? (
-              <p className="m-0 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] px-4 py-3 text-sm text-[var(--text-secondary)]">
-                Gruppen är arkiverad och skrivskyddad.
-              </p>
-            ) : null}
+            <ArchivedNotice isArchived={isArchived} />
           </div>
         </div>
       </section>
