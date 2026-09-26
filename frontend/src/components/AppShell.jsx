@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
-import { Bell, BellOff, FolderPlus, Home, Info, KeyRound, LogOut, Menu, RefreshCw, ScanLine, Settings, UserCircle2, X } from 'lucide-react';
+import { Bell, BellOff, Cable, FolderPlus, Home, Info, KeyRound, LogOut, Menu, RefreshCw, ScanLine, Settings, UserCircle2, X } from 'lucide-react';
 import { parseUser } from '../lib/session.js';
 import { get, post, put } from '../api/client.js';
 import { GROUP_THEMES } from '../lib/groupTheme.js';
@@ -190,7 +190,7 @@ function AppMenuDropdown({
         className="flex w-full items-center gap-3 px-3 py-2.5 text-sm text-[var(--text-primary)] hover:bg-[var(--app-surface-muted)]"
         onClick={onOpenApiTokens}
       >
-        <KeyRound className="h-4 w-4 text-[var(--text-secondary)]" />
+        <Cable className="h-4 w-4 text-[var(--text-secondary)]" />
         {t('shell.myApplications')}
       </button>
       {!user?.is_admin || hasNotificationsMenuItem ? (
