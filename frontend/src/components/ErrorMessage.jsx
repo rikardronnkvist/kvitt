@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Copy, ExternalLink } from 'lucide-react';
 import { getErrorDetails } from '../lib/errorDetails.js';
@@ -27,31 +27,17 @@ function buildGitHubIssueUrl(message, details) {
 export default function ErrorMessage({ message, className = '' }) {
   const [showDetails, setShowDetails] = useState(false);
   const [copyState, setCopyState] = useState('idle');
-  const detailsRef = useRef(null);
   const details = getErrorDetails(message);
   const githubIssueUrl = details ? buildGitHubIssueUrl(message, details) : '';
 
   if (!message) return null;
 
-  function copyFromTextarea() {
-    try {
-      detailsRef.current?.select();
-      return document.execCommand('copy');
-    } catch {
-      return false;
-    }
-  }
-
   async function copyDetails() {
     try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(details);
-      } else if (!copyFromTextarea()) {
-        throw new Error('Copy command failed');
-      }
+      await navigator.clipboard.writeText(details);
       setCopyState('copied');
     } catch {
-      setCopyState(copyFromTextarea() ? 'copied' : 'failed');
+      setCopyState('failed');
     }
   }
 
@@ -83,7 +69,6 @@ export default function ErrorMessage({ message, className = '' }) {
           onClose={() => setShowDetails(false)}
         >
           <textarea
-            ref={detailsRef}
             className="min-h-64 w-full resize-y font-mono text-xs"
             value={details}
             readOnly

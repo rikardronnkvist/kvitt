@@ -4,11 +4,11 @@ import { registerErrorDetails } from '../lib/errorDetails.js';
 const getToken = () => localStorage.getItem('token');
 
 function buildSafeUrl(url) {
-  if (typeof url !== 'string' || !url.startsWith('/')) {
+  if (typeof url !== 'string' || !url.startsWith('/api/') || /[\\#]/u.test(url)) {
     throw new Error(t('common.genericError'));
   }
   const { origin, pathname, search } = new URL(url, window.location.origin);
-  if (origin !== window.location.origin) {
+  if (origin !== window.location.origin || !pathname.startsWith('/api/')) {
     throw new Error(t('common.genericError'));
   }
   return pathname + search;
@@ -28,7 +28,9 @@ function sanitizeRequestUrl(url) {
     .map((segment) => (/^[A-Za-z0-9_-]{20,}$/.test(segment) ? '[redacted]' : segment))
     .join('/');
   const queryKeys = [...parsed.searchParams.keys()];
-  return queryKeys.length > 0 ? `${pathname}?${queryKeys.map((key) => `${key}=[redacted]`).join('&')}` : pathname;
+  if (queryKeys.length === 0) return pathname;
+  const redactedQuery = queryKeys.map((key) => `${key}=[redacted]`).join('&');
+  return `${pathname}?${redactedQuery}`;
 }
 
 function markdownCodeBlock(value) {
@@ -37,6 +39,7 @@ function markdownCodeBlock(value) {
 }
 
 function buildErrorReport({ url, method, message, status, statusText, serverMessage, cause }) {
+  const httpStatus = statusText ? `${status} ${statusText}` : String(status);
   return [
     `# ${t('errors.reportTitle')}`,
     '',
@@ -48,7 +51,7 @@ function buildErrorReport({ url, method, message, status, statusText, serverMess
     '',
     `- **${t('errors.reportTime')}:** ${new Date().toISOString()}`,
     `- **${t('errors.reportRequest')}:** \`${method} ${sanitizeRequestUrl(url)}\``,
-    status ? `- **${t('errors.reportHttpStatus')}:** ${status}${statusText ? ` ${statusText}` : ''}` : null,
+    status ? `- **${t('errors.reportHttpStatus')}:** ${httpStatus}` : null,
     `- **${t('errors.reportBrowser')}:** ${navigator.userAgent}`,
     serverMessage || cause ? '' : null,
     serverMessage || cause ? `## ${t('errors.reportCauseHeading')}` : null,

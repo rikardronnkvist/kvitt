@@ -265,7 +265,6 @@ function CreateGroupModal({
                 onChange={(event) => setNewGroupName(event.target.value)}
                 placeholder={t('shell.groupNamePlaceholder')}
                 required
-                autoFocus
               />
             </label>
             <div className="grid gap-3">
@@ -573,13 +572,14 @@ function PasskeysModal({
       open
       className="modal-backdrop app-shell-modal-backdrop"
       aria-label={t('shell.passkeysTitle')}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          setManagingPasskeys(false);
-        }
-      }}
     >
-      <div className="modal-sheet app-shell-modal-sheet md:w-[480px]">
+      <button
+        type="button"
+        className="absolute inset-0"
+        aria-label={t('common.close')}
+        onClick={() => setManagingPasskeys(false)}
+      />
+      <div className="modal-sheet app-shell-modal-sheet relative md:w-[480px]">
         <div className="space-y-5 p-5 sm:p-6">
           <div className="space-y-1">
             <p className="section-eyebrow">{t('shell.securityEyebrow')}</p>

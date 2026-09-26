@@ -916,6 +916,12 @@ function safeInviteUrl(token) {
   }
 }
 
+function getBalanceWidth(balance, maxAbsoluteBalance) {
+  const absoluteBalance = Math.abs(Number(balance) || 0);
+  if (maxAbsoluteBalance <= 0 || absoluteBalance <= 0) return '0%';
+  return `max(${((absoluteBalance / maxAbsoluteBalance) * 100).toFixed(1)}%, 0.85rem)`;
+}
+
 async function fetchGroupData(slug) {
   const encodedSlug = encodeURIComponent(slug);
   const groupData = await get(`/api/groups/${encodedSlug}`);
@@ -1305,9 +1311,7 @@ export default function GroupView() {
                     const shouldEmphasizeCurrentUser = memberBalancesAscending.length > 3 && isCurrentUser;
                     const numericBalance = Number(member.balance) || 0;
                     const absoluteBalance = Math.abs(numericBalance);
-                    const balanceWidth = maxAbsoluteBalance > 0 && absoluteBalance > 0
-                      ? `max(${((absoluteBalance / maxAbsoluteBalance) * 100).toFixed(1)}%, 0.85rem)`
-                      : '0%';
+                    const balanceWidth = getBalanceWidth(member.balance, maxAbsoluteBalance);
                     return (
                       <button
                         key={member.id}

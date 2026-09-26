@@ -92,8 +92,16 @@ function redirectIfPossible(data, registeredTarget) {
   ) {
     return false;
   }
-  window.location.assign(data.redirect_to);
+  window.location.assign(new URL(data.redirect_to).href);
   return true;
+}
+
+function getRawOAuthQuery(search) {
+  return search.startsWith('?') ? search.slice(1) : search;
+}
+
+function hasExpiredSession(storedResult, userResult) {
+  return storedResult.response.status === 401 || userResult.response.status === 401;
 }
 
 export default function OAuthAuthorize() {
@@ -122,9 +130,7 @@ export default function OAuthAuthorize() {
 
     const load = async () => {
       if (!authorizationHandle) {
-        const rawQuery = location.search.startsWith('?')
-          ? location.search.slice(1)
-          : location.search;
+        const rawQuery = getRawOAuthQuery(location.search);
         if (!rawQuery) {
           setError(t('oauthAuthorize.invalidRequest'));
           return;
@@ -160,7 +166,7 @@ export default function OAuthAuthorize() {
         loadAuthorizationRequest(authorizationHandle, token, controller.signal),
         loadCurrentUser(token, controller.signal),
       ]);
-      if (storedResult.response.status === 401 || userResult.response.status === 401) {
+      if (hasExpiredSession(storedResult, userResult)) {
         localStorage.removeItem('token');
         navigate(buildOAuthLoginPath(authorizationHandle), { replace: true });
         return;
@@ -235,7 +241,8 @@ export default function OAuthAuthorize() {
         navigate(buildOAuthLoginPath(authorizationHandle), { replace: true });
         return;
       }
-      if (redirectIfPossible(data, validation?.redirect_uri)) return;
+      if (redirectIfPossible(data, request?.redirect_uri === validation?.redirect_uri
+        ? request.redirect_uri : null)) return;
       setError(data?.error_description || t('oauthAuthorize.decisionFailed'));
     } catch {
       setError(t('oauthAuthorize.decisionFailed'));

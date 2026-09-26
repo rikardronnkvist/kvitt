@@ -66,6 +66,9 @@ function isPrivateIpv4(address) {
     || (a === 169 && b === 254)
     || (a === 172 && b >= 16 && b <= 31)
     || (a === 192 && b === 168)
+    || (a === 192 && b === 0 && parts[2] === 0)
+    || (a === 192 && b === 88 && parts[2] === 99)
+    || (a === 198 && (b === 18 || b === 19))
     || (a === 100 && b >= 64 && b <= 127)
     || a >= 224
   );
@@ -91,7 +94,9 @@ function isPrivateIpv6(address) {
 
 function isPrivateAddress(address) {
   const version = isIP(address);
-  return version === 4 ? isPrivateIpv4(address) : version === 6 ? isPrivateIpv6(address) : true;
+  if (version === 4) return isPrivateIpv4(address);
+  if (version === 6) return isPrivateIpv6(address);
+  return true;
 }
 
 function validateCimdUrl(clientId) {
@@ -108,6 +113,7 @@ function validateCimdUrl(clientId) {
     || url.password
     || url.hash
     || url.pathname === '/'
+    || /[\r\n]/u.test(clientId)
     || url.hostname.toLowerCase() === 'localhost'
     || url.hostname.toLowerCase().endsWith('.localhost')
   ) {
