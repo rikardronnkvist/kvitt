@@ -199,6 +199,8 @@
     "description": "Anslut appar till Kvitt med OAuth eller skapa en personlig token för skript och avancerad konfiguration.",
     "mcpTitle": "Anslut till Kvitt med MCP",
     "mcpDescription": "Lägg till en anpassad connector med den här URL:en:",
+    "copyMcpUrl": "Kopiera MCP-adressen",
+    "mcpUrlCopied": "MCP-adressen kopierad",
     "mcpLoginHint": "Du loggas in automatiskt och väljer vilka behörigheter appen får.",
     "connectedAppsTitle": "Anslutna appar",
     "connectedAppsDescription": "Appar som du har gett åtkomst till ditt Kvitt-konto.",

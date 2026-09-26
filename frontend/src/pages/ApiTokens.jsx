@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Cable, Copy, KeyRound, Plus, ShieldCheck, Trash2 } from 'lucide-react';
+import { Cable, Check, Copy, KeyRound, Plus, ShieldCheck, Trash2 } from 'lucide-react';
 import { del, get, post } from '../api/client.js';
 import ErrorMessage from '../components/ErrorMessage.jsx';
 import { formatDateTime } from '../lib/format.js';
@@ -29,6 +29,7 @@ export default function ApiTokens() {
   const [form, setForm] = useState({ name: '', can_write_expenses: true, expires_in_days: 90 });
   const [createdToken, setCreatedToken] = useState('');
   const [copied, setCopied] = useState(false);
+  const [mcpUrlCopied, setMcpUrlCopied] = useState(false);
 
   const loadTokens = async () => {
     setLoading(true);
@@ -80,6 +81,15 @@ export default function ApiTokens() {
     try {
       await navigator.clipboard.writeText(createdToken);
       setCopied(true);
+    } catch {
+      setError(t('errors.copyFailed'));
+    }
+  };
+
+  const copyMcpUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/mcp`);
+      setMcpUrlCopied(true);
     } catch {
       setError(t('errors.copyFailed'));
     }
@@ -153,9 +163,18 @@ export default function ApiTokens() {
             <p className="m-0 text-sm text-[var(--text-secondary)]">{t('apiTokens.mcpDescription')}</p>
           </div>
         </div>
-        <code className="block break-all rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3 text-sm text-[var(--text-primary)]">
-          {`${window.location.origin}/mcp`}
-        </code>
+        <button
+          type="button"
+          className="flex w-full items-center justify-between gap-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3 text-left text-sm text-[var(--text-primary)] transition hover:border-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+          onClick={copyMcpUrl}
+          aria-label={t(mcpUrlCopied ? 'apiTokens.mcpUrlCopied' : 'apiTokens.copyMcpUrl')}
+          title={t(mcpUrlCopied ? 'apiTokens.mcpUrlCopied' : 'apiTokens.copyMcpUrl')}
+        >
+          <code className="min-w-0 break-all">{`${window.location.origin}/mcp`}</code>
+          {mcpUrlCopied
+            ? <Check className="h-4 w-4 shrink-0 text-[var(--success)]" aria-hidden="true" />
+            : <Copy className="h-4 w-4 shrink-0 text-[var(--text-secondary)]" aria-hidden="true" />}
+        </button>
         <p className="m-0 text-sm text-[var(--text-secondary)]">{t('apiTokens.mcpLoginHint')}</p>
       </div>
 
