@@ -50,10 +50,10 @@ function cleanupExpiredOAuthRecords() {
 }
 
 export function createOAuthToken(type) {
-  const prefix = type === 'access' ? 'kvitt_oat' : type === 'refresh' ? 'kvitt_ort' : null;
-  if (!prefix) {
+  if (type !== 'access' && type !== 'refresh') {
     throw new TypeError('OAuth token type must be access or refresh');
   }
+  const prefix = type === 'access' ? 'kvitt_oat' : 'kvitt_ort';
 
   const id = randomUUID();
   const secret = randomBytes(TOKEN_SECRET_BYTES).toString('base64url');

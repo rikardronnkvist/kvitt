@@ -21,7 +21,7 @@ export class AuthorizationRequestCapacityError extends AuthorizationRequestError
 
 function decodeQueryComponent(value) {
   try {
-    return decodeURIComponent(value.replace(/\+/gu, ' '));
+    return decodeURIComponent(value.replaceAll('+', ' '));
   } catch {
     throw new AuthorizationRequestError();
   }

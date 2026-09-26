@@ -234,7 +234,7 @@ export default function ApiTokens() {
       </div>
       {creating ? (
         <form className="surface-card grid gap-4 p-5" onSubmit={createToken}>
-          <label className="field-label">{t('apiTokens.name')}<input autoFocus required value={form.name} onChange={(event) => setForm((value) => ({ ...value, name: event.target.value }))} placeholder={t('apiTokens.namePlaceholder')} /></label>
+          <label className="field-label">{t('apiTokens.name')}<input required value={form.name} onChange={(event) => setForm((value) => ({ ...value, name: event.target.value }))} placeholder={t('apiTokens.namePlaceholder')} /></label>
           <label className="flex items-center gap-3 text-sm font-medium"><input type="checkbox" checked={form.can_write_expenses} onChange={(event) => setForm((value) => ({ ...value, can_write_expenses: event.target.checked }))} />{t('apiTokens.writeExpenses')}</label>
           <label className="field-label">{t('apiTokens.expiry')}<select value={form.expires_in_days ?? 'never'} onChange={(event) => setForm((value) => ({ ...value, expires_in_days: event.target.value === 'never' ? null : Number(event.target.value) }))}><option value={30}>{t('apiTokens.days30')}</option><option value={90}>{t('apiTokens.days90')}</option><option value={365}>{t('apiTokens.days365')}</option><option value="never">{t('apiTokens.neverExpires')}</option></select></label>
           <div className="flex gap-3"><button type="button" className="btn-secondary flex-1" onClick={() => setCreating(false)}>{t('common.cancel')}</button><button type="submit" className="btn-primary flex-1" disabled={saving}>{saving ? t('apiTokens.creating') : t('apiTokens.create')}</button></div>

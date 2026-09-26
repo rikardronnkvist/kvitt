@@ -11,8 +11,7 @@ function parseUrl(value) {
 export function isLoopbackRedirectUri(value) {
   const url = parseUrl(value);
   return Boolean(
-    url
-    && url.protocol === 'http:'
+    url?.protocol === 'http:'
     && LOOPBACK_HOSTS.has(url.hostname.toLowerCase()),
   );
 }

@@ -46,14 +46,10 @@ function isAllowedApiTokenRequest(req, scopes) {
   }
 
   if (req.baseUrl === '/api/settlements' && req.method === 'GET' && /^\/\d+(?:\/balances)?$/u.test(req.path)) {
-    return hasScope('settlements:read') || hasScope('expenses:read');
+    return ['settlements:read', 'expenses:read'].some(hasScope);
   }
 
-  if (req.baseUrl === '/api/auth' && req.method === 'GET' && req.path === '/mcp/me') {
-    return true;
-  }
-
-  return false;
+  return req.baseUrl === '/api/auth' && req.method === 'GET' && req.path === '/mcp/me';
 }
 
 export default function authMiddleware(req, res, next) {
