@@ -564,9 +564,7 @@ function exchangeAuthorizationCode(body, client) {
     }
     const now = db.prepare('SELECT CURRENT_TIMESTAMP AS now').get().now;
     if (
-      record.expires_at <= now
-      || record.grant_revoked_at
-      || record.client_id !== client.clientId
+      record.client_id !== client.clientId
       || record.redirect_uri !== body.redirect_uri
       || !pkceMatches(body.code_verifier, record.code_challenge)
       || (body.resource && !oauthResourceMatches(body.resource, record.resource))
@@ -575,6 +573,9 @@ function exchangeAuthorizationCode(body, client) {
     }
     if (record.used_at) {
       revokeGrant(record.grant_id);
+      return { error: 'invalid_grant', description: oauthMessages.invalidAuthorizationCode };
+    }
+    if (record.expires_at <= now || record.grant_revoked_at) {
       return { error: 'invalid_grant', description: oauthMessages.invalidAuthorizationCode };
     }
 

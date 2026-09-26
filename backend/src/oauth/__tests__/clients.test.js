@@ -8,6 +8,7 @@ process.env.JWT_SECRET = 'oauth-client-test-secret';
 const { db, initializeDatabase } = await import('../../db/database.js');
 const {
   clearClientCache,
+  createPinnedDnsLookup,
   OAuthClientError,
   registerDcrClient,
   resolveCimdClient,
@@ -23,6 +24,18 @@ function jsonResponse(body, headers = {}) {
   return new Response(JSON.stringify(body), {
     status: 200,
     headers: { 'Content-Type': 'application/json', ...headers },
+  });
+}
+
+function runLookup(lookupFn, hostname, options = {}) {
+  return new Promise((resolve, reject) => {
+    lookupFn(hostname, options, (error, address, family) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve({ address, family });
+      }
+    });
   });
 }
 
@@ -45,6 +58,8 @@ afterAll(() => {
 
 describe('CIMD client resolution', () => {
   it('fetches and validates an HTTPS client metadata document', async () => {
+    const dispatcher = { close: vi.fn() };
+    const dispatcherFactory = vi.fn().mockReturnValue(dispatcher);
     const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({
       client_id: clientId,
       client_name: 'Claude',
@@ -52,7 +67,11 @@ describe('CIMD client resolution', () => {
       redirect_uris: ['https://client.example/callback'],
     }, { 'Cache-Control': 'max-age=60' }));
 
-    await expect(resolveCimdClient(clientId, { fetchImpl, lookupImpl: publicLookup })).resolves.toEqual({
+    await expect(resolveCimdClient(clientId, {
+      fetchImpl,
+      lookupImpl: publicLookup,
+      dispatcherFactory,
+    })).resolves.toEqual({
       clientId,
       clientName: 'Claude',
       clientUri: 'https://client.example',
@@ -63,8 +82,44 @@ describe('CIMD client resolution', () => {
     });
     expect(fetchImpl).toHaveBeenCalledWith(
       new URL(clientId),
-      expect.objectContaining({ redirect: 'error' }),
+      expect.objectContaining({ dispatcher, redirect: 'error' }),
     );
+    expect(dispatcherFactory).toHaveBeenCalledWith('client.example', [
+      { address: '203.0.113.10', family: 4 },
+    ]);
+    expect(dispatcher.close).toHaveBeenCalledOnce();
+  });
+
+  it('pins connection lookup to the validated addresses and hostname', async () => {
+    const pinnedLookup = createPinnedDnsLookup('client.example', [
+      { address: '203.0.113.10', family: 4 },
+      { address: '2001:db8::10', family: 6 },
+    ]);
+
+    await expect(runLookup(pinnedLookup, 'client.example', { family: 4 }))
+      .resolves.toEqual({ address: '203.0.113.10', family: 4 });
+    await expect(runLookup(pinnedLookup, 'client.example', { all: true }))
+      .resolves.toEqual({
+        address: [
+          { address: '203.0.113.10', family: 4 },
+          { address: '2001:db8::10', family: 6 },
+        ],
+        family: undefined,
+      });
+    await expect(runLookup(pinnedLookup, 'rebound.example'))
+      .rejects.toMatchObject({ code: 'EACCES' });
+  });
+
+  it('rejects DNS results containing a private rebound address before fetching', async () => {
+    const fetchImpl = vi.fn();
+    const lookupImpl = vi.fn().mockResolvedValue([
+      { address: '203.0.113.10', family: 4 },
+      { address: '127.0.0.1', family: 4 },
+    ]);
+
+    await expect(resolveCimdClient(clientId, { fetchImpl, lookupImpl }))
+      .rejects.toBeInstanceOf(OAuthClientError);
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it('rejects a document whose client_id does not exactly match', async () => {

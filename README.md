@@ -55,7 +55,8 @@ Policy:
 | `PORT` | `backend` | `3000` | Backend HTTP port inside the backend container or during local backend development. |
 | `FRONTEND_PORT` | Compose (host) | `8080` | Host port mapped to the frontend container. |
 | `DB_PATH` | `backend` | `/app/data/kvitt.db` | SQLite database path used by the backend. |
-| `TRUST_PROXY` | `backend` | `loopback, linklocal, uniquelocal` | Express trusted nginx IPs/subnets. Only the first proxy hop is trusted. The default matches the private Compose network; keep the backend port private, or restrict this to the exact proxy subnet/address when exposing the backend separately. |
+| `TRUST_PROXY` | `backend` | `loopback, linklocal, uniquelocal` | Comma-separated Express proxy IPs/subnets trusted while resolving forwarding headers. The default supports the internal Traefik → nginx → backend path and direct local requests. Keep the backend private and, where possible, replace the defaults with the exact nginx and Traefik network CIDRs/addresses; never use a numeric hop count or `true`. |
+| `OAUTH_CIMD_ALLOW_PRIVATE` | `backend` | `false` | Allows CIMD metadata on private IPs only when exactly `true`. Leave disabled in production; this is intended only for isolated local development. DNS results are still pinned for the outbound request. |
 | `PASSKEY_RP_ID` | `backend` | `localhost` | WebAuthn relying party ID. Use your domain in production. |
 | `PASSKEY_RP_NAME` | `backend` | `Kvitt` | Displayed relying party name for passkey prompts. |
 | `PASSKEY_ORIGIN` | `backend` | `http://localhost:5173` | Allowed WebAuthn origin(s), comma-separated if needed. |
@@ -217,6 +218,8 @@ services:
       PASSKEY_ORIGIN: https://kvitt.mydomain.se
       OAUTH_ISSUER: https://kvitt.mydomain.se
       MCP_RESOURCE_URL: https://kvitt.mydomain.se/mcp
+      # Prefer the exact nginx/frontend and Traefik overlay CIDRs in production.
+      TRUST_PROXY: "10.20.0.0/24, 10.30.0.0/24"
       DB_PATH: /app/data/kvitt.db
       VAPID_PUBLIC_KEY: ABCxxxxxxxxxxxxxx123
       VAPID_PRIVATE_KEY: ZXYxxxxxxxxxxxxxx987
@@ -263,7 +266,7 @@ The MCP server is deployed separately from the main application stack and expose
 https://kvitt.mydomain.se/mcp
 ```
 
-The Traefik MCP router sends `/mcp` and `/.well-known/oauth-protected-resource*` to the MCP service with higher priority than the frontend router. Set `MCP_HOST`, `KVITT_PUBLIC_URL`, and `MCP_RESOURCE_URL` during deployment when using another domain. The frontend proxy sends authorization-server metadata and `/oauth/token`, `/oauth/register`, and `/oauth/revoke` to the backend, while `/oauth/authorize` remains in the SPA. No additional DNS record is needed. The existing Swarm networks must be named `kvitt_backend` and `traefik` (adjust `docker-compose.mcp.yml` if the stack name differs).
+The Traefik MCP router sends `/mcp` and `/.well-known/oauth-protected-resource*` to the MCP service with higher priority than the frontend router. Set `MCP_HOST`, `KVITT_PUBLIC_URL`, and `MCP_RESOURCE_URL` during deployment when using another domain. The frontend nginx proxy uses `$proxy_add_x_forwarded_for`, so the backend receives `client, Traefik` before nginx's socket address; Traefik must retain its default secure forwarded-header handling (or configure `forwardedHeaders.trustedIPs` for the load balancers in front of it). Set backend `TRUST_PROXY` to only the nginx and Traefik internal addresses/ranges. The frontend proxy sends authorization-server metadata and `/oauth/token`, `/oauth/register`, and `/oauth/revoke` to the backend, while `/oauth/authorize` remains in the SPA. No additional DNS record is needed. The existing Swarm networks must be named `kvitt_backend` and `traefik` (adjust `docker-compose.mcp.yml` if the stack name differs).
 
 After the MCP image has been published by the release workflow, deploy it with:
 

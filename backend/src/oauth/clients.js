@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
+import { Agent, fetch as undiciFetch } from 'undici';
 import { z } from 'zod';
 import { db } from '../db/database.js';
 import { isValidOAuthRedirectUri } from './redirect.js';
@@ -114,17 +115,13 @@ function validateCimdUrl(clientId) {
   return url;
 }
 
-async function assertPublicHost(url, lookupImpl) {
-  if (process.env.OAUTH_CIMD_ALLOW_PRIVATE === 'true') {
-    return;
-  }
-
+async function resolveCimdAddresses(url, lookupImpl) {
   const hostname = url.hostname.replace(/^\[|\]$/gu, '');
   if (isIP(hostname)) {
-    if (isPrivateAddress(hostname)) {
+    if (process.env.OAUTH_CIMD_ALLOW_PRIVATE !== 'true' && isPrivateAddress(hostname)) {
       throw new OAuthClientError();
     }
-    return;
+    return [{ address: hostname, family: isIP(hostname) }];
   }
 
   let addresses;
@@ -133,9 +130,70 @@ async function assertPublicHost(url, lookupImpl) {
   } catch {
     throw new OAuthClientError();
   }
-  if (!addresses.length || addresses.some(({ address }) => isPrivateAddress(address))) {
+  const validated = addresses
+    .map(({ address }) => ({ address, family: isIP(address) }))
+    .filter(({ family }) => family !== 0);
+  if (
+    validated.length !== addresses.length
+    || !validated.length
+    || (
+      process.env.OAUTH_CIMD_ALLOW_PRIVATE !== 'true'
+      && validated.some(({ address }) => isPrivateAddress(address))
+    )
+  ) {
     throw new OAuthClientError();
   }
+  return [...new Map(validated.map((entry) => [`${entry.family}:${entry.address}`, entry])).values()];
+}
+
+function dnsLookupError(code, hostname) {
+  return Object.assign(new Error(`CIMD DNS lookup rejected for ${hostname}`), {
+    code,
+    hostname,
+  });
+}
+
+export function createPinnedDnsLookup(expectedHostname, validatedAddresses) {
+  const expected = expectedHostname.toLowerCase();
+  let nextAddress = 0;
+
+  return (hostname, options, callback) => {
+    const normalizedHostname = hostname.replace(/^\[|\]$/gu, '').toLowerCase();
+    if (normalizedHostname !== expected) {
+      queueMicrotask(() => callback(dnsLookupError('EACCES', hostname)));
+      return;
+    }
+
+    const lookupOptions = typeof options === 'number' ? { family: options } : (options || {});
+    const requestedFamily = Number(lookupOptions.family) || 0;
+    const candidates = validatedAddresses.filter(
+      ({ family }) => requestedFamily === 0 || family === requestedFamily,
+    );
+    if (!candidates.length) {
+      queueMicrotask(() => callback(dnsLookupError('ENOTFOUND', hostname)));
+      return;
+    }
+
+    if (lookupOptions.all) {
+      queueMicrotask(() => callback(null, candidates.map(({ address, family }) => ({
+        address,
+        family,
+      }))));
+      return;
+    }
+
+    const selected = candidates[nextAddress % candidates.length];
+    nextAddress += 1;
+    queueMicrotask(() => callback(null, selected.address, selected.family));
+  };
+}
+
+function createCimdDispatcher(hostname, validatedAddresses) {
+  return new Agent({
+    connect: {
+      lookup: createPinnedDnsLookup(hostname, validatedAddresses),
+    },
+  });
 }
 
 async function readLimitedBody(response) {
@@ -191,7 +249,11 @@ export function clearClientCache(clientId) {
 
 export async function resolveCimdClient(
   clientId,
-  { fetchImpl = globalThis.fetch, lookupImpl = lookup } = {},
+  {
+    fetchImpl = undiciFetch,
+    lookupImpl = lookup,
+    dispatcherFactory = createCimdDispatcher,
+  } = {},
 ) {
   const cached = cimdCache.get(clientId);
   if (cached?.expiresAt > Date.now()) {
@@ -200,10 +262,13 @@ export async function resolveCimdClient(
   cimdCache.delete(clientId);
 
   const url = validateCimdUrl(clientId);
-  await assertPublicHost(url, lookupImpl);
+  const hostname = url.hostname.replace(/^\[|\]$/gu, '');
+  const validatedAddresses = await resolveCimdAddresses(url, lookupImpl);
+  const dispatcher = dispatcherFactory(hostname, validatedAddresses);
 
   try {
     const response = await fetchImpl(url, {
+      dispatcher,
       headers: { Accept: 'application/json' },
       redirect: 'error',
       signal: AbortSignal.timeout(5_000),
@@ -244,6 +309,8 @@ export async function resolveCimdClient(
       throw error;
     }
     throw new OAuthClientError();
+  } finally {
+    await dispatcher.close?.();
   }
 }
 

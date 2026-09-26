@@ -379,7 +379,7 @@ describe('OAuth authorization server routes', () => {
     expect((await downgradedExchange.json()).scope).not.toContain('expenses:write');
   });
 
-  it('revokes grant tokens when an authorization code is replayed', async () => {
+  it('revokes grant tokens on a valid replay after expiry but not on unbound attempts', async () => {
     const decisionResponse = await postJson('/api/oauth/authorize/decision', {
       ...authorizationInput(),
       approved: true,
@@ -399,14 +399,29 @@ describe('OAuth authorization server routes', () => {
       body: new URLSearchParams(form),
     });
     const accessToken = (await first.json()).access_token;
-
-    const invalidReplay = await request('/oauth/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ ...form, code_verifier: `${verifier}x` }),
+    const otherClient = registerDcrClient({
+      redirect_uris: ['https://app.example/callback?existing=1'],
     });
-    expect(invalidReplay.status).toBe(400);
-    expect(verifyOAuthAccessToken(accessToken)).not.toBeNull();
+    db.prepare(`
+      UPDATE oauth_authorization_codes
+      SET expires_at = datetime('now', '-1 second')
+      WHERE code_hash = ?
+    `).run(createHash('sha256').update(code).digest('hex'));
+
+    for (const invalidBinding of [
+      { code_verifier: `${verifier}x` },
+      { redirect_uri: 'https://attacker.example/callback' },
+      { resource: 'https://other.example/mcp' },
+      { client_id: otherClient.client_id },
+    ]) {
+      const invalidReplay = await request('/oauth/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ ...form, ...invalidBinding }),
+      });
+      expect(invalidReplay.status).toBe(400);
+      expect(verifyOAuthAccessToken(accessToken)).not.toBeNull();
+    }
 
     const replay = await request('/oauth/token', {
       method: 'POST',
@@ -416,6 +431,41 @@ describe('OAuth authorization server routes', () => {
     expect(replay.status).toBe(400);
     await expect(replay.json()).resolves.toMatchObject({ error: 'invalid_grant' });
     expect(verifyOAuthAccessToken(accessToken)).toBeNull();
+  });
+
+  it('rejects an unused expired authorization code without revoking its grant', async () => {
+    const decisionResponse = await postJson('/api/oauth/authorize/decision', {
+      ...authorizationInput(),
+      approved: true,
+      allow_write: true,
+    });
+    const code = new URL((await decisionResponse.json()).redirect_to).searchParams.get('code');
+    const codeHash = createHash('sha256').update(code).digest('hex');
+    const { grant_id: codeGrantId } = db.prepare(
+      'SELECT grant_id FROM oauth_authorization_codes WHERE code_hash = ?',
+    ).get(codeHash);
+    db.prepare(`
+      UPDATE oauth_authorization_codes
+      SET expires_at = datetime('now', '-1 second')
+      WHERE code_hash = ?
+    `).run(codeHash);
+
+    const response = await request('/oauth/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        client_id: registration.client_id,
+        code,
+        redirect_uri: 'https://app.example/callback?existing=1',
+        code_verifier: verifier,
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: 'invalid_grant' });
+    expect(db.prepare('SELECT revoked_at FROM oauth_grants WHERE id = ?').get(codeGrantId).revoked_at)
+      .toBeNull();
   });
 
   it('returns a trustworthy consent host based on client kind', async () => {
