@@ -49,7 +49,8 @@ export default function App() {
           <Route path="/groups/:slug" element={<GroupView />} />
           <Route path="/groups/:slug/statistics" element={<GroupStatistics />} />
           <Route path="/groups/:slug/expenses/new" element={<AddExpense />} />
-          <Route path="/api-tokens" element={<ApiTokens />} />
+          <Route path="/my-apps" element={<ApiTokens />} />
+          <Route path="/api-tokens" element={<Navigate to="/my-apps" replace />} />
           <Route element={<AdminRoute />}>
             <Route path="/admin" element={<Admin />} />
           </Route>

@@ -134,7 +134,7 @@
     "scanQr": "Skanna QR-kod",
     "editProfile": "Redigera profil",
     "myPasskeys": "Mina Passkeys",
-    "myTokens": "Mina tokens",
+    "myApplications": "Mina appar",
     "disableNotifications": "Stäng av notiser",
     "enableNotifications": "Aktivera notiser",
     "pullToRefresh": "Laddar om...",
@@ -319,7 +319,8 @@
     "claudeStep8Alt": "Steg 8: verktyg syns i Claude",
     "claudeStep8Text": "Steg 8: Kvitt-verktygen visas i Claude och är redo att användas i konversationer.",
     "claudeDemoAlt": "Demo av Kvitt i Claude Desktop",
-    "claudeDemoText": "När anslutningen är klar kan du be Claude att hämta grupper, utgifter och balansinformation direkt från Kvitt."
+    "claudeDemoText1": "När anslutningen är klar kan du be Claude att hämta grupper, utgifter och balansinformation direkt från Kvitt.",
+    "claudeDemoText2": "Du kan nu använda Kvitt-verktygen i Claude för att hantera dina kostnader och saldon."
 
   },
   "expenseModals": {

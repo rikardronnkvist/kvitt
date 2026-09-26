@@ -191,7 +191,7 @@ function AppMenuDropdown({
         onClick={onOpenApiTokens}
       >
         <KeyRound className="h-4 w-4 text-[var(--text-secondary)]" />
-        {t('shell.myTokens')}
+        {t('shell.myApplications')}
       </button>
       {!user?.is_admin || hasNotificationsMenuItem ? (
         <div className="my-1 border-t border-[var(--border-subtle)]" />
@@ -949,7 +949,7 @@ export default function AppShell() {
                   navigate={navigate}
                   onOpenCreateGroup={openCreateGroup}
                   onOpenEditProfile={openEditProfile}
-                  onOpenApiTokens={() => { setDropdownOpen(false); navigate('/api-tokens'); }}
+                  onOpenApiTokens={() => { setDropdownOpen(false); navigate('/my-apps'); }}
                   onOpenPasskeys={openPasskeys}
                   onLogout={handleLogout}
                 />

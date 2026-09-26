@@ -307,12 +307,23 @@ export default function About() {
 
           <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
             <img
-              src="/claude-9-demo.png"
+              src="/claude-9-demo1.png"
               alt={t('about.claudeDemoAlt')}
               className="mx-auto w-full max-w-[720px] rounded-lg border border-[var(--border-subtle)] bg-white"
             />
             <p className="mt-3 text-sm text-[var(--text-secondary)]">
-              {t('about.claudeDemoText')}
+              {t('about.claudeDemoText1')}
+            </p>
+          </article>
+
+          <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
+            <img
+              src="/claude-9-demo2.png"
+              alt={t('about.claudeDemoAlt')}
+              className="mx-auto w-full max-w-[720px] rounded-lg border border-[var(--border-subtle)] bg-white"
+            />
+            <p className="mt-3 text-sm text-[var(--text-secondary)]">
+              {t('about.claudeDemoText2')}
             </p>
           </article>
         </div>
