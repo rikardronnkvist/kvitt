@@ -458,11 +458,6 @@ function approveAuthorizationRequest(req, res, validation) {
   });
 }
 
-const authorizationDecisionHandlers = new Map([
-  [true, approveAuthorizationRequest],
-  [false, denyAuthorizationRequest],
-]);
-
 oauthApiRouter.post(
   '/authorize/request',
   authorizationRequestRateLimit,
@@ -551,8 +546,10 @@ oauthApiRouter.post(
         ),
       );
     }
-    const decisionHandler = authorizationDecisionHandlers.get(req.body.approved);
-    return decisionHandler(req, res, validation);
+    if (req.body.approved) {
+      return approveAuthorizationRequest(req, res, validation);
+    }
+    return denyAuthorizationRequest(req, res, validation);
   },
 );
 
@@ -736,11 +733,6 @@ function handleUnsupportedGrant(_body, _client, res) {
   return tokenError(res, 'unsupported_grant_type', oauthMessages.unsupportedGrantType);
 }
 
-const tokenGrantHandlers = new Map([
-  ['authorization_code', handleAuthorizationCodeGrant],
-  ['refresh_token', handleRefreshTokenGrant],
-]);
-
 oauthRouter.post('/token', preventTokenResponseCaching, tokenRateLimit, formParser, async (req, res) => {
   let client;
   try {
@@ -749,8 +741,13 @@ oauthRouter.post('/token', preventTokenResponseCaching, tokenRateLimit, formPars
     return tokenError(res, 'invalid_client', oauthMessages.invalidClientAuthentication, 401);
   }
 
-  const grantHandler = tokenGrantHandlers.get(req.body.grant_type) ?? handleUnsupportedGrant;
-  return grantHandler(req.body, client, res);
+  if (req.body.grant_type === 'authorization_code') {
+    return handleAuthorizationCodeGrant(req.body, client, res);
+  }
+  if (req.body.grant_type === 'refresh_token') {
+    return handleRefreshTokenGrant(req.body, client, res);
+  }
+  return handleUnsupportedGrant(req.body, client, res);
 });
 
 oauthRouter.post('/revoke', preventTokenResponseCaching, tokenRateLimit, formParser, async (req, res) => {
