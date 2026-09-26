@@ -201,6 +201,122 @@ export default function About() {
           </details>
         </div>
       </div>
+
+      <div className="surface-card p-5">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--text-secondary)]">{t('about.claudeHeading')}</h2>
+        <p className="text-[var(--text-secondary)]">
+          {t('about.claudeIntro')}
+        </p>
+
+        <div className="mt-4 space-y-4">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
+              <img
+                src="/claude-1-add-connector.png"
+                alt={t('about.claudeStep1Alt')}
+                className="mx-auto rounded-lg border border-[var(--border-subtle)] bg-white"
+              />
+              <p className="mt-3 text-sm text-[var(--text-secondary)]">
+                {t('about.claudeStep1Text')}
+              </p>
+            </article>
+
+            <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
+              <img
+                src="/claude-2-custom-connector-url.png"
+                alt={t('about.claudeStep2Alt')}
+                className="mx-auto rounded-lg border border-[var(--border-subtle)] bg-white"
+              />
+              <p className="mt-3 text-sm text-[var(--text-secondary)]">
+                {t('about.claudeStep2Text')}
+              </p>
+            </article>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
+              <img
+                src="/claude-3-connector-auth-config.png"
+                alt={t('about.claudeStep3Alt')}
+                className="mx-auto rounded-lg border border-[var(--border-subtle)] bg-white"
+              />
+              <p className="mt-3 text-sm text-[var(--text-secondary)]">
+                {t('about.claudeStep3Text')}
+              </p>
+            </article>
+
+            <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
+              <img
+                src="/claude-4-connect-from-claude.png"
+                alt={t('about.claudeStep4Alt')}
+                className="mx-auto rounded-lg border border-[var(--border-subtle)] bg-white"
+              />
+              <p className="mt-3 text-sm text-[var(--text-secondary)]">
+                {t('about.claudeStep4Text')}
+              </p>
+            </article>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
+              <img
+                src="/claude-5-web-login-claudeai.png"
+                alt={t('about.claudeStep5Alt')}
+                className="mx-auto rounded-lg border border-[var(--border-subtle)] bg-white"
+              />
+              <p className="mt-3 text-sm text-[var(--text-secondary)]">
+                {t('about.claudeStep5Text')}
+              </p>
+            </article>
+
+            <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
+              <img
+                src="/claude-6-connect-claude-kvitt.png"
+                alt={t('about.claudeStep6Alt')}
+                className="mx-auto rounded-lg border border-[var(--border-subtle)] bg-white"
+              />
+              <p className="mt-3 text-sm text-[var(--text-secondary)]">
+                {t('about.claudeStep6Text')}
+              </p>
+            </article>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
+              <img
+                src="/claude-7-reopen-claude-app.png"
+                alt={t('about.claudeStep7Alt')}
+                className="mx-auto rounded-lg border border-[var(--border-subtle)] bg-white"
+              />
+              <p className="mt-3 text-sm text-[var(--text-secondary)]">
+                {t('about.claudeStep7Text')}
+              </p>
+            </article>
+
+            <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
+              <img
+                src="/claude-8-tools-in-claude.png"
+                alt={t('about.claudeStep8Alt')}
+                className="mx-auto rounded-lg border border-[var(--border-subtle)] bg-white"
+              />
+              <p className="mt-3 text-sm text-[var(--text-secondary)]">
+                {t('about.claudeStep8Text')}
+              </p>
+            </article>
+          </div>
+
+          <article className="rounded-xl border border-[var(--border-subtle)] bg-[var(--app-surface-muted)] p-3">
+            <img
+              src="/claude-9-demo.png"
+              alt={t('about.claudeDemoAlt')}
+              className="mx-auto w-full max-w-[720px] rounded-lg border border-[var(--border-subtle)] bg-white"
+            />
+            <p className="mt-3 text-sm text-[var(--text-secondary)]">
+              {t('about.claudeDemoText')}
+            </p>
+          </article>
+        </div>
+      </div>
         </div>
       </main>
     </div>

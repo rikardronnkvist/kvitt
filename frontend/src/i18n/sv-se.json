@@ -299,7 +299,27 @@
     "mcpAdvancedAlt": "Avancerad konfiguration med Authorization-header",
     "mcpAdvancedText": "Lägg till Bearer följt av din personliga token i Authorization-headern.",
     "mcpAdvancedTextExample": "Exempel",
-    "mcpAdvancedTextExampleValue": "Bearer kvitt_pat_0000123-1234....abc123"
+    "mcpAdvancedTextExampleValue": "Bearer kvitt_pat_0000123-1234....abc123",
+    "claudeHeading": "Anslut Claude Desktop",
+    "claudeIntro": "Med Claude Desktop kan du koppla Kvitt som en anpassad connector. Följ stegen nedan för att lägga till servern, autentisera och börja använda kvitt i Claude.",
+    "claudeStep1Alt": "Steg 1: lägg till en anpassad connector i Claude",
+    "claudeStep1Text": "Steg 1: Klicka på Add custom connector för att skapa en ny MCP-anslutning.",
+    "claudeStep2Alt": "Steg 2: ange namn och MCP URL",
+    "claudeStep2Text": "Steg 2: Skriv in ett namn och ange Kvitts MCP-URL för att lägga till tjänsten.",
+    "claudeStep3Alt": "Steg 3: konfigurera autentisering",
+    "claudeStep3Text": "Steg 3: Välj autentiseringsläge.",
+    "claudeStep4Alt": "Steg 4: anslut från Claude",
+    "claudeStep4Text": "Steg 4: Tryck på Connect så inloggningen öppnas i webbläsaren eller appen.",
+    "claudeStep5Alt": "Steg 5: logga in via webbläsaren",
+    "claudeStep5Text": "Steg 5: Logga in i Kvitt och godkänn att Claude får åtkomst till din data.",
+    "claudeStep6Alt": "Steg 6: bekräfta anslutningen till Kvitt",
+    "claudeStep6Text": "Steg 6: Bekräfta anslutningen och låt Claude fortsätta med MCP-verktygen.",
+    "claudeStep7Alt": "Steg 7: öppna Claude igen",
+    "claudeStep7Text": "Steg 7: Stäng och öppna Claude igen så att verktygen laddas in korrekt.",
+    "claudeStep8Alt": "Steg 8: verktyg syns i Claude",
+    "claudeStep8Text": "Steg 8: Kvitt-verktygen visas i Claude och är redo att användas i konversationer.",
+    "claudeDemoAlt": "Demo av Kvitt i Claude Desktop",
+    "claudeDemoText": "När anslutningen är klar kan du be Claude att hämta grupper, utgifter och balansinformation direkt från Kvitt."
 
   },
   "expenseModals": {
