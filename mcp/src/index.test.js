@@ -146,7 +146,7 @@ test('returns discovery challenges for missing and invalid tokens', async () => 
   const missingChallenge = missing.headers.get('www-authenticate');
   assert.equal(missing.status, 401);
   assert.match(missingChallenge, /resource_metadata="https:\/\/kvitt\.example\/\.well-known\/oauth-protected-resource\/mcp"/u);
-  assert.match(missingChallenge, /scope="groups:read expenses:read settlements:read"/u);
+  assert.match(missingChallenge, /scope="groups:read expenses:read settlements:read expenses:write"/u);
   assert.doesNotMatch(missingChallenge, /error="invalid_token"/u);
 
   const invalid = await mcpRequest('kvitt_oat_invalid', { jsonrpc: '2.0', method: 'initialize' });

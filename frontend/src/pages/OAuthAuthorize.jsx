@@ -106,7 +106,7 @@ export default function OAuthAuthorize() {
   const [request, setRequest] = useState(null);
   const [validation, setValidation] = useState(null);
   const [user, setUser] = useState(null);
-  const [allowWrite, setAllowWrite] = useState(false);
+  const [allowWrite, setAllowWrite] = useState(true);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -202,9 +202,7 @@ export default function OAuthAuthorize() {
       setRequest(restoredRequest);
       setValidation(validationResult.data);
       setUser(userResult.data.user);
-      setAllowWrite(
-        validationResult.data.existing_grant_scopes?.includes('expenses:write') || false,
-      );
+      setAllowWrite(validationResult.data.requested_scopes?.includes('expenses:write') || false);
     };
 
     load().catch((requestError) => {

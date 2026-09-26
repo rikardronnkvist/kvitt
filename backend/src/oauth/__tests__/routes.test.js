@@ -176,6 +176,27 @@ describe('OAuth authorization server routes', () => {
     expect(body).not.toHaveProperty('redirect_to');
   });
 
+  it('defaults OAuth requests to full read and write permissions', async () => {
+    const requestInput = authorizationInput({ scope: undefined });
+    const validationResponse = await postJson('/api/oauth/authorize/validate', requestInput);
+    expect(validationResponse.status).toBe(200);
+    await expect(validationResponse.json()).resolves.toMatchObject({
+      requested_scopes: ['groups:read', 'expenses:read', 'settlements:read', 'expenses:write'],
+    });
+
+    const decisionResponse = await postJson('/api/oauth/authorize/decision', {
+      ...requestInput,
+      approved: true,
+      allow_write: true,
+    });
+    expect(decisionResponse.status).toBe(200);
+    const grant = db.prepare(`
+      SELECT scopes FROM oauth_grants
+      WHERE user_id = ? AND client_id = ? AND resource = ?
+    `).get(userId, registration.client_id, 'https://kvitt.example/mcp');
+    expect(JSON.parse(grant.scopes)).toContain('expenses:write');
+  });
+
   it('returns redirectable errors only after validating the redirect URI', async () => {
     const response = await postJson('/api/oauth/authorize/validate', authorizationInput({
       response_type: 'token',

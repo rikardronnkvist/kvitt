@@ -17,7 +17,7 @@ const resourceUrl = process.env.MCP_RESOURCE_URL?.replace(/\/$/u, '')
   || (publicUrl ? `${publicUrl}/mcp` : null);
 const port = Number(process.env.PORT) || 3001;
 const supportedScopes = ['groups:read', 'expenses:read', 'settlements:read', 'expenses:write'];
-const defaultScopes = supportedScopes.slice(0, 3);
+const defaultScopes = [...supportedScopes];
 const tokenCacheTtlMs = 60_000;
 const allowedOrigins = new Set(
   (process.env.MCP_ALLOWED_ORIGINS || '')

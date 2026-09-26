@@ -12,6 +12,7 @@ export const OAUTH_DEFAULT_SCOPES = Object.freeze([
   API_TOKEN_SCOPES.groupsRead,
   API_TOKEN_SCOPES.expensesRead,
   API_TOKEN_SCOPES.settlementsRead,
+  API_TOKEN_SCOPES.expensesWrite,
 ]);
 
 function withoutTrailingSlash(value) {
