@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   buildOAuthLoginPath,
+  clearOAuthRequestHandle,
   getOAuthRequestHandle,
   navigateAfterLogin,
   OAUTH_REQUEST_HANDLE_KEY,
@@ -75,5 +76,20 @@ test('never stores raw OAuth authorization parameters', () => {
   withSessionStorage((values) => {
     assert.equal(rememberOAuthRequestHandle('client_id=client&redirect_uri=https://attacker.example'), false);
     assert.equal(values.size, 0);
+  });
+});
+
+test('clears a resolved authorization handle before later logins', () => {
+  withSessionStorage((values) => {
+    assert.equal(rememberOAuthRequestHandle(handle), true);
+    clearOAuthRequestHandle();
+
+    let destination;
+    navigateAfterLogin((path) => {
+      destination = path;
+    }, {}, '');
+
+    assert.equal(values.has(OAUTH_REQUEST_HANDLE_KEY), false);
+    assert.equal(destination, '/');
   });
 });

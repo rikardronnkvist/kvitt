@@ -21,6 +21,10 @@ export function rememberOAuthRequestHandle(handle) {
   return true;
 }
 
+export function clearOAuthRequestHandle() {
+  sessionStorage.removeItem(OAUTH_REQUEST_HANDLE_KEY);
+}
+
 export function buildOAuthLoginPath(handle) {
   if (!rememberOAuthRequestHandle(handle)) return '/login';
   return `/login?oauth_request=${encodeURIComponent(handle)}`;
@@ -29,7 +33,7 @@ export function buildOAuthLoginPath(handle) {
 function consumePendingOAuthPath(search) {
   const queryHandle = getOAuthRequestHandle(search);
   const storedHandle = sessionStorage.getItem(OAUTH_REQUEST_HANDLE_KEY);
-  sessionStorage.removeItem(OAUTH_REQUEST_HANDLE_KEY);
+  clearOAuthRequestHandle();
   const handle = queryHandle || (isValidOAuthRequestHandle(storedHandle) ? storedHandle : null);
   return handle ? `/oauth/authorize?request=${encodeURIComponent(handle)}` : null;
 }

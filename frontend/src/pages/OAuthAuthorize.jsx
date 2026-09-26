@@ -8,6 +8,7 @@ import { t } from '../lib/i18n.js';
 import { isSafeOAuthRedirectTarget } from '../lib/oauthRedirect.js';
 import {
   buildOAuthLoginPath,
+  clearOAuthRequestHandle,
   getOAuthRequestHandle,
   rememberOAuthRequestHandle,
 } from '../lib/postLoginNavigation.js';
@@ -171,6 +172,7 @@ export default function OAuthAuthorize() {
         );
         return;
       }
+      clearOAuthRequestHandle();
       const restoredRequest = storedResult.data.request;
       const validationResult = await sendOAuthRequest(
         '/api/oauth/authorize/validate',
