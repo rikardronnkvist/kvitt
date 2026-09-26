@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import { EventEmitter } from 'node:events';
+import { Readable } from 'node:stream';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const databasePath = `./data/oauth-client-tests-${process.pid}.db`;
@@ -20,11 +22,33 @@ const { redirectUriMatches } = await import('../redirect.js');
 const clientId = 'https://client.example/oauth/client.json';
 const publicLookup = async () => [{ address: '203.0.113.10', family: 4 }];
 
-function jsonResponse(body, headers = {}) {
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json', ...headers },
+function responseRequest(body, {
+  headers = {},
+  statusCode = 200,
+} = {}) {
+  const calls = [];
+  const requests = [];
+  const requestImpl = vi.fn((options, callback) => {
+    calls.push(options);
+    const request = new EventEmitter();
+    requests.push(request);
+    request.setTimeout = vi.fn();
+    request.destroy = vi.fn((error) => queueMicrotask(() => request.emit('error', error)));
+    request.end = vi.fn(() => {
+      queueMicrotask(() => {
+        const response = Readable.from([body]);
+        response.statusCode = statusCode;
+        response.headers = { 'content-type': 'application/json', ...headers };
+        callback(response);
+      });
+    });
+    return request;
   });
+  return { calls, requestImpl, requests };
+}
+
+function jsonRequest(body, options = {}) {
+  return responseRequest(JSON.stringify(body), options);
 }
 
 function runLookup(lookupFn, hostname, options = {}) {
@@ -58,19 +82,16 @@ afterAll(() => {
 
 describe('CIMD client resolution', () => {
   it('fetches and validates an HTTPS client metadata document', async () => {
-    const dispatcher = { close: vi.fn() };
-    const dispatcherFactory = vi.fn().mockReturnValue(dispatcher);
-    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({
+    const { calls, requestImpl, requests } = jsonRequest({
       client_id: clientId,
       client_name: 'Claude',
       client_uri: 'https://client.example',
       redirect_uris: ['https://client.example/callback'],
-    }, { 'Cache-Control': 'max-age=60' }));
+    }, { headers: { 'cache-control': 'max-age=60' } });
 
     await expect(resolveCimdClient(clientId, {
-      fetchImpl,
       lookupImpl: publicLookup,
-      dispatcherFactory,
+      requestImpl,
     })).resolves.toEqual({
       clientId,
       clientName: 'Claude',
@@ -80,14 +101,20 @@ describe('CIMD client resolution', () => {
       tokenEndpointAuthMethod: 'none',
       kind: 'cimd',
     });
-    expect(fetchImpl).toHaveBeenCalledWith(
-      new URL(clientId),
-      expect.objectContaining({ dispatcher, redirect: 'error' }),
-    );
-    expect(dispatcherFactory).toHaveBeenCalledWith('client.example', [
-      { address: '203.0.113.10', family: 4 },
-    ]);
-    expect(dispatcher.close).toHaveBeenCalledOnce();
+    expect(calls[0]).toMatchObject({
+      hostname: 'client.example',
+      path: '/oauth/client.json',
+      servername: 'client.example',
+      headers: {
+        Accept: 'application/json',
+        Host: 'client.example',
+      },
+    });
+    await expect(runLookup(calls[0].lookup, 'client.example')).resolves.toEqual({
+      address: '203.0.113.10',
+      family: 4,
+    });
+    expect(requests[0].setTimeout).toHaveBeenCalledWith(5_000, expect.any(Function));
   });
 
   it('pins connection lookup to the validated addresses and hostname', async () => {
@@ -111,24 +138,24 @@ describe('CIMD client resolution', () => {
   });
 
   it('rejects DNS results containing a private rebound address before fetching', async () => {
-    const fetchImpl = vi.fn();
+    const requestImpl = vi.fn();
     const lookupImpl = vi.fn().mockResolvedValue([
       { address: '203.0.113.10', family: 4 },
       { address: '127.0.0.1', family: 4 },
     ]);
 
-    await expect(resolveCimdClient(clientId, { fetchImpl, lookupImpl }))
+    await expect(resolveCimdClient(clientId, { requestImpl, lookupImpl }))
       .rejects.toBeInstanceOf(OAuthClientError);
-    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(requestImpl).not.toHaveBeenCalled();
   });
 
   it('rejects a document whose client_id does not exactly match', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({
+    const { requestImpl } = jsonRequest({
       client_id: 'https://other.example/client.json',
       redirect_uris: ['https://client.example/callback'],
-    }));
+    });
 
-    await expect(resolveCimdClient(clientId, { fetchImpl, lookupImpl: publicLookup }))
+    await expect(resolveCimdClient(clientId, { requestImpl, lookupImpl: publicLookup }))
       .rejects.toBeInstanceOf(OAuthClientError);
   });
 
@@ -139,22 +166,22 @@ describe('CIMD client resolution', () => {
     'https://user:password@client.example/callback',
     'https://client.example/callback#fragment',
   ])('rejects unsafe metadata redirect URI %s', async (redirectUri) => {
-    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({
+    const { requestImpl } = jsonRequest({
       client_id: clientId,
       redirect_uris: [redirectUri],
-    }));
+    });
 
-    await expect(resolveCimdClient(clientId, { fetchImpl, lookupImpl: publicLookup }))
+    await expect(resolveCimdClient(clientId, { requestImpl, lookupImpl: publicLookup }))
       .rejects.toBeInstanceOf(OAuthClientError);
   });
 
   it('allows an RFC 8252 loopback HTTP redirect in client metadata', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({
+    const { requestImpl } = jsonRequest({
       client_id: clientId,
       redirect_uris: ['http://127.0.0.1:43210/callback'],
-    }));
+    });
 
-    await expect(resolveCimdClient(clientId, { fetchImpl, lookupImpl: publicLookup }))
+    await expect(resolveCimdClient(clientId, { requestImpl, lookupImpl: publicLookup }))
       .resolves.toMatchObject({ redirectUris: ['http://127.0.0.1:43210/callback'] });
   });
 
@@ -166,18 +193,34 @@ describe('CIMD client resolution', () => {
     'https://[::1]/client.json',
     'https://[fd00::1]/client.json',
   ])('rejects private CIMD address %s', async (privateClientId) => {
-    const fetchImpl = vi.fn();
-    await expect(resolveCimdClient(privateClientId, { fetchImpl })).rejects.toBeInstanceOf(OAuthClientError);
-    expect(fetchImpl).not.toHaveBeenCalled();
+    const requestImpl = vi.fn();
+    await expect(resolveCimdClient(privateClientId, { requestImpl })).rejects.toBeInstanceOf(OAuthClientError);
+    expect(requestImpl).not.toHaveBeenCalled();
   });
 
   it('rejects a metadata response larger than 10 KB', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(new Response('x'.repeat(10 * 1024 + 1), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    }));
+    const { requestImpl } = responseRequest('x'.repeat(10 * 1024 + 1));
 
-    await expect(resolveCimdClient(clientId, { fetchImpl, lookupImpl: publicLookup }))
+    await expect(resolveCimdClient(clientId, { requestImpl, lookupImpl: publicLookup }))
+      .rejects.toBeInstanceOf(OAuthClientError);
+  });
+
+  it('rejects redirects instead of following them', async () => {
+    const { requestImpl } = responseRequest('', {
+      statusCode: 302,
+      headers: { location: 'https://attacker.example/client.json' },
+    });
+
+    await expect(resolveCimdClient(clientId, { requestImpl, lookupImpl: publicLookup }))
+      .rejects.toBeInstanceOf(OAuthClientError);
+  });
+
+  it('requires a JSON response content type', async () => {
+    const { requestImpl } = responseRequest('{}', {
+      headers: { 'content-type': 'text/plain' },
+    });
+
+    await expect(resolveCimdClient(clientId, { requestImpl, lookupImpl: publicLookup }))
       .rejects.toBeInstanceOf(OAuthClientError);
   });
 });

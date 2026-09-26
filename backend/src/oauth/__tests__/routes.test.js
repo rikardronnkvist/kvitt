@@ -107,6 +107,7 @@ describe('OAuth authorization server routes', () => {
     ]) {
       const response = await request(path);
       expect(response.status).toBe(200);
+      expect(response.headers.get('ratelimit')).not.toBeNull();
       await expect(response.json()).resolves.toMatchObject({
         issuer: 'https://kvitt.example',
         authorization_endpoint: 'https://kvitt.example/oauth/authorize',
@@ -499,6 +500,7 @@ describe('OAuth authorization server routes', () => {
       headers: { Authorization: `Bearer ${sessionToken}` },
     });
     expect(listResponse.status).toBe(200);
+    expect(listResponse.headers.get('ratelimit')).not.toBeNull();
     const { grants } = await listResponse.json();
     expect(grants).toHaveLength(1);
     expect(grants[0]).toMatchObject({
@@ -511,6 +513,7 @@ describe('OAuth authorization server routes', () => {
       headers: { Authorization: `Bearer ${sessionToken}` },
     });
     expect(deleteResponse.status).toBe(204);
+    expect(deleteResponse.headers.get('ratelimit')).not.toBeNull();
     const activeGrant = db.prepare(
       'SELECT id FROM oauth_grants WHERE id = ? AND revoked_at IS NULL',
     ).get(grants[0].id);

@@ -1,13 +1,14 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { lookup } from 'node:dns/promises';
+import { request as httpsRequest } from 'node:https';
 import { isIP } from 'node:net';
-import { Agent, fetch as undiciFetch } from 'undici';
 import { z } from 'zod';
 import { db } from '../db/database.js';
 import { isValidOAuthRedirectUri } from './redirect.js';
 
 const CIMD_MAX_BYTES = 10 * 1024;
 const CIMD_MAX_CACHE_SECONDS = 60 * 60;
+const CIMD_REQUEST_TIMEOUT_MS = 5_000;
 const CLIENT_SECRET_BYTES = 32;
 const cimdCache = new Map();
 
@@ -188,44 +189,83 @@ export function createPinnedDnsLookup(expectedHostname, validatedAddresses) {
   };
 }
 
-function createCimdDispatcher(hostname, validatedAddresses) {
-  return new Agent({
-    connect: {
-      lookup: createPinnedDnsLookup(hostname, validatedAddresses),
-    },
-  });
+function readHeader(headers, name) {
+  const value = headers[name];
+  return Array.isArray(value) ? value[0] : value;
 }
 
-async function readLimitedBody(response) {
-  const contentLength = Number(response.headers.get('content-length'));
-  if (Number.isFinite(contentLength) && contentLength > CIMD_MAX_BYTES) {
-    throw new OAuthClientError();
-  }
+function requestCimdDocument(url, hostname, validatedAddresses, requestImpl) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const rejectRequest = (error = new OAuthClientError()) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      reject(error instanceof OAuthClientError ? error : new OAuthClientError());
+    };
 
-  if (!response.body?.getReader) {
-    const text = await response.text();
-    if (Buffer.byteLength(text) > CIMD_MAX_BYTES) {
-      throw new OAuthClientError();
-    }
-    return text;
-  }
+    const request = requestImpl({
+      protocol: 'https:',
+      hostname,
+      port: url.port || undefined,
+      path: `${url.pathname}${url.search}`,
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+        Host: url.host,
+      },
+      lookup: createPinnedDnsLookup(hostname, validatedAddresses),
+      servername: isIP(hostname) ? undefined : hostname,
+    }, (response) => {
+      const contentType = readHeader(response.headers, 'content-type') || '';
+      const contentLength = Number(readHeader(response.headers, 'content-length'));
+      if (
+        !Number.isInteger(response.statusCode)
+        || response.statusCode < 200
+        || response.statusCode >= 300
+        || !/^application\/json(?:\s*;|$)/iu.test(contentType)
+        || (Number.isFinite(contentLength) && contentLength > CIMD_MAX_BYTES)
+      ) {
+        response.resume();
+        rejectRequest();
+        return;
+      }
 
-  const reader = response.body.getReader();
-  const chunks = [];
-  let total = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
-    }
-    total += value.byteLength;
-    if (total > CIMD_MAX_BYTES) {
-      await reader.cancel();
-      throw new OAuthClientError();
-    }
-    chunks.push(value);
-  }
-  return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk))).toString('utf8');
+      const chunks = [];
+      let total = 0;
+      response.on('data', (chunk) => {
+        if (settled) {
+          return;
+        }
+        const buffer = Buffer.from(chunk);
+        total += buffer.length;
+        if (total > CIMD_MAX_BYTES) {
+          response.destroy();
+          rejectRequest();
+          return;
+        }
+        chunks.push(buffer);
+      });
+      response.on('end', () => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        resolve({
+          body: Buffer.concat(chunks).toString('utf8'),
+          cacheControl: readHeader(response.headers, 'cache-control'),
+        });
+      });
+      response.on('error', rejectRequest);
+    });
+
+    request.on('error', rejectRequest);
+    request.setTimeout(CIMD_REQUEST_TIMEOUT_MS, () => {
+      request.destroy(new Error('CIMD request timed out'));
+    });
+    request.end();
+  });
 }
 
 function getCacheTtlMs(cacheControl) {
@@ -250,9 +290,8 @@ export function clearClientCache(clientId) {
 export async function resolveCimdClient(
   clientId,
   {
-    fetchImpl = undiciFetch,
     lookupImpl = lookup,
-    dispatcherFactory = createCimdDispatcher,
+    requestImpl = httpsRequest,
   } = {},
 ) {
   const cached = cimdCache.get(clientId);
@@ -264,20 +303,14 @@ export async function resolveCimdClient(
   const url = validateCimdUrl(clientId);
   const hostname = url.hostname.replace(/^\[|\]$/gu, '');
   const validatedAddresses = await resolveCimdAddresses(url, lookupImpl);
-  const dispatcher = dispatcherFactory(hostname, validatedAddresses);
 
   try {
-    const response = await fetchImpl(url, {
-      dispatcher,
-      headers: { Accept: 'application/json' },
-      redirect: 'error',
-      signal: AbortSignal.timeout(5_000),
-    });
-    if (!response.ok || !/^application\/json(?:\s*;|$)/iu.test(response.headers.get('content-type') || '')) {
-      throw new OAuthClientError();
-    }
-
-    const body = await readLimitedBody(response);
+    const { body, cacheControl } = await requestCimdDocument(
+      url,
+      hostname,
+      validatedAddresses,
+      requestImpl,
+    );
     let document;
     try {
       document = JSON.parse(body);
@@ -298,7 +331,7 @@ export async function resolveCimdClient(
       tokenEndpointAuthMethod: parsed.data.token_endpoint_auth_method,
       kind: 'cimd',
     };
-    const ttlMs = getCacheTtlMs(response.headers.get('cache-control'));
+    const ttlMs = getCacheTtlMs(cacheControl);
     if (ttlMs > 0) {
       cimdCache.set(clientId, { client, expiresAt: Date.now() + ttlMs });
     }
@@ -309,8 +342,6 @@ export async function resolveCimdClient(
       throw error;
     }
     throw new OAuthClientError();
-  } finally {
-    await dispatcher.close?.();
   }
 }
 

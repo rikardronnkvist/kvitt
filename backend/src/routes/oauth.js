@@ -33,6 +33,16 @@ export const oauthApiRouter = express.Router();
 export const oauthMetadataRouter = express.Router();
 const formParser = express.urlencoded({ extended: false, limit: '32kb' });
 
+const metadataRateLimit = rateLimit({
+  windowMs: 60_000,
+  limit: 120,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: {
+    error: 'temporarily_unavailable',
+    error_description: oauthMessages.metadataRateLimited,
+  },
+});
 const registrationRateLimit = rateLimit({
   windowMs: 60 * 60 * 1000,
   limit: 10,
@@ -63,6 +73,20 @@ const authorizationRateLimit = rateLimit({
     error_description: oauthMessages.authorizationRateLimited,
   },
 });
+const grantReadRateLimit = rateLimit({
+  windowMs: 60_000,
+  limit: 120,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: oauthMessages.grantReadRateLimited },
+});
+const grantMutationRateLimit = rateLimit({
+  windowMs: 60_000,
+  limit: 30,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: { error: oauthMessages.grantMutationRateLimited },
+});
 
 function authorizationServerMetadata() {
   const issuer = getOAuthIssuer();
@@ -84,10 +108,10 @@ function authorizationServerMetadata() {
   };
 }
 
-oauthMetadataRouter.get('/.well-known/oauth-authorization-server', (_req, res) => {
+oauthMetadataRouter.get('/.well-known/oauth-authorization-server', metadataRateLimit, (_req, res) => {
   return res.json(authorizationServerMetadata());
 });
-oauthMetadataRouter.get('/.well-known/openid-configuration', (_req, res) => {
+oauthMetadataRouter.get('/.well-known/openid-configuration', metadataRateLimit, (_req, res) => {
   return res.json(authorizationServerMetadata());
 });
 
@@ -294,6 +318,135 @@ function sendAuthorizationValidation(res, validation) {
   return res.json(validation.response);
 }
 
+function denyAuthorizationRequest(req, res, validation) {
+  tryLogActivity({
+    eventType: 'oauth.grant_denied',
+    action: 'deny',
+    actorUserId: req.user.id,
+    targetUserId: req.user.id,
+    entityType: 'oauth_grant',
+    metadata: { client_id: validation.clientId, resource: validation.resource },
+    ipAddress: resolveRequestIp(req),
+  });
+  return res.json({
+    redirect_uri: validation.redirectUri,
+    redirect_to: buildAuthorizationRedirect(validation.redirectUri, {
+      error: 'access_denied',
+      error_description: oauthMessages.accessDenied,
+      state: validation.state,
+      iss: getOAuthIssuer(),
+    }),
+  });
+}
+
+function approveAuthorizationRequest(req, res, validation) {
+  const finalScopes = validation.requestedScopes.filter(
+    (scope) => scope !== 'expenses:write' || req.body.allow_write,
+  );
+  const grantId = randomUUID();
+  const authorizationCode = randomBytes(32).toString('base64url');
+  const codeHash = createHash('sha256').update(authorizationCode).digest('hex');
+  const approve = db.transaction(() => {
+    const previousGrant = db.prepare(`
+      SELECT id, scopes, revoked_at
+      FROM oauth_grants
+      WHERE user_id = ? AND client_id = ? AND resource = ?
+    `).get(req.user.id, validation.clientId, validation.resource);
+    const previousScopes = previousGrant
+      ? parseApiTokenScopes(previousGrant.scopes)
+      : [];
+    const scopesChanged = previousGrant && (
+      previousScopes.length !== finalScopes.length
+      || previousScopes.some((scope) => !finalScopes.includes(scope))
+    );
+
+    if (previousGrant && (previousGrant.revoked_at || scopesChanged)) {
+      db.prepare(`
+        UPDATE oauth_tokens
+        SET revoked_at = COALESCE(revoked_at, CURRENT_TIMESTAMP)
+        WHERE grant_id = ?
+      `).run(previousGrant.id);
+      db.prepare(`
+        DELETE FROM oauth_authorization_codes
+        WHERE grant_id = ?
+      `).run(previousGrant.id);
+    }
+
+    db.prepare(`
+      INSERT INTO oauth_grants (id, user_id, client_id, client_name, scopes, resource)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(user_id, client_id, resource) DO UPDATE SET
+        client_name = excluded.client_name,
+        scopes = excluded.scopes,
+        revoked_at = NULL
+    `).run(
+      grantId,
+      req.user.id,
+      validation.clientId,
+      validation.client.clientName,
+      JSON.stringify(finalScopes),
+      validation.resource,
+    );
+    const grant = db.prepare(`
+      SELECT id
+      FROM oauth_grants
+      WHERE user_id = ? AND client_id = ? AND resource = ?
+    `).get(req.user.id, validation.clientId, validation.resource);
+    db.prepare(`
+      INSERT INTO oauth_authorization_codes (
+        code_hash,
+        grant_id,
+        client_id,
+        redirect_uri,
+        code_challenge,
+        scopes,
+        resource,
+        expires_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', '+60 seconds'))
+    `).run(
+      codeHash,
+      grant.id,
+      validation.clientId,
+      validation.redirectUri,
+      validation.challenge,
+      JSON.stringify(finalScopes),
+      validation.resource,
+    );
+    return grant.id;
+  });
+  const persistedGrantId = approve();
+
+  tryLogActivity({
+    eventType: 'oauth.grant_approved',
+    action: 'approve',
+    actorUserId: req.user.id,
+    targetUserId: req.user.id,
+    entityType: 'oauth_grant',
+    metadata: {
+      grant_id: persistedGrantId,
+      client_id: validation.clientId,
+      scopes: finalScopes,
+      resource: validation.resource,
+    },
+    ipAddress: resolveRequestIp(req),
+  });
+
+  return res.json({
+    redirect_uri: validation.redirectUri,
+    redirect_to: buildAuthorizationRedirect(validation.redirectUri, {
+      code: authorizationCode,
+      state: validation.state,
+      iss: getOAuthIssuer(),
+    }),
+  });
+}
+
+const authorizationDecisionHandlers = new Map([
+  [true, approveAuthorizationRequest],
+  [false, denyAuthorizationRequest],
+]);
+
 oauthApiRouter.post(
   '/authorize/validate',
   authorizationRateLimit,
@@ -325,128 +478,8 @@ oauthApiRouter.post(
         ),
       );
     }
-
-    if (!req.body.approved) {
-      tryLogActivity({
-        eventType: 'oauth.grant_denied',
-        action: 'deny',
-        actorUserId: req.user.id,
-        targetUserId: req.user.id,
-        entityType: 'oauth_grant',
-        metadata: { client_id: validation.clientId, resource: validation.resource },
-        ipAddress: resolveRequestIp(req),
-      });
-      return res.json({
-        redirect_uri: validation.redirectUri,
-        redirect_to: buildAuthorizationRedirect(validation.redirectUri, {
-          error: 'access_denied',
-          error_description: oauthMessages.accessDenied,
-          state: validation.state,
-          iss: getOAuthIssuer(),
-        }),
-      });
-    }
-
-    const finalScopes = validation.requestedScopes.filter(
-      (scope) => scope !== 'expenses:write' || req.body.allow_write,
-    );
-    const grantId = randomUUID();
-    const authorizationCode = randomBytes(32).toString('base64url');
-    const codeHash = createHash('sha256').update(authorizationCode).digest('hex');
-    const approve = db.transaction(() => {
-      const previousGrant = db.prepare(`
-        SELECT id, scopes, revoked_at
-        FROM oauth_grants
-        WHERE user_id = ? AND client_id = ? AND resource = ?
-      `).get(req.user.id, validation.clientId, validation.resource);
-      const previousScopes = previousGrant
-        ? parseApiTokenScopes(previousGrant.scopes)
-        : [];
-      const scopesChanged = previousGrant && (
-        previousScopes.length !== finalScopes.length
-        || previousScopes.some((scope) => !finalScopes.includes(scope))
-      );
-
-      if (previousGrant && (previousGrant.revoked_at || scopesChanged)) {
-        db.prepare(`
-          UPDATE oauth_tokens
-          SET revoked_at = COALESCE(revoked_at, CURRENT_TIMESTAMP)
-          WHERE grant_id = ?
-        `).run(previousGrant.id);
-        db.prepare(`
-          DELETE FROM oauth_authorization_codes
-          WHERE grant_id = ?
-        `).run(previousGrant.id);
-      }
-
-      db.prepare(`
-        INSERT INTO oauth_grants (id, user_id, client_id, client_name, scopes, resource)
-        VALUES (?, ?, ?, ?, ?, ?)
-        ON CONFLICT(user_id, client_id, resource) DO UPDATE SET
-          client_name = excluded.client_name,
-          scopes = excluded.scopes,
-          revoked_at = NULL
-      `).run(
-        grantId,
-        req.user.id,
-        validation.clientId,
-        validation.client.clientName,
-        JSON.stringify(finalScopes),
-        validation.resource,
-      );
-      const grant = db.prepare(`
-        SELECT id
-        FROM oauth_grants
-        WHERE user_id = ? AND client_id = ? AND resource = ?
-      `).get(req.user.id, validation.clientId, validation.resource);
-      db.prepare(`
-        INSERT INTO oauth_authorization_codes (
-          code_hash,
-          grant_id,
-          client_id,
-          redirect_uri,
-          code_challenge,
-          scopes,
-          resource,
-          expires_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', '+60 seconds'))
-      `).run(
-        codeHash,
-        grant.id,
-        validation.clientId,
-        validation.redirectUri,
-        validation.challenge,
-        JSON.stringify(finalScopes),
-        validation.resource,
-      );
-      return grant.id;
-    });
-    const persistedGrantId = approve();
-
-    tryLogActivity({
-      eventType: 'oauth.grant_approved',
-      action: 'approve',
-      actorUserId: req.user.id,
-      targetUserId: req.user.id,
-      entityType: 'oauth_grant',
-      metadata: {
-        grant_id: persistedGrantId,
-        client_id: validation.clientId,
-        scopes: finalScopes,
-        resource: validation.resource,
-      },
-      ipAddress: resolveRequestIp(req),
-    });
-
-    return res.json({
-      redirect_uri: validation.redirectUri,
-      redirect_to: buildAuthorizationRedirect(validation.redirectUri, {
-        code: authorizationCode,
-        state: validation.state,
-        iss: getOAuthIssuer(),
-      }),
-    });
+    const decisionHandler = authorizationDecisionHandlers.get(req.body.approved);
+    return decisionHandler(req, res, validation);
   },
 );
 
@@ -595,6 +628,46 @@ function exchangeAuthorizationCode(body, client) {
   return exchange();
 }
 
+function handleAuthorizationCodeGrant(body, client, res) {
+  const result = exchangeAuthorizationCode(body, client);
+  if (result.error) {
+    return tokenError(res, result.error, result.description);
+  }
+  return tokenResponse(res, result.pair);
+}
+
+function handleRefreshTokenGrant(body, client, res) {
+  const requestedScopes = body.scope === undefined
+    ? undefined
+    : parseRequestedScopes(body.scope);
+  if (body.scope !== undefined && !requestedScopes) {
+    return tokenError(res, 'invalid_scope', oauthMessages.invalidScope);
+  }
+  try {
+    const pair = rotateRefreshToken(
+      body.refresh_token,
+      client.clientId,
+      body.resource,
+      requestedScopes,
+    );
+    return tokenResponse(res, pair);
+  } catch (error) {
+    if (error instanceof OAuthTokenError && error.code === 'invalid_scope') {
+      return tokenError(res, 'invalid_scope', oauthMessages.invalidScope);
+    }
+    return tokenError(res, 'invalid_grant', oauthMessages.invalidRefreshToken);
+  }
+}
+
+function handleUnsupportedGrant(_body, _client, res) {
+  return tokenError(res, 'unsupported_grant_type', oauthMessages.unsupportedGrantType);
+}
+
+const tokenGrantHandlers = new Map([
+  ['authorization_code', handleAuthorizationCodeGrant],
+  ['refresh_token', handleRefreshTokenGrant],
+]);
+
 oauthRouter.post('/token', preventTokenResponseCaching, tokenRateLimit, formParser, async (req, res) => {
   let client;
   try {
@@ -603,38 +676,8 @@ oauthRouter.post('/token', preventTokenResponseCaching, tokenRateLimit, formPars
     return tokenError(res, 'invalid_client', oauthMessages.invalidClientAuthentication, 401);
   }
 
-  if (req.body.grant_type === 'authorization_code') {
-    const result = exchangeAuthorizationCode(req.body, client);
-    if (result.error) {
-      return tokenError(res, result.error, result.description);
-    }
-    return tokenResponse(res, result.pair);
-  }
-
-  if (req.body.grant_type === 'refresh_token') {
-    const requestedScopes = req.body.scope === undefined
-      ? undefined
-      : parseRequestedScopes(req.body.scope);
-    if (req.body.scope !== undefined && !requestedScopes) {
-      return tokenError(res, 'invalid_scope', oauthMessages.invalidScope);
-    }
-    try {
-      const pair = rotateRefreshToken(
-        req.body.refresh_token,
-        client.clientId,
-        req.body.resource,
-        requestedScopes,
-      );
-      return tokenResponse(res, pair);
-    } catch (error) {
-      if (error instanceof OAuthTokenError && error.code === 'invalid_scope') {
-        return tokenError(res, 'invalid_scope', oauthMessages.invalidScope);
-      }
-      return tokenError(res, 'invalid_grant', oauthMessages.invalidRefreshToken);
-    }
-  }
-
-  return tokenError(res, 'unsupported_grant_type', oauthMessages.unsupportedGrantType);
+  const grantHandler = tokenGrantHandlers.get(req.body.grant_type) ?? handleUnsupportedGrant;
+  return grantHandler(req.body, client, res);
 });
 
 oauthRouter.post('/revoke', preventTokenResponseCaching, tokenRateLimit, formParser, async (req, res) => {
@@ -648,7 +691,7 @@ oauthRouter.post('/revoke', preventTokenResponseCaching, tokenRateLimit, formPar
   return res.status(200).send();
 });
 
-oauthApiRouter.get('/grants', requireAuth, requireInteractiveSession, (req, res) => {
+oauthApiRouter.get('/grants', grantReadRateLimit, requireAuth, requireInteractiveSession, (req, res) => {
   const grants = db.prepare(`
     SELECT
       grant.id,
@@ -680,27 +723,33 @@ oauthApiRouter.get('/grants', requireAuth, requireInteractiveSession, (req, res)
   });
 });
 
-oauthApiRouter.delete('/grants/:id', requireAuth, requireInteractiveSession, (req, res) => {
-  const grant = db.prepare(`
-    SELECT id, client_id
-    FROM oauth_grants
-    WHERE id = ? AND user_id = ? AND revoked_at IS NULL
-  `).get(req.params.id, req.user.id);
-  if (!grant) {
-    return res.status(404).json({ error: oauthMessages.grantNotFound });
-  }
+oauthApiRouter.delete(
+  '/grants/:id',
+  grantMutationRateLimit,
+  requireAuth,
+  requireInteractiveSession,
+  (req, res) => {
+    const grant = db.prepare(`
+      SELECT id, client_id
+      FROM oauth_grants
+      WHERE id = ? AND user_id = ? AND revoked_at IS NULL
+    `).get(req.params.id, req.user.id);
+    if (!grant) {
+      return res.status(404).json({ error: oauthMessages.grantNotFound });
+    }
 
-  revokeGrant(grant.id);
-  tryLogActivity({
-    eventType: 'oauth.grant_revoked',
-    action: 'revoke',
-    actorUserId: req.user.id,
-    targetUserId: req.user.id,
-    entityType: 'oauth_grant',
-    metadata: { grant_id: grant.id, client_id: grant.client_id },
-    ipAddress: resolveRequestIp(req),
-  });
-  return res.status(204).send();
-});
+    revokeGrant(grant.id);
+    tryLogActivity({
+      eventType: 'oauth.grant_revoked',
+      action: 'revoke',
+      actorUserId: req.user.id,
+      targetUserId: req.user.id,
+      entityType: 'oauth_grant',
+      metadata: { grant_id: grant.id, client_id: grant.client_id },
+      ipAddress: resolveRequestIp(req),
+    });
+    return res.status(204).send();
+  },
+);
 
 export default oauthRouter;
