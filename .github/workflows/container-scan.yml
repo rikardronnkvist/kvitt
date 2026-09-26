@@ -1,0 +1,66 @@
+name: Container Scan
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'mcp/**'
+      - '.github/workflows/container-scan.yml'
+  schedule:
+    - cron: '0 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: backend
+            platforms: linux/amd64
+          - service: frontend
+            platforms: linux/amd64,linux/arm64
+          - service: mcp
+            platforms: linux/amd64,linux/arm64
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build container image
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.service }}
+          file: ${{ matrix.service }}/Dockerfile
+          platforms: linux/amd64
+          pull: true
+          no-cache: true
+          load: true
+          tags: kvitt-${{ matrix.service }}:scan
+
+      - name: Scan image for vulnerabilities
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: kvitt-${{ matrix.service }}:scan
+          vuln-type: os,library
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+
+      # Reuse the publish workflow's category so alerts on main are updated and closed.
+      - name: Upload Trivy results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-results.sarif
+          category: .github/workflows/publish-container.yml:publish/platforms:${{ matrix.platforms }}/service:${{ matrix.service }}

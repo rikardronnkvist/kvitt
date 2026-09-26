@@ -10,7 +10,7 @@ COPY . .
 
 FROM node:24-alpine3.24
 WORKDIR /app
-RUN apk upgrade --no-cache libcrypto3 libssl3 \
+RUN apk upgrade --no-cache \
     && rm -rf /usr/local/lib/node_modules/npm \
     && rm -f /usr/local/bin/npm /usr/local/bin/npx \
     && mkdir -p /app/data
