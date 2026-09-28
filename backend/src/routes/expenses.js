@@ -78,6 +78,9 @@ function resolveDistanceMil({ distanceMil, title, notes, amount, categoryIcon, m
   if (categoryIcon !== 'car') {
     return null;
   }
+  if (distanceMil === null) {
+    return null;
+  }
   if (Number.isInteger(distanceMil) && distanceMil >= 0) {
     return distanceMil;
   }

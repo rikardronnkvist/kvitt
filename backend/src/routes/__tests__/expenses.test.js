@@ -138,4 +138,33 @@ describe('expense mileage persistence', () => {
       distance_mil: null,
     });
   });
+
+  it('allows an explicit null distance_mil to clear a stored car mileage value', async () => {
+    const created = await createExpense({
+      title: 'Bil 12 mil',
+      amount: 240,
+      category_id: carCategoryId,
+      paid_by_user_id: userId,
+      distance_mil: 12,
+      occurred_at: '2026-09-28T09:50:00.000Z',
+    });
+    const expense = await created.json();
+
+    const updated = await updateExpense(expense.id, {
+      title: 'Bil ToR Sandviken',
+      amount: 240,
+      category_id: carCategoryId,
+      paid_by_user_id: userId,
+      distance_mil: null,
+      notes: 'Manuell justering',
+      occurred_at: '2026-09-28T10:00:00.000Z',
+    });
+
+    expect(updated.status).toBe(200);
+    await expect(updated.json()).resolves.toMatchObject({
+      id: expense.id,
+      category_id: carCategoryId,
+      distance_mil: null,
+    });
+  });
 });
