@@ -17,6 +17,7 @@ const splitSchema = z.object({
 const expenseSchema = z.object({
   title: z.string().trim().min(1).max(200),
   amount: z.number().int().positive(),
+  distance_mil: z.number().int().nonnegative().optional().nullable(),
   currency: z.string().trim().min(1).max(10).default('SEK'),
   category_id: z.number().int().positive().optional(),
   occurred_at: z.string().trim().optional(),
@@ -42,11 +43,20 @@ function getDefaultCategoryId() {
   return row.id;
 }
 
-function validateAndResolveCategoryId(categoryId) {
-  if (!categoryId) return getDefaultCategoryId();
-  const category = db.prepare('SELECT id FROM expense_categories WHERE id = ?').get(categoryId);
+function getCategoryById(categoryId) {
+  return db.prepare('SELECT id, icon FROM expense_categories WHERE id = ?').get(categoryId);
+}
+
+function getDefaultCategory() {
+  const defaultCategoryId = getDefaultCategoryId();
+  return getCategoryById(defaultCategoryId);
+}
+
+function validateAndResolveCategory(categoryId) {
+  if (!categoryId) return getDefaultCategory();
+  const category = getCategoryById(categoryId);
   if (!category) return null;
-  return category.id;
+  return category;
 }
 
 function normalizeOccurredAt(occurredAt) {
@@ -54,6 +64,36 @@ function normalizeOccurredAt(occurredAt) {
   const parsed = new Date(occurredAt);
   if (Number.isNaN(parsed.getTime())) return null;
   return parsed.toISOString();
+}
+
+function extractDistanceMil(value) {
+  const match = /(\d+)\s*mil\b/iu.exec(String(value || ''));
+  if (!match) {
+    return null;
+  }
+  return Number(match[1]);
+}
+
+function resolveDistanceMil({ distanceMil, title, notes, amount, categoryIcon, mileageRate }) {
+  if (Number.isInteger(distanceMil) && distanceMil >= 0) {
+    return distanceMil;
+  }
+  if (categoryIcon !== 'car') {
+    return null;
+  }
+
+  const parsedFromText = extractDistanceMil(notes) ?? extractDistanceMil(title);
+  if (Number.isInteger(parsedFromText) && parsedFromText >= 0) {
+    return parsedFromText;
+  }
+
+  const numericAmount = Number(amount);
+  const numericMileageRate = Number(mileageRate);
+  if (Number.isFinite(numericAmount) && numericAmount >= 0 && Number.isFinite(numericMileageRate) && numericMileageRate > 0) {
+    return Math.round(numericAmount / numericMileageRate);
+  }
+
+  return null;
 }
 
 function parseExpenseRows(rows) {
@@ -65,6 +105,7 @@ function parseExpenseRows(rows) {
         group_id: row.group_id,
         title: row.title,
         amount: Math.round(Number(row.amount)),
+        distance_mil: row.distance_mil == null ? null : Math.round(Number(row.distance_mil)),
         currency: row.currency,
         paid_by_user_id: row.paid_by_user_id,
         paid_by_full_name: row.paid_by_full_name,
@@ -95,7 +136,7 @@ function parseExpenseRows(rows) {
 
 function getExpenseSnapshot(expenseId) {
   const expense = db.prepare(`
-    SELECT id, group_id, title, amount, currency, category_id, paid_by_user_id, notes, occurred_at, created_at
+    SELECT id, group_id, title, amount, distance_mil, currency, category_id, paid_by_user_id, notes, occurred_at, created_at
     FROM expenses
     WHERE id = ?
   `).get(expenseId);
@@ -118,6 +159,7 @@ function getExpenseSnapshot(expenseId) {
     group_id: expense.group_id,
     title: expense.title,
     amount: Math.round(Number(expense.amount)),
+    distance_mil: expense.distance_mil == null ? null : Math.round(Number(expense.distance_mil)),
     currency: expense.currency,
     category_id: expense.category_id,
     paid_by_user_id: expense.paid_by_user_id,
@@ -189,7 +231,7 @@ router.get('/:groupId', (req, res) => {
   }
 
   const rows = db.prepare(`
-    SELECT e.id, e.group_id, e.title, e.amount, e.currency, e.category_id, e.paid_by_user_id, e.notes, e.occurred_at, e.created_at,
+    SELECT e.id, e.group_id, e.title, e.amount, e.distance_mil, e.currency, e.category_id, e.paid_by_user_id, e.notes, e.occurred_at, e.created_at,
            c.name AS category_name,
            c.icon AS category_icon,
            payer.full_name AS paid_by_full_name,
@@ -246,14 +288,23 @@ router.post('/:groupId', (req, res) => {
 
   const memberIds = new Set(groupMembers.map((member) => member.id));
   const { title, amount, currency, paid_by_user_id, notes } = parsed.data;
-  const categoryId = validateAndResolveCategoryId(parsed.data.category_id);
+  const category = validateAndResolveCategory(parsed.data.category_id);
+  const groupMileageRate = Number(db.prepare('SELECT mileage_rate FROM groups WHERE id = ?').get(groupId)?.mileage_rate) || 20;
   const occurredAt = normalizeOccurredAt(parsed.data.occurred_at);
-  if (!categoryId) {
+  if (!category) {
     return res.status(400).json({ error: 'Ogiltig kategori för utgiften.' });
   }
   if (!occurredAt) {
     return res.status(400).json({ error: 'Ogiltigt datum eller tid för utlägget.' });
   }
+  const distanceMil = resolveDistanceMil({
+    distanceMil: parsed.data.distance_mil,
+    title,
+    notes,
+    amount,
+    categoryIcon: category.icon,
+    mileageRate: groupMileageRate,
+  });
 
   if (!memberIds.has(paid_by_user_id)) {
     return res.status(400).json({ error: 'Betalaren måste vara medlem i gruppen.' });
@@ -285,9 +336,9 @@ router.post('/:groupId', (req, res) => {
 
   const tx = db.transaction(() => {
     const expenseResult = db.prepare(`
-      INSERT INTO expenses (group_id, title, amount, currency, category_id, paid_by_user_id, notes, occurred_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(groupId, title, amount, currency, categoryId, paid_by_user_id, notes || null, occurredAt);
+      INSERT INTO expenses (group_id, title, amount, distance_mil, currency, category_id, paid_by_user_id, notes, occurred_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(groupId, title, amount, distanceMil, currency, category.id, paid_by_user_id, notes || null, occurredAt);
 
     const insertSplit = db.prepare(
       'INSERT INTO expense_splits (expense_id, user_id, amount_owed) VALUES (?, ?, ?)',
@@ -307,8 +358,9 @@ router.post('/:groupId', (req, res) => {
       metadata: {
         title,
         amount,
+        distance_mil: distanceMil,
         currency,
-        category_id: categoryId,
+        category_id: category.id,
         paid_by_user_id,
         occurred_at: occurredAt,
         split_count: splits.length,
@@ -338,7 +390,7 @@ router.post('/:groupId', (req, res) => {
     ));
   }
   const rows = db.prepare(`
-    SELECT e.id, e.group_id, e.title, e.amount, e.currency, e.category_id, e.paid_by_user_id, e.notes, e.occurred_at, e.created_at,
+    SELECT e.id, e.group_id, e.title, e.amount, e.distance_mil, e.currency, e.category_id, e.paid_by_user_id, e.notes, e.occurred_at, e.created_at,
            c.name AS category_name,
            c.icon AS category_icon,
            payer.full_name AS paid_by_full_name,
@@ -396,14 +448,23 @@ router.put('/:groupId/:expenseId', (req, res) => {
 
   const memberIds = new Set(groupMembers.map((member) => member.id));
   const { title, amount, currency, paid_by_user_id, notes } = parsed.data;
-  const categoryId = validateAndResolveCategoryId(parsed.data.category_id);
+  const category = validateAndResolveCategory(parsed.data.category_id);
+  const groupMileageRate = Number(db.prepare('SELECT mileage_rate FROM groups WHERE id = ?').get(groupId)?.mileage_rate) || 20;
   const occurredAt = normalizeOccurredAt(parsed.data.occurred_at);
-  if (!categoryId) {
+  if (!category) {
     return res.status(400).json({ error: 'Ogiltig kategori för utgiften.' });
   }
   if (!occurredAt) {
     return res.status(400).json({ error: 'Ogiltigt datum eller tid för utlägget.' });
   }
+  const distanceMil = resolveDistanceMil({
+    distanceMil: parsed.data.distance_mil,
+    title,
+    notes,
+    amount,
+    categoryIcon: category.icon,
+    mileageRate: groupMileageRate,
+  });
 
   if (!memberIds.has(paid_by_user_id)) {
     return res.status(400).json({ error: 'Betalaren måste vara medlem i gruppen.' });
@@ -434,8 +495,8 @@ router.put('/:groupId/:expenseId', (req, res) => {
   }
 
   const tx = db.transaction(() => {
-    db.prepare('UPDATE expenses SET title = ?, amount = ?, currency = ?, category_id = ?, paid_by_user_id = ?, notes = ?, occurred_at = ? WHERE id = ?')
-      .run(title, amount, currency, categoryId, paid_by_user_id, notes || null, occurredAt, expenseId);
+    db.prepare('UPDATE expenses SET title = ?, amount = ?, distance_mil = ?, currency = ?, category_id = ?, paid_by_user_id = ?, notes = ?, occurred_at = ? WHERE id = ?')
+      .run(title, amount, distanceMil, currency, category.id, paid_by_user_id, notes || null, occurredAt, expenseId);
 
     db.prepare('DELETE FROM expense_splits WHERE expense_id = ?').run(expenseId);
 
@@ -461,8 +522,9 @@ router.put('/:groupId/:expenseId', (req, res) => {
           group_id: groupId,
           title,
           amount,
+          distance_mil: distanceMil,
           currency,
-          category_id: categoryId,
+          category_id: category.id,
           paid_by_user_id,
           notes: notes || null,
           occurred_at: occurredAt,
@@ -475,7 +537,7 @@ router.put('/:groupId/:expenseId', (req, res) => {
 
   tx();
   const rows = db.prepare(`
-    SELECT e.id, e.group_id, e.title, e.amount, e.currency, e.category_id, e.paid_by_user_id, e.notes, e.occurred_at, e.created_at,
+    SELECT e.id, e.group_id, e.title, e.amount, e.distance_mil, e.currency, e.category_id, e.paid_by_user_id, e.notes, e.occurred_at, e.created_at,
            c.name AS category_name,
            c.icon AS category_icon,
            payer.full_name AS paid_by_full_name,

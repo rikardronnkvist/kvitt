@@ -170,6 +170,7 @@ function compactExpense(expense) {
     group_id: expense.group_id,
     title: expense.title,
     amount: expense.amount,
+    distance_mil: expense.distance_mil ?? null,
     currency: expense.currency,
     category_id: expense.category_id,
     occurred_at: expense.occurred_at,
@@ -263,12 +264,13 @@ server.registerTool('list_expenses', {
 });
 
 server.registerTool('create_expense', {
-  description: "Create a persistent expense in a group where the authenticated Kvitt user is a member. Amounts are whole currency units. If group_id is omitted, the user's most recently used group (is_default in list_groups) is used. If paid_by_user_id is omitted, the authenticated user is the payer. If splits are omitted, the expense is split equally across all members and any remainder is assigned in member order. Requires permission to create expenses.",
+  description: "Create a persistent expense in a group where the authenticated Kvitt user is a member. Amounts are whole currency units. For the Bil category, set distance_mil to the whole number of mil when known. If group_id is omitted, the user's most recently used group (is_default in list_groups) is used. If paid_by_user_id is omitted, the authenticated user is the payer. If splits are omitted, the expense is split equally across all members and any remainder is assigned in member order. Requires permission to create expenses.",
   annotations: { destructiveHint: false },
   inputSchema: {
     group_id: z.coerce.number().int().positive().optional(),
     title: z.string().trim().min(1).max(200),
     amount: z.coerce.number().int().positive(),
+    distance_mil: z.coerce.number().int().nonnegative().optional(),
     paid_by_user_id: z.coerce.number().int().positive().optional(),
     currency: z.string().trim().min(1).max(10).default('SEK'),
     category_id: z.coerce.number().int().positive().optional(),
@@ -316,6 +318,7 @@ const expenseInputSchema = {
   expense_id: z.coerce.number().int().positive(),
   title: z.string().trim().min(1).max(200),
   amount: z.coerce.number().int().positive(),
+  distance_mil: z.coerce.number().int().nonnegative().optional(),
   paid_by_user_id: z.coerce.number().int().positive(),
   currency: z.string().trim().min(1).max(10).default('SEK'),
   category_id: z.coerce.number().int().positive().optional(),
@@ -328,7 +331,7 @@ const expenseInputSchema = {
 };
 
 server.registerTool('update_expense', {
-  description: 'Replace an existing expense in a group where the authenticated Kvitt user is a member. The complete expense payload is required; amounts are whole currency units.',
+  description: 'Replace an existing expense in a group where the authenticated Kvitt user is a member. The complete expense payload is required; amounts are whole currency units. For the Bil category, set distance_mil to the whole number of mil when known.',
   annotations: { destructiveHint: false },
   inputSchema: expenseInputSchema,
 }, async ({ group_id: groupId, expense_id: expenseId, ...expense }, extra) => {

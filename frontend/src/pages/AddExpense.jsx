@@ -15,8 +15,13 @@ export default function AddExpense() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState(() => createExpenseForm({ members: [], categories: [], currentUserId: getCurrentUserId() }));
+  const [form, setForm] = useState(() => createExpenseForm({
+    members: [],
+    categories: [],
+    currentUserId: getCurrentUserId(),
+  }));
   const isArchived = Boolean(group?.archived_at);
+  const mileageRate = Number(group?.mileage_rate) > 0 ? Number(group.mileage_rate) : 20;
 
   useEffect(() => {
     const loadGroup = async () => {
@@ -28,7 +33,12 @@ export default function AddExpense() {
         ]);
         setGroup(groupData);
         setCategories(categoriesData);
-        setForm(createExpenseForm({ members: groupData.members || [], categories: categoriesData, currentUserId: getCurrentUserId() }));
+        setForm(createExpenseForm({
+          members: groupData.members || [],
+          categories: categoriesData,
+          currentUserId: getCurrentUserId(),
+          mileageRate: Number(groupData?.mileage_rate) > 0 ? Number(groupData.mileage_rate) : 20,
+        }));
         setError('');
       } catch (loadError) {
         setError(loadError.message);
@@ -109,7 +119,7 @@ export default function AddExpense() {
             setForm={setForm}
             members={group?.members || []}
             categories={categories}
-            mileageRate={Number(group?.mileage_rate) > 0 ? Number(group.mileage_rate) : 20}
+            mileageRate={mileageRate}
             error={error}
             saving={saving}
             onCancel={() => navigate(`/groups/${groupSlug}`)}

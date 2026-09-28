@@ -80,7 +80,40 @@ function resolveDefaultPayerId({ defaultPaidByUserId, currentUserId, expense, me
   return String(expense?.paid_by_user_id || members[0]?.id || '');
 }
 
-export function createExpenseForm({ members, categories = [], currentUserId, defaultPaidByUserId, expense }) {
+function isCarCategory(categories, categoryId) {
+  return categories.some((category) => String(category.id) === String(categoryId) && category.icon === 'car');
+}
+
+function extractDistanceMil(value) {
+  const match = /(\d+)\s*mil\b/iu.exec(String(value || ''));
+  if (!match) {
+    return null;
+  }
+  return Number(match[1]);
+}
+
+function resolveInitialDistanceMil(expense, categories, mileageRate) {
+  if (!expense || !isCarCategory(categories, expense.category_id)) {
+    return '';
+  }
+  if (expense.distance_mil != null && Number.isFinite(Number(expense.distance_mil))) {
+    return String(Math.round(Number(expense.distance_mil)));
+  }
+
+  const derivedDistance = extractDistanceMil(expense.notes) ?? extractDistanceMil(expense.title);
+  if (Number.isInteger(derivedDistance) && derivedDistance >= 0) {
+    return String(derivedDistance);
+  }
+
+  const numericAmount = Number(expense.amount);
+  if (Number.isFinite(numericAmount) && numericAmount >= 0 && mileageRate > 0) {
+    return String(Math.round(numericAmount / mileageRate));
+  }
+
+  return '';
+}
+
+export function createExpenseForm({ members, categories = [], currentUserId, defaultPaidByUserId, expense, mileageRate = 20 }) {
   const defaultPayerId = resolveDefaultPayerId({ defaultPaidByUserId, currentUserId, expense, members });
 
   const includedUsers = Object.fromEntries(
@@ -105,7 +138,7 @@ export function createExpenseForm({ members, categories = [], currentUserId, def
     paid_by_user_id: String(expense?.paid_by_user_id || defaultPayerId),
     notes: expense?.notes || '',
     occurred_at: toLocalDateTimeInputValue(expense?.occurred_at || expense?.created_at),
-    distance_mil: '',
+    distance_mil: resolveInitialDistanceMil(expense, categories, mileageRate),
     split_type: deriveSplitType(expense, members),
     included_users: includedUsers,
     custom_amounts: customAmounts,
@@ -151,9 +184,10 @@ export function getSplitSummary(form, members) {
   };
 }
 
-export function buildExpensePayload(form, members) {
+export function buildExpensePayload(form, members, categories = [], mileageRate = 20) {
   const { amount, selectedMembers, customDifference, percentDifference, percentSplits } = getSplitSummary(form, members);
   const categoryId = Number(form.category_id);
+  const carTripCategory = categories.find((category) => String(category.id) === String(form.category_id) && category.icon === 'car');
 
   if (!selectedMembers.length) {
     throw new Error(t('expenseForm.selectOneMember'));
@@ -195,9 +229,23 @@ export function buildExpensePayload(form, members) {
     splits = buildEqualSplits(amount, selectedMembers);
   }
 
+  let distanceMil = null;
+  if (carTripCategory) {
+    const parsedDistanceMil = Number(form.distance_mil);
+    if (String(form.distance_mil || '').trim() !== '' && (!Number.isInteger(parsedDistanceMil) || parsedDistanceMil < 0)) {
+      throw new Error(t('expenseForm.amountMustBePositiveInteger'));
+    }
+    if (String(form.distance_mil || '').trim() !== '') {
+      distanceMil = parsedDistanceMil;
+    } else if (mileageRate > 0) {
+      distanceMil = Math.round(amount / mileageRate);
+    }
+  }
+
   return {
     title: form.title,
     amount,
+    distance_mil: distanceMil,
     currency: form.currency || 'SEK',
     category_id: categoryId,
     paid_by_user_id: Number(form.paid_by_user_id),

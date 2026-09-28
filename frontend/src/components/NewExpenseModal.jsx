@@ -12,6 +12,7 @@ export default function NewExpenseModal({ groupId, members, categories, mileageR
   const [form, setForm] = useState(() => createExpenseForm({
     members,
     categories,
+    mileageRate,
     currentUserId: getCurrentUserId(),
     defaultPaidByUserId,
   }));
@@ -20,10 +21,11 @@ export default function NewExpenseModal({ groupId, members, categories, mileageR
     setForm(createExpenseForm({
       members,
       categories,
+      mileageRate,
       currentUserId: getCurrentUserId(),
       defaultPaidByUserId,
     }));
-  }, [members, categories, defaultPaidByUserId]);
+  }, [members, categories, mileageRate, defaultPaidByUserId]);
 
   const handleClose = () => {
     const isDirty = form.title.trim() !== '' || (form.amount !== '' && form.amount !== '0') || form.notes.trim() !== '';
