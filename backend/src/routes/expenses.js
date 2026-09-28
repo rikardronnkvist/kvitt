@@ -75,11 +75,11 @@ function extractDistanceMil(value) {
 }
 
 function resolveDistanceMil({ distanceMil, title, notes, amount, categoryIcon, mileageRate }) {
-  if (Number.isInteger(distanceMil) && distanceMil >= 0) {
-    return distanceMil;
-  }
   if (categoryIcon !== 'car') {
     return null;
+  }
+  if (Number.isInteger(distanceMil) && distanceMil >= 0) {
+    return distanceMil;
   }
 
   const parsedFromText = extractDistanceMil(notes) ?? extractDistanceMil(title);
@@ -457,8 +457,9 @@ router.put('/:groupId/:expenseId', (req, res) => {
   if (!occurredAt) {
     return res.status(400).json({ error: 'Ogiltigt datum eller tid för utlägget.' });
   }
+  const distanceMilProvided = Object.prototype.hasOwnProperty.call(req.body ?? {}, 'distance_mil');
   const distanceMil = resolveDistanceMil({
-    distanceMil: parsed.data.distance_mil,
+    distanceMil: distanceMilProvided ? parsed.data.distance_mil : expense.distance_mil,
     title,
     notes,
     amount,
