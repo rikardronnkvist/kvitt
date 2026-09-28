@@ -200,6 +200,7 @@ function createCoreSchema() {
       group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
       title TEXT NOT NULL,
       amount REAL NOT NULL,
+      distance_mil INTEGER,
       currency TEXT NOT NULL DEFAULT 'SEK',
       category_id INTEGER REFERENCES expense_categories(id),
       paid_by_user_id INTEGER NOT NULL REFERENCES users(id),
@@ -527,9 +528,14 @@ function reconcileExpenseSplits() {
 }
 
 function ensureExpenseColumnsAndData() {
-  const expenseColumns = db.prepare('PRAGMA table_info(expenses)').all();
+  let expenseColumns = db.prepare('PRAGMA table_info(expenses)').all();
+  if (!tableHasColumn(expenseColumns, 'distance_mil')) {
+    db.exec('ALTER TABLE expenses ADD COLUMN distance_mil INTEGER');
+    expenseColumns = db.prepare('PRAGMA table_info(expenses)').all();
+  }
   if (!tableHasColumn(expenseColumns, 'category_id')) {
     db.exec('ALTER TABLE expenses ADD COLUMN category_id INTEGER REFERENCES expense_categories(id)');
+    expenseColumns = db.prepare('PRAGMA table_info(expenses)').all();
   }
   if (!tableHasColumn(expenseColumns, 'occurred_at')) {
     db.exec('ALTER TABLE expenses ADD COLUMN occurred_at DATETIME');

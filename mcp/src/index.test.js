@@ -292,6 +292,18 @@ test('create_expense uses the authenticated user when paid_by_user_id is omitted
   assert.equal(JSON.parse(result.content[0].text).paid_by_user_id, 7);
 });
 
+test('create_expense forwards distance_mil when provided', async () => {
+  const result = await callTool('kvitt_pat_test', 'create_expense', {
+    title: 'Bil 15 mil',
+    amount: 300,
+    distance_mil: 15,
+    category_id: 2,
+  });
+
+  assert.equal(expenseRequests[0].body.distance_mil, 15);
+  assert.equal(JSON.parse(result.content[0].text).distance_mil, 15);
+});
+
 test('create_expense returns an error when no default group exists', async () => {
   groupsResponse = [{ id: 1, name: 'Archived group', is_default: false }];
 

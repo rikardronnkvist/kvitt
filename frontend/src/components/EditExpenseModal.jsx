@@ -6,15 +6,15 @@ import { createExpenseForm } from '../lib/expenseForm.js';
 import { t } from '../lib/i18n.js';
 
 export default function EditExpenseModal({ expense, members, categories, mileageRate, groupId, onClose, onSave, onDelete }) {
-  const [form, setForm] = useState(() => createExpenseForm({ members, categories, expense }));
+  const [form, setForm] = useState(() => createExpenseForm({ members, categories, expense, mileageRate }));
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (expense) {
-      setForm(createExpenseForm({ members, categories, expense }));
+      setForm(createExpenseForm({ members, categories, expense, mileageRate }));
     }
-  }, [expense, members, categories]);
+  }, [expense, members, categories, mileageRate]);
 
   useEffect(() => {
     const handleEscape = (event) => {
