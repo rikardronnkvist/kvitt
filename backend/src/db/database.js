@@ -528,12 +528,14 @@ function reconcileExpenseSplits() {
 }
 
 function ensureExpenseColumnsAndData() {
-  const expenseColumns = db.prepare('PRAGMA table_info(expenses)').all();
+  let expenseColumns = db.prepare('PRAGMA table_info(expenses)').all();
   if (!tableHasColumn(expenseColumns, 'distance_mil')) {
     db.exec('ALTER TABLE expenses ADD COLUMN distance_mil INTEGER');
+    expenseColumns = db.prepare('PRAGMA table_info(expenses)').all();
   }
   if (!tableHasColumn(expenseColumns, 'category_id')) {
     db.exec('ALTER TABLE expenses ADD COLUMN category_id INTEGER REFERENCES expense_categories(id)');
+    expenseColumns = db.prepare('PRAGMA table_info(expenses)').all();
   }
   if (!tableHasColumn(expenseColumns, 'occurred_at')) {
     db.exec('ALTER TABLE expenses ADD COLUMN occurred_at DATETIME');
