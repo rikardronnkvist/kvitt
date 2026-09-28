@@ -437,7 +437,7 @@ export default function ExpenseFormFields({
   const handleSubmit = async (event) => {
     event.preventDefault();
     try {
-      const payload = buildExpensePayload(form, members, categories, mileageRate);
+      const payload = buildExpensePayload(form, members, categories);
       await onSubmit(payload);
     } catch (submitError) {
       onError?.(submitError.message);

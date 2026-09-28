@@ -184,7 +184,7 @@ export function getSplitSummary(form, members) {
   };
 }
 
-export function buildExpensePayload(form, members, categories = [], mileageRate = 20) {
+export function buildExpensePayload(form, members, categories = []) {
   const { amount, selectedMembers, customDifference, percentDifference, percentSplits } = getSplitSummary(form, members);
   const categoryId = Number(form.category_id);
   const carTripCategory = categories.find((category) => String(category.id) === String(form.category_id) && category.icon === 'car');
@@ -237,8 +237,6 @@ export function buildExpensePayload(form, members, categories = [], mileageRate 
     }
     if (String(form.distance_mil || '').trim() !== '') {
       distanceMil = parsedDistanceMil;
-    } else if (mileageRate > 0) {
-      distanceMil = Math.round(amount / mileageRate);
     }
   }
 
