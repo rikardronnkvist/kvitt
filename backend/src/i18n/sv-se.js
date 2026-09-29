@@ -30,3 +30,15 @@ export const oauthMessages = {
   unsupportedGrantType: 'Den begärda typen av tokenutfärdande stöds inte.',
   unsupportedResponseType: 'Endast auktoriseringskod stöds.',
 };
+
+export const groupMembershipMessages = {
+  onlyOwnerCanRemoveMembers: 'Endast gruppens ägare kan ta bort medlemmar.',
+  ownerCannotBeRemoved: 'Gruppens ägare kan inte tas bort.',
+  ownerCannotLeave: 'Gruppens ägare kan inte lämna gruppen.',
+  membershipNotFound: 'Medlemskapet hittades inte.',
+  lastMemberCannotBeRemoved: 'Den sista medlemmen kan inte tas bort.',
+  lastMemberCannotLeave: 'Den sista medlemmen kan inte lämna gruppen.',
+  memberBalanceNotZero: 'Medlemmen måste ha balans 0 för att kunna tas bort.',
+  ownBalanceNotZero: 'Du måste ha balans 0 för att kunna lämna gruppen.',
+  formerMemberBalanceChanged: 'Ändringen skulle påverka balansen för en person som inte längre är medlem i gruppen.',
+};

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Archive, BarChart3, CheckCircle2, Coins, Copy, HandCoins, Link2, Plus, RefreshCw, RotateCcw, SendHorizontal, Settings, Trash2, UserPlus } from 'lucide-react';
+import { Archive, BarChart3, CheckCircle2, Coins, Copy, HandCoins, Link2, LogOut, Plus, RefreshCw, RotateCcw, SendHorizontal, Settings, Trash2, UserPlus } from 'lucide-react';
 import ExpenseItem from '../components/ExpenseItem.jsx';
 import EditExpenseModal from '../components/EditExpenseModal.jsx';
 import NewExpenseModal from '../components/NewExpenseModal.jsx';
@@ -13,11 +13,13 @@ import InviteQrCodeModal from '../components/InviteQrCodeModal.jsx';
 import UserAvatar from '../components/UserAvatar.jsx';
 import { del, get, patch, post } from '../api/client.js';
 import { computeMemberBalances } from '../lib/balances.js';
+import { withFormerExpenseParticipants, withFormerSettlementParticipants } from '../lib/formerMembers.js';
 import { getCategoryIcon } from '../lib/expenseCategories.js';
 import { formatCurrency, formatDateTime, formatMonthYear } from '../lib/format.js';
 import { buildInviteUrl } from '../lib/inviteToken.js';
 import { getCurrentUserId } from '../lib/session.js';
 import { getUserDisplayName } from '../lib/users.js';
+import { t } from '../lib/i18n.js';
 import { GROUP_THEMES, getThemeForGroup } from '../lib/groupTheme.js';
 
 const INITIAL_TIMELINE_VISIBLE_COUNT = 25;
@@ -287,16 +289,37 @@ async function addPlaceholderMember({ placeholderName, setAddingPlaceholder, set
   }
 }
 
-async function removeGroupMember({ isArchived, groupSlug, userId, loadData, setError }) {
+async function removeGroupMember({ isArchived, groupSlug, member, loadData, setError }) {
   if (isArchived) {
     setError('Gruppen är arkiverad och skrivskyddad.');
     return;
   }
+  if (!window.confirm(t('groupView.confirmRemoveMember', { name: getUserDisplayName(member) }))) {
+    return;
+  }
   try {
-    await del(`/api/groups/${groupSlug}/members/${userId}`);
+    await del(`/api/groups/${groupSlug}/members/${member.id}`);
     await loadData();
   } catch (deleteError) {
     setError(deleteError.message);
+  }
+}
+
+async function leaveGroup({ canLeaveGroup, groupSlug, groupName, navigate, setGroupActionSaving, setError }) {
+  if (!canLeaveGroup) {
+    return;
+  }
+  if (!window.confirm(t('groupView.confirmLeaveGroup', { groupName: groupName || t('groupView.groupFallback') }))) {
+    return;
+  }
+
+  setGroupActionSaving(true);
+  try {
+    await post(`/api/groups/${groupSlug}/leave`, {});
+    navigate('/');
+  } catch (leaveError) {
+    setError(leaveError.message);
+    setGroupActionSaving(false);
   }
 }
 
@@ -477,6 +500,9 @@ function GroupActionButtons({
   onOpenSettings,
   onUnarchive,
   onDeleteGroup,
+  canShowLeaveGroup,
+  canLeaveGroup,
+  onLeaveGroup,
   navigate,
 }) {
   return (
@@ -513,6 +539,18 @@ function GroupActionButtons({
         <button type="button" className="btn-danger" onClick={onDeleteGroup} disabled={groupActionSaving}>
           <Trash2 className="h-4 w-4" />
           Radera grupp
+        </button>
+      ) : null}
+      {canShowLeaveGroup ? (
+        <button
+          type="button"
+          className="btn-secondary"
+          onClick={onLeaveGroup}
+          disabled={!canLeaveGroup || groupActionSaving}
+          title={canLeaveGroup ? undefined : t('groupView.leaveGroupBalanceNotZero')}
+        >
+          <LogOut className="h-4 w-4" />
+          {t('groupView.leaveGroup')}
         </button>
       ) : null}
     </div>
@@ -620,6 +658,7 @@ function GroupSettingsModal({
   inviteLoading,
   handleRevokeInvite,
   members,
+  memberBalanceById,
   handleRemoveMember,
   placeholderName,
   setPlaceholderName,
@@ -642,17 +681,17 @@ function GroupSettingsModal({
       );
     }
 
-    if (member.has_activity) {
+    if (Number(memberBalanceById.get(Number(member.id)) || 0) !== 0) {
       return (
-        <span className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border-subtle)] px-4 text-sm font-medium text-[var(--text-secondary)]" title="Har utgifter eller kvittningar i gruppen">
-          Har transaktioner
+        <span className="inline-flex min-h-11 items-center rounded-lg border border-[var(--border-subtle)] px-4 text-sm font-medium text-[var(--text-secondary)]" title={t('groupView.memberBalanceNotZeroTitle')}>
+          {t('groupView.memberBalanceNotZero')}
         </span>
       );
     }
 
     return (
-      <button type="button" className="btn-danger" onClick={() => handleRemoveMember(member.id)} disabled={isArchived}>
-        Ta bort
+      <button type="button" className="btn-danger" onClick={() => handleRemoveMember(member)} disabled={isArchived}>
+        {t('groupView.removeMember')}
       </button>
     );
   };
@@ -1114,6 +1153,24 @@ export default function GroupView() {
     [memberBalances],
   );
   const canArchiveGroup = isGroupOwner && !isArchived && memberBalances.every((member) => Number(member.balance) === 0);
+  const memberBalanceById = useMemo(
+    () => new Map(memberBalances.map((member) => [Number(member.id), Number(member.balance) || 0])),
+    [memberBalances],
+  );
+  const canShowLeaveGroup = !isGroupOwner && !isArchived && members.length > 1;
+  const canLeaveGroup = canShowLeaveGroup && memberBalanceById.get(Number(currentUserId)) === 0;
+  const formatFormerMemberName = useCallback(
+    (name) => t('groupView.formerMember', { name: getUserDisplayName({ full_name: name }) }),
+    [],
+  );
+  const editingExpenseMembers = useMemo(
+    () => withFormerExpenseParticipants(members, editingExpense, formatFormerMemberName),
+    [members, editingExpense, formatFormerMemberName],
+  );
+  const editingSettlementMembers = useMemo(
+    () => withFormerSettlementParticipants(members, editingSettlement, formatFormerMemberName),
+    [members, editingSettlement, formatFormerMemberName],
+  );
   const inviteUrl = useMemo(() => safeInviteUrl(inviteToken), [inviteToken]);
 
   const summary = useMemo(
@@ -1163,10 +1220,10 @@ export default function GroupView() {
     setError,
   });
 
-  const handleRemoveMember = (userId) => removeGroupMember({
+  const handleRemoveMember = (member) => removeGroupMember({
     isArchived,
     groupSlug,
-    userId,
+    member,
     loadData,
     setError,
   });
@@ -1264,6 +1321,15 @@ export default function GroupView() {
     setError,
   });
 
+  const handleLeaveGroup = () => leaveGroup({
+    canLeaveGroup,
+    groupSlug,
+    groupName: group?.name,
+    navigate,
+    setGroupActionSaving,
+    setError,
+  });
+
   if (loading) {
     return <GroupSkeleton />;
   }
@@ -1293,6 +1359,9 @@ export default function GroupView() {
                 onOpenSettings={() => setIsSettingsOpen(true)}
                 onUnarchive={handleUnarchiveGroup}
                 onDeleteGroup={handleDeleteGroup}
+                canShowLeaveGroup={canShowLeaveGroup}
+                canLeaveGroup={canLeaveGroup}
+                onLeaveGroup={handleLeaveGroup}
                 navigate={navigate}
               />
             </div>
@@ -1438,6 +1507,7 @@ export default function GroupView() {
         inviteLoading={inviteLoading}
         handleRevokeInvite={handleRevokeInvite}
         members={members}
+        memberBalanceById={memberBalanceById}
         handleRemoveMember={handleRemoveMember}
         placeholderName={placeholderName}
         setPlaceholderName={setPlaceholderName}
@@ -1450,7 +1520,7 @@ export default function GroupView() {
       {editingExpense && !isArchived ? (
         <EditExpenseModal
           expense={editingExpense}
-          members={members}
+          members={editingExpenseMembers}
           categories={expenseCategories}
           mileageRate={mileageRate}
           groupId={groupId}
@@ -1463,7 +1533,7 @@ export default function GroupView() {
       {editingSettlement && !isArchived ? (
         <EditSettlementModal
           settlement={editingSettlement}
-          members={members}
+          members={editingSettlementMembers}
           groupId={groupId}
           onClose={() => setEditingSettlementId(null)}
           onSave={handleSaveSettlement}

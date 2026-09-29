@@ -2,7 +2,8 @@ import express from 'express';
 import { z } from 'zod';
 import authMiddleware from '../middleware/auth.js';
 import { db } from '../db/database.js';
-import { calculateBalances } from '../utils/balance.js';
+import { calculateBalances, changesFormerMemberBalance, getSettlementBalanceEffects } from '../utils/balance.js';
+import { groupMembershipMessages } from '../i18n/sv-se.js';
 import { toAvatarUrl } from '../utils/avatar.js';
 import { logActivity, resolveRequestIp } from '../utils/activity-log.js';
 
@@ -235,18 +236,22 @@ router.put('/:groupId/:settlementId', (req, res) => {
     return res.status(400).json({ error: 'Ogiltigt datum eller tid för betalningen.' });
   }
 
-  const members = db.prepare('SELECT user_id FROM group_members WHERE group_id = ?').all(groupId).map((row) => row.user_id);
-  const memberIds = new Set(members);
-  if (!memberIds.has(payer_id) || !memberIds.has(receiver_id)) {
-    return res.status(400).json({ error: 'Båda användarna måste vara medlemmar i gruppen.' });
-  }
-
   const existing = getSettlementSnapshot(settlementId);
   if (existing && Number(existing.group_id) !== Number(groupId)) {
     return res.status(404).json({ error: 'Betalningen hittades inte.' });
   }
   if (!existing) {
     return res.status(404).json({ error: 'Betalningen hittades inte.' });
+  }
+
+  const members = db.prepare('SELECT user_id FROM group_members WHERE group_id = ?').all(groupId).map((row) => row.user_id);
+  // Former members who already take part in this settlement may stay on it when it is edited.
+  const allowedParticipantIds = new Set([...members, existing.payer_id, existing.receiver_id]);
+  if (!allowedParticipantIds.has(payer_id) || !allowedParticipantIds.has(receiver_id)) {
+    return res.status(400).json({ error: 'Båda användarna måste vara medlemmar i gruppen.' });
+  }
+  if (changesFormerMemberBalance(groupId, getSettlementBalanceEffects(existing), getSettlementBalanceEffects({ payer_id, receiver_id, amount }))) {
+    return res.status(400).json({ error: groupMembershipMessages.formerMemberBalanceChanged });
   }
 
   db.transaction(() => {
@@ -328,6 +333,9 @@ router.delete('/:groupId/:settlementId', (req, res) => {
   }
   if (!existing) {
     return res.status(404).json({ error: 'Betalningen hittades inte.' });
+  }
+  if (changesFormerMemberBalance(groupId, getSettlementBalanceEffects(existing), new Map())) {
+    return res.status(400).json({ error: groupMembershipMessages.formerMemberBalanceChanged });
   }
 
   db.transaction(() => {

@@ -44,6 +44,7 @@ const ACTIVITY_EVENT_OPTIONS = [
   { value: 'group.deleted', label: t('admin.activityGroupDeleted') },
   { value: 'group.member.added', label: t('admin.activityMemberAdded') },
   { value: 'group.member.removed', label: t('admin.activityMemberRemoved') },
+  { value: 'group.member.left', label: t('admin.activityMemberLeft') },
   { value: 'admin.user.updated', label: t('admin.activityAdminUserUpdated') },
   { value: 'admin.user.deleted', label: t('admin.activityAdminUserDeleted') },
   { value: 'admin.group.updated', label: t('admin.activityAdminGroupUpdated') },
