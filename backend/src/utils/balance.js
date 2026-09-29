@@ -264,3 +264,51 @@ export function calculateBalances(groupId) {
   const members = calculateMemberBalances(groupId);
   return calculateOptimalTransactionsFromMembers(members);
 }
+
+function addBalanceEffect(effects, userId, amount) {
+  const key = Number(userId);
+  effects.set(key, (effects.get(key) || 0) + Number(amount));
+}
+
+export function getExpenseBalanceEffects(expense) {
+  const effects = new Map();
+  if (!expense) {
+    return effects;
+  }
+  addBalanceEffect(effects, expense.paid_by_user_id, expense.amount);
+  for (const split of expense.splits ?? []) {
+    addBalanceEffect(effects, split.user_id, -Number(split.amount_owed));
+  }
+  return effects;
+}
+
+export function getSettlementBalanceEffects(settlement) {
+  const effects = new Map();
+  if (!settlement) {
+    return effects;
+  }
+  addBalanceEffect(effects, settlement.payer_id, settlement.amount);
+  addBalanceEffect(effects, settlement.receiver_id, -Number(settlement.amount));
+  return effects;
+}
+
+// Balances only include current members, so a change that moves money to or from
+// someone who has left the group would make the group's balances stop adding up.
+export function changesFormerMemberBalance(groupId, beforeEffects, afterEffects) {
+  const memberIds = new Set(
+    db.prepare('SELECT user_id FROM group_members WHERE group_id = ?')
+      .all(groupId)
+      .map((row) => Number(row.user_id)),
+  );
+  const userIds = new Set([...beforeEffects.keys(), ...afterEffects.keys()]);
+  for (const userId of userIds) {
+    if (memberIds.has(userId)) {
+      continue;
+    }
+    const difference = (afterEffects.get(userId) || 0) - (beforeEffects.get(userId) || 0);
+    if (Math.round(difference) !== 0) {
+      return true;
+    }
+  }
+  return false;
+}

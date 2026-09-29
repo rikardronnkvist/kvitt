@@ -7,6 +7,7 @@ import { calculateMemberBalances } from '../utils/balance.js';
 import { toAvatarUrl } from '../utils/avatar.js';
 import { createUniqueSlug, slugifyGroupName } from '../utils/slug.js';
 import { logActivity, resolveRequestIp } from '../utils/activity-log.js';
+import { groupMembershipMessages } from '../i18n/sv-se.js';
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -210,14 +211,7 @@ router.get('/:id', requireMembership, (req, res) => {
   }
 
   const members = db.prepare(`
-    SELECT u.id, u.full_name, u.phone, u.initials, u.avatar_path, u.avatar_version, u.is_placeholder, gm.joined_at,
-      CASE WHEN EXISTS (
-        SELECT 1 FROM expenses e WHERE e.group_id = gm.group_id AND e.paid_by_user_id = u.id
-        UNION ALL
-        SELECT 1 FROM expense_splits es JOIN expenses e ON e.id = es.expense_id WHERE e.group_id = gm.group_id AND es.user_id = u.id
-        UNION ALL
-        SELECT 1 FROM settlements s WHERE s.group_id = gm.group_id AND (s.payer_id = u.id OR s.receiver_id = u.id)
-      ) THEN 1 ELSE 0 END AS has_activity
+    SELECT u.id, u.full_name, u.phone, u.initials, u.avatar_path, u.avatar_version, u.is_placeholder, gm.joined_at
     FROM group_members gm
     JOIN users u ON u.id = gm.user_id
     WHERE gm.group_id = ?
@@ -326,6 +320,45 @@ router.post('/:id/members', requireMembership, (req, res) => {
   return res.status(201).json(user);
 });
 
+function findMemberRemovalError(group, userId, messages) {
+  if (Number(group.created_by) === Number(userId)) {
+    return { status: 400, error: messages.owner };
+  }
+
+  if (!getMembership(group.id, userId)) {
+    return { status: 404, error: groupMembershipMessages.membershipNotFound };
+  }
+
+  const memberCount = db.prepare('SELECT COUNT(*) AS count FROM group_members WHERE group_id = ?').get(group.id);
+  if (Number(memberCount.count) <= 1) {
+    return { status: 400, error: messages.lastMember };
+  }
+
+  const member = calculateMemberBalances(group.id).find((entry) => Number(entry.id) === Number(userId));
+  if (Number(member?.balance) !== 0) {
+    return { status: 400, error: messages.balance };
+  }
+
+  return null;
+}
+
+function removeMembership({ groupId, userId, actorUserId, eventType, ipAddress }) {
+  db.transaction(() => {
+    db.prepare('DELETE FROM group_members WHERE group_id = ? AND user_id = ?').run(groupId, userId);
+
+    logActivity({
+      eventType,
+      action: 'remove',
+      actorUserId,
+      targetUserId: userId,
+      groupId,
+      entityType: 'group_member',
+      entityId: userId,
+      ipAddress,
+    });
+  })();
+}
+
 router.delete('/:id/members/:userId', requireMembership, (req, res) => {
   const groupId = req.groupId;
   const userId = Number(req.params.userId);
@@ -334,43 +367,53 @@ router.delete('/:id/members/:userId', requireMembership, (req, res) => {
   if (!writable.ok) {
     return res.status(writable.status).json({ error: writable.error });
   }
-  if (Number(writable.group.created_by) === userId) {
-    return res.status(400).json({ error: 'Gruppens skapare kan inte tas bort.' });
+  if (Number(writable.group.created_by) !== Number(req.user.id)) {
+    return res.status(403).json({ error: groupMembershipMessages.onlyOwnerCanRemoveMembers });
   }
 
-  const activityCheck = db.prepare(`
-    SELECT EXISTS (
-      SELECT 1 FROM expenses e WHERE e.group_id = ? AND e.paid_by_user_id = ?
-      UNION ALL
-      SELECT 1 FROM expense_splits es JOIN expenses e ON e.id = es.expense_id WHERE e.group_id = ? AND es.user_id = ?
-      UNION ALL
-      SELECT 1 FROM settlements s WHERE s.group_id = ? AND (s.payer_id = ? OR s.receiver_id = ?)
-    ) AS has_activity
-  `).get(groupId, userId, groupId, userId, groupId, userId, userId);
-  if (activityCheck.has_activity) {
-    return res.status(400).json({ error: 'Kan inte ta bort en medlem som har utgifter eller kvittningar i gruppen.' });
-  }
-  const existingMembership = getMembership(groupId, userId);
-
-  if (!existingMembership) {
-    return res.status(404).json({ error: 'Medlemskapet hittades inte.' });
+  const removalError = findMemberRemovalError(writable.group, userId, {
+    owner: groupMembershipMessages.ownerCannotBeRemoved,
+    lastMember: groupMembershipMessages.lastMemberCannotBeRemoved,
+    balance: groupMembershipMessages.memberBalanceNotZero,
+  });
+  if (removalError) {
+    return res.status(removalError.status).json({ error: removalError.error });
   }
 
-  const memberCount = db.prepare('SELECT COUNT(*) AS count FROM group_members WHERE group_id = ?').get(groupId);
-  if (Number(memberCount.count) === 1) {
-    return res.status(400).json({ error: 'Den sista medlemmen kan inte tas bort.' });
-  }
-
-  db.prepare('DELETE FROM group_members WHERE group_id = ? AND user_id = ?').run(groupId, userId);
-
-  logActivity({
-    eventType: 'group.member.removed',
-    action: 'remove',
-    actorUserId: req.user.id,
-    targetUserId: userId,
+  removeMembership({
     groupId,
-    entityType: 'group_member',
-    entityId: userId,
+    userId,
+    actorUserId: req.user.id,
+    eventType: 'group.member.removed',
+    ipAddress,
+  });
+
+  return res.status(204).send();
+});
+
+router.post('/:id/leave', requireMembership, (req, res) => {
+  const groupId = req.groupId;
+  const userId = Number(req.user.id);
+  const ipAddress = resolveRequestIp(req);
+  const writable = ensureGroupWritable(groupId);
+  if (!writable.ok) {
+    return res.status(writable.status).json({ error: writable.error });
+  }
+
+  const removalError = findMemberRemovalError(writable.group, userId, {
+    owner: groupMembershipMessages.ownerCannotLeave,
+    lastMember: groupMembershipMessages.lastMemberCannotLeave,
+    balance: groupMembershipMessages.ownBalanceNotZero,
+  });
+  if (removalError) {
+    return res.status(removalError.status).json({ error: removalError.error });
+  }
+
+  removeMembership({
+    groupId,
+    userId,
+    actorUserId: userId,
+    eventType: 'group.member.left',
     ipAddress,
   });
 

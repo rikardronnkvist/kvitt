@@ -5,6 +5,8 @@ import { db } from '../db/database.js';
 import { getSubscriptionsForUsers, sendPushNotification, isConfigured } from '../utils/push.js';
 import { toAvatarUrl } from '../utils/avatar.js';
 import { logActivity, resolveRequestIp } from '../utils/activity-log.js';
+import { changesFormerMemberBalance, getExpenseBalanceEffects } from '../utils/balance.js';
+import { groupMembershipMessages } from '../i18n/sv-se.js';
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -450,6 +452,11 @@ router.put('/:groupId/:expenseId', (req, res) => {
   `).all(groupId);
 
   const memberIds = new Set(groupMembers.map((member) => member.id));
+  // Former members who already take part in this expense may stay on it when it is edited.
+  const existingParticipantIds = db.prepare('SELECT user_id FROM expense_splits WHERE expense_id = ?')
+    .all(expenseId)
+    .map((row) => row.user_id);
+  const allowedParticipantIds = new Set([...memberIds, expense.paid_by_user_id, ...existingParticipantIds]);
   const { title, amount, currency, paid_by_user_id, notes } = parsed.data;
   const category = validateAndResolveCategory(parsed.data.category_id);
   const groupMileageRate = Number(db.prepare('SELECT mileage_rate FROM groups WHERE id = ?').get(groupId)?.mileage_rate) || 20;
@@ -470,7 +477,7 @@ router.put('/:groupId/:expenseId', (req, res) => {
     mileageRate: groupMileageRate,
   });
 
-  if (!memberIds.has(paid_by_user_id)) {
+  if (!allowedParticipantIds.has(paid_by_user_id)) {
     return res.status(400).json({ error: 'Betalaren måste vara medlem i gruppen.' });
   }
 
@@ -488,7 +495,7 @@ router.put('/:groupId/:expenseId', (req, res) => {
     });
   }
 
-  const hasInvalidSplit = splits.some((split) => !memberIds.has(split.user_id));
+  const hasInvalidSplit = splits.some((split) => !allowedParticipantIds.has(split.user_id));
   if (hasInvalidSplit) {
     return res.status(400).json({ error: 'Alla splits måste tillhöra gruppmedlemmar.' });
   }
@@ -496,6 +503,9 @@ router.put('/:groupId/:expenseId', (req, res) => {
   const splitTotal = splits.reduce((sum, split) => sum + Number(split.amount_owed), 0);
   if (splitTotal !== amount) {
     return res.status(400).json({ error: 'Summan av splits måste motsvara utgiftens belopp.' });
+  }
+  if (changesFormerMemberBalance(groupId, getExpenseBalanceEffects(expense), getExpenseBalanceEffects({ paid_by_user_id, amount, splits }))) {
+    return res.status(400).json({ error: groupMembershipMessages.formerMemberBalanceChanged });
   }
 
   const tx = db.transaction(() => {
@@ -582,6 +592,9 @@ router.delete('/:groupId/:expenseId', (req, res) => {
   }
   if (!expense) {
     return res.status(404).json({ error: 'Utgiften hittades inte.' });
+  }
+  if (changesFormerMemberBalance(groupId, getExpenseBalanceEffects(expense), new Map())) {
+    return res.status(400).json({ error: groupMembershipMessages.formerMemberBalanceChanged });
   }
 
   const tx = db.transaction(() => {
