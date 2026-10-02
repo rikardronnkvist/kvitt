@@ -257,7 +257,8 @@
     "selectCategory": "Välj en kategori för utgiften.",
     "invalidCustomAmount": "Ange ett giltigt heltalsbelopp för {name}.",
     "customSharesMustMatch": "Summan av egna andelar måste motsvara utgiftens totalbelopp.",
-    "invalidDateTime": "Ange ett giltigt datum och tid."
+    "invalidDateTime": "Ange ett giltigt datum och tid.",
+    "distanceRequired": "Ange antal mil (heltal större än 0) för kategorin Bil."
   },
   "users": {
     "userWithId": "Användare {id}",
@@ -486,7 +487,9 @@
     "searchEventsPlaceholder": "Sök i händelser och metadata",
     "copyLinkFailed": "Kunde inte kopiera länken.",
     "usersTab": "Användare",
-    "selectSectionAria": "Välj sektion"
+    "selectSectionAria": "Välj sektion",
+    "categoryDescription": "Beskrivning",
+    "categoryDescriptionPlaceholder": "Vad hör hemma i kategorin?"
   },
   "groupView": {
     "settlementFromTo": "Kvittat: från {from} till {to}",

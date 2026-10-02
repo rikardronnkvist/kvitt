@@ -175,6 +175,9 @@ function getCustomDifferenceClass(hasValidAmount, customDifference) {
 }
 
 function CategorySelector({ categories, form, setForm, mileageRate }) {
+  const selectedDescription = categories
+    .find((category) => String(category.id) === String(form.category_id))
+    ?.description?.trim();
   return (
     <div className="space-y-2">
       <p className="section-eyebrow">Kategori</p>
@@ -186,7 +189,7 @@ function CategorySelector({ categories, form, setForm, mileageRate }) {
             <button
               key={category.id}
               type="button"
-              title={category.name}
+              title={category.description?.trim() || category.name}
               onClick={() => setForm((previous) => getCategorySelectionUpdate(previous, category, categories, mileageRate))}
               className={[
                 'inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition',
@@ -203,6 +206,9 @@ function CategorySelector({ categories, form, setForm, mileageRate }) {
           );
         })}
       </div>
+      {selectedDescription ? (
+        <p className="text-xs leading-relaxed text-[var(--text-muted)]">{selectedDescription}</p>
+      ) : null}
     </div>
   );
 }

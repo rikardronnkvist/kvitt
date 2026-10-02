@@ -231,13 +231,12 @@ export function buildExpensePayload(form, members, categories = []) {
 
   let distanceMil = null;
   if (carTripCategory) {
-    const parsedDistanceMil = Number(form.distance_mil);
-    if (String(form.distance_mil || '').trim() !== '' && (!Number.isInteger(parsedDistanceMil) || parsedDistanceMil < 0)) {
-      throw new Error(t('expenseForm.amountMustBePositiveInteger'));
+    const distanceInput = String(form.distance_mil ?? '').trim();
+    const parsedDistanceMil = Number(distanceInput);
+    if (distanceInput === '' || !Number.isInteger(parsedDistanceMil) || parsedDistanceMil <= 0) {
+      throw new Error(t('expenseForm.distanceRequired'));
     }
-    if (String(form.distance_mil || '').trim() !== '') {
-      distanceMil = parsedDistanceMil;
-    }
+    distanceMil = parsedDistanceMil;
   }
 
   return {

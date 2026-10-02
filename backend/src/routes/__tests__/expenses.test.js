@@ -93,7 +93,7 @@ afterAll(async () => {
 });
 
 describe('expense mileage persistence', () => {
-  it('derives distance_mil for car expenses from notes when the client omits it', async () => {
+  it('rejects car expenses without distance_mil instead of guessing it', async () => {
     const response = await createExpense({
       title: 'Bil ToR Sandviken',
       amount: 300,
@@ -103,12 +103,66 @@ describe('expense mileage persistence', () => {
       occurred_at: '2026-09-28T09:50:00.000Z',
     });
 
-    expect(response.status).toBe(201);
-    await expect(response.json()).resolves.toMatchObject({
-      amount: 300,
-      distance_mil: 15,
+    expect(response.status).toBe(400);
+    expect(db.prepare('SELECT COUNT(*) AS count FROM expenses').get().count).toBe(0);
+  });
+
+  it('rejects car expenses with zero distance_mil', async () => {
+    const response = await createExpense({
+      title: 'Bil 0 mil',
+      amount: 225,
       category_id: carCategoryId,
+      paid_by_user_id: userId,
+      distance_mil: 0,
+      occurred_at: '2026-09-28T09:50:00.000Z',
     });
+
+    expect(response.status).toBe(400);
+  });
+
+  it('keeps the stored distance when an update to a car expense omits distance_mil', async () => {
+    const created = await createExpense({
+      title: 'Bil 12 mil',
+      amount: 240,
+      category_id: carCategoryId,
+      paid_by_user_id: userId,
+      distance_mil: 12,
+      occurred_at: '2026-09-28T09:50:00.000Z',
+    });
+    const expense = await created.json();
+
+    const updated = await updateExpense(expense.id, {
+      title: 'Bil 12 mil',
+      amount: 240,
+      category_id: carCategoryId,
+      paid_by_user_id: userId,
+      notes: 'Ny anteckning',
+      occurred_at: '2026-09-28T10:00:00.000Z',
+    });
+
+    expect(updated.status).toBe(200);
+    await expect(updated.json()).resolves.toMatchObject({ id: expense.id, distance_mil: 12 });
+  });
+
+  it('rejects switching an expense to the car category without distance_mil', async () => {
+    const created = await createExpense({
+      title: 'Parkering',
+      amount: 225,
+      category_id: foodCategoryId,
+      paid_by_user_id: userId,
+      occurred_at: '2026-09-28T09:50:00.000Z',
+    });
+    const expense = await created.json();
+
+    const updated = await updateExpense(expense.id, {
+      title: 'Parkering',
+      amount: 225,
+      category_id: carCategoryId,
+      paid_by_user_id: userId,
+      occurred_at: '2026-09-28T09:50:00.000Z',
+    });
+
+    expect(updated.status).toBe(400);
   });
 
   it('stores explicit distance_mil updates and clears it for non-car categories', async () => {
@@ -139,7 +193,7 @@ describe('expense mileage persistence', () => {
     });
   });
 
-  it('allows an explicit null distance_mil to clear a stored car mileage value', async () => {
+  it('rejects an explicit null distance_mil on a car expense', async () => {
     const created = await createExpense({
       title: 'Bil 12 mil',
       amount: 240,
@@ -160,11 +214,32 @@ describe('expense mileage persistence', () => {
       occurred_at: '2026-09-28T10:00:00.000Z',
     });
 
-    expect(updated.status).toBe(200);
-    await expect(updated.json()).resolves.toMatchObject({
-      id: expense.id,
-      category_id: carCategoryId,
-      distance_mil: null,
+    expect(updated.status).toBe(400);
+    expect(db.prepare('SELECT distance_mil FROM expenses WHERE id = ?').get(expense.id).distance_mil).toBe(12);
+  });
+});
+
+describe('expense categories', () => {
+  it('returns seeded descriptions so clients know what belongs in each category', async () => {
+    const response = await fetch(`${baseUrl}/api/expenses/categories`, {
+      headers: { Authorization: ['Bearer', sessionToken].join(' ') },
     });
+
+    expect(response.status).toBe(200);
+    const categories = await response.json();
+    const car = categories.find((category) => category.icon === 'car');
+    const travel = categories.find((category) => category.name === 'Resa');
+    expect(car.description).toMatch(/Antal mil krävs/u);
+    expect(travel.description).toMatch(/parkering/u);
+  });
+
+  it('does not overwrite descriptions changed by an admin when seeding again', () => {
+    db.prepare("UPDATE expense_categories SET description = 'Egen text' WHERE name = 'Mat'").run();
+    db.prepare("UPDATE expense_categories SET description = '' WHERE name = 'Dryck'").run();
+
+    initializeDatabase();
+
+    expect(db.prepare("SELECT description FROM expense_categories WHERE name = 'Mat'").get().description).toBe('Egen text');
+    expect(db.prepare("SELECT description FROM expense_categories WHERE name = 'Dryck'").get().description).toBe('');
   });
 });

@@ -31,6 +31,21 @@ export const oauthMessages = {
   unsupportedResponseType: 'Endast auktoriseringskod stöds.',
 };
 
+// Default descriptions seeded for the built-in expense categories, keyed by category name.
+// Admins can change them afterwards; seeding only fills in empty descriptions.
+export const defaultCategoryDescriptions = {
+  Övrigt: 'Allt som inte passar i någon annan kategori, till exempel presenter, biljetter, hyrd utrustning och avgifter.',
+  Bil: 'Milersättning för körning med egen bil. Antal mil krävs, och beloppet räknas fram från gruppens milersättning. Parkering, tullar, bränsle och laddning hör inte hit.',
+  Resa: 'Resekostnader utöver egen bils milersättning, till exempel tåg, flyg, buss, taxi, hyrbil, parkering, vägtullar, färjor och bränsle eller laddning.',
+  Mat: 'Måltider och livsmedel, som restaurang, café, take-away och matinköp.',
+  Dryck: 'Dryck som köps separat från mat, till exempel bar, vin, öl och systembolaget.',
+  Boende: 'Övernattningar, som hotell, stuga, vandrarhem och Airbnb, inklusive tillägg som frukost eller extrasäng som ingår i bokningen.',
+};
+
+export const expenseMessages = {
+  distanceRequiredForCar: 'Antal mil krävs för kategorin Bil och måste vara ett heltal större än 0.',
+};
+
 export const groupMembershipMessages = {
   onlyOwnerCanRemoveMembers: 'Endast gruppens ägare kan ta bort medlemmar.',
   ownerCannotBeRemoved: 'Gruppens ägare kan inte tas bort.',

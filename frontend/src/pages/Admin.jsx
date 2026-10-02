@@ -639,15 +639,27 @@ function buildCategoryIconOptions(normalizedIconId) {
   return [{ id: normalizedIconId, label: `${normalizedIconId} (befintlig)` }, ...CATEGORY_ICON_OPTIONS];
 }
 
+const CATEGORY_DESCRIPTION_MAX_LENGTH = 500;
+
+function toCategoryDraft(category) {
+  return {
+    name: category.name,
+    icon: category.icon,
+    description: category.description ?? '',
+    sort_order: category.sort_order,
+  };
+}
+
 function AdminCategoriesTab({ categories, categoryDrafts, handleCategoryDraftChange, handleSaveCategory, savingCategoryId }) {
   return (
     <div className="space-y-3">
       <div className="overflow-x-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)]">
-        <table className="min-w-[780px] w-full border-collapse">
+        <table className="min-w-[1080px] w-full border-collapse">
           <thead>
             <tr className="border-b border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-left">
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Kategorinamn</th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Ikon</th>
+              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t('admin.categoryDescription')}</th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Sortering</th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Förhandsvisning</th>
               <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Åtgärd</th>
@@ -655,11 +667,7 @@ function AdminCategoriesTab({ categories, categoryDrafts, handleCategoryDraftCha
           </thead>
           <tbody>
             {categories.map((category) => {
-              const draft = categoryDrafts[category.id] ?? {
-                name: category.name,
-                icon: category.icon,
-                sort_order: category.sort_order,
-              };
+              const draft = categoryDrafts[category.id] ?? toCategoryDraft(category);
               const normalizedIconId = String(draft.icon || '')
                 .trim()
                 .toLowerCase()
@@ -688,6 +696,17 @@ function AdminCategoriesTab({ categories, categoryDrafts, handleCategoryDraftCha
                         <option key={iconOption.id} value={iconOption.id}>{iconOption.label}</option>
                       ))}
                     </select>
+                  </td>
+                  <td className="px-4 py-3 align-top">
+                    <textarea
+                      className="min-h-20 w-full min-w-72"
+                      rows={3}
+                      value={draft.description}
+                      onChange={(event) => handleCategoryDraftChange(category.id, 'description', event.target.value)}
+                      maxLength={CATEGORY_DESCRIPTION_MAX_LENGTH}
+                      placeholder={t('admin.categoryDescriptionPlaceholder')}
+                      aria-label={t('admin.categoryDescription')}
+                    />
                   </td>
                   <td className="px-4 py-3 align-top">
                     <input
@@ -931,11 +950,7 @@ export default function Admin() {
       setGroupDrafts(Object.fromEntries(groupsData.map((group) => [group.id, {
         ...toGroupDraft(group),
       }])));
-      setCategoryDrafts(Object.fromEntries(categoriesData.map((category) => [category.id, {
-        name: category.name,
-        icon: category.icon,
-        sort_order: category.sort_order,
-      }])));
+      setCategoryDrafts(Object.fromEntries(categoriesData.map((category) => [category.id, toCategoryDraft(category)])));
       setSelectedGroupId((previous) => {
         if (!groupsData.length) return null;
         if (previous && groupsData.some((group) => group.id === previous)) return previous;
@@ -1135,16 +1150,13 @@ export default function Admin() {
       const updated = await put(`/api/admin/categories/${categoryId}`, {
         name: draft.name,
         icon: draft.icon,
+        description: String(draft.description ?? '').trim(),
         sort_order: normalizedSortOrder,
       });
       setCategories((previous) => previous.map((category) => (category.id === categoryId ? updated : category)));
       setCategoryDrafts((previous) => ({
         ...previous,
-        [categoryId]: {
-          name: updated.name,
-          icon: updated.icon,
-          sort_order: updated.sort_order,
-        },
+        [categoryId]: toCategoryDraft(updated),
       }));
     } catch (saveError) {
       setError(saveError.message);
