@@ -6,6 +6,7 @@ export const OAUTH_SUPPORTED_SCOPES = Object.freeze([
   API_TOKEN_SCOPES.expensesRead,
   API_TOKEN_SCOPES.settlementsRead,
   API_TOKEN_SCOPES.expensesWrite,
+  API_TOKEN_SCOPES.groupsWrite,
 ]);
 
 export const OAUTH_DEFAULT_SCOPES = Object.freeze([
@@ -13,6 +14,7 @@ export const OAUTH_DEFAULT_SCOPES = Object.freeze([
   API_TOKEN_SCOPES.expensesRead,
   API_TOKEN_SCOPES.settlementsRead,
   API_TOKEN_SCOPES.expensesWrite,
+  API_TOKEN_SCOPES.groupsWrite,
 ]);
 
 function withoutTrailingSlash(value) {

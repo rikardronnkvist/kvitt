@@ -19,6 +19,7 @@ const scopeLabels = {
   'expenses:read': 'oauthAuthorize.readExpenses',
   'settlements:read': 'oauthAuthorize.readSettlements',
   'expenses:write': 'oauthAuthorize.writeExpenses',
+  'groups:write': 'oauthAuthorize.writeGroups',
 };
 
 async function sendOAuthRequest(path, body, token, signal) {
@@ -115,6 +116,7 @@ export default function OAuthAuthorize() {
   const [validation, setValidation] = useState(null);
   const [user, setUser] = useState(null);
   const [allowWrite, setAllowWrite] = useState(true);
+  const [allowGroupWrite, setAllowGroupWrite] = useState(true);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -209,6 +211,7 @@ export default function OAuthAuthorize() {
       setValidation(validationResult.data);
       setUser(userResult.data.user);
       setAllowWrite(validationResult.data.requested_scopes?.includes('expenses:write') || false);
+      setAllowGroupWrite(validationResult.data.requested_scopes?.includes('groups:write') || false);
     };
 
     load().catch((requestError) => {
@@ -233,7 +236,7 @@ export default function OAuthAuthorize() {
     try {
       const { response, data } = await sendOAuthRequest(
         '/api/oauth/authorize/decision',
-        { ...request, approved, allow_write: allowWrite },
+        { ...request, approved, allow_write: allowWrite, allow_group_write: allowGroupWrite },
         token,
       );
       if (response.status === 401) {
@@ -283,6 +286,7 @@ export default function OAuthAuthorize() {
     : 'oauthAuthorize.redirectHost';
   const requestedScopes = validation.requested_scopes || [];
   const requestsWrite = requestedScopes.includes('expenses:write');
+  const requestsGroupWrite = requestedScopes.includes('groups:write');
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[var(--app-bg)] px-4 py-12">
@@ -334,7 +338,7 @@ export default function OAuthAuthorize() {
           </p>
           <ul className="mb-0 mt-4 space-y-3 p-0">
             {requestedScopes
-              .filter((scope) => scope !== 'expenses:write')
+              .filter((scope) => scope !== 'expenses:write' && scope !== 'groups:write')
               .map((scope) => (
                 <li key={scope} className="flex list-none items-center gap-3 text-sm">
                   <Check className="h-4 w-4 shrink-0 text-[var(--success)]" />
@@ -353,6 +357,18 @@ export default function OAuthAuthorize() {
               onChange={(event) => setAllowWrite(event.target.checked)}
             />
             <span>{t('oauthAuthorize.allowWrite')}</span>
+          </label>
+        ) : null}
+
+        {requestsGroupWrite ? (
+          <label className="flex items-start gap-3 rounded-lg border border-[var(--border-subtle)] p-4 text-sm font-medium">
+            <input
+              type="checkbox"
+              className="mt-0.5 shrink-0"
+              checked={allowGroupWrite}
+              onChange={(event) => setAllowGroupWrite(event.target.checked)}
+            />
+            <span>{t('oauthAuthorize.allowGroupWrite')}</span>
           </label>
         ) : null}
 
