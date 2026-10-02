@@ -3,11 +3,13 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, BarChart3 } from 'lucide-react';
 import { get } from '../api/client.js';
 import UserAvatar from '../components/UserAvatar.jsx';
+import DebtSankey from '../components/DebtSankey.jsx';
 import ErrorMessage from '../components/ErrorMessage.jsx';
 import { getCategoryIcon } from '../lib/expenseCategories.js';
 import { formatCurrency } from '../lib/format.js';
 import { getThemeForGroup } from '../lib/groupTheme.js';
 import { getUserAvatarUrl, getUserDisplayName, getUserInitials } from '../lib/users.js';
+import { simplifyDebts } from '../lib/simplifyDebts.js';
 import { t } from '../lib/i18n.js';
 
 const PIE_COLORS = ['#0F766E', '#4F6D8A', '#B25D3D', '#5F7D4E', '#6E4E73', '#B38A2E', '#5C6B73'];
@@ -1410,6 +1412,11 @@ export default function GroupStatistics() {
   }), [expenses, expenseCategories, members, settlements, timelineDataMode, timelineGranularity]);
   const showCategoryRadarChart = statistics.categoryRadarData.length > 2;
   const showMemberRadarChart = statistics.membersCount > 2;
+  const debtPayments = useMemo(() => simplifyDebts(statistics.memberRows.map((member) => ({
+    memberId: member.id,
+    name: getUserDisplayName(member),
+    balance: member.balance,
+  }))), [statistics.memberRows]);
 
   if (loading) {
     return <StatisticsSkeleton />;
@@ -1472,6 +1479,8 @@ export default function GroupStatistics() {
             </article>
         </div>
       </section>
+
+      <DebtSankey members={statistics.memberRows} payments={debtPayments} />
 
       <section className="surface-card p-5">
         <p className="m-0 text-base font-semibold">{t('groupStatistics.members')}</p>
