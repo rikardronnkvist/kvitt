@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { Archive, Check, History, Link2, RefreshCw, RotateCcw, Settings, Tags, Trash2, Users, UsersRound } from 'lucide-react';
 import { get, post, put, del } from '../api/client.js';
 import UserAvatar from '../components/UserAvatar.jsx';
@@ -654,12 +654,11 @@ function AdminCategoriesTab({ categories, categoryDrafts, handleCategoryDraftCha
   return (
     <div className="space-y-3">
       <div className="overflow-x-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--app-surface-muted)]">
-        <table className="min-w-[1080px] w-full border-collapse">
+        <table className="w-full border-collapse">
           <thead>
             <tr className="border-b border-[var(--border-subtle)] bg-[var(--app-surface-strong)] text-left">
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Kategorinamn</th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Ikon</th>
-              <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">{t('admin.categoryDescription')}</th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Sortering</th>
               <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Förhandsvisning</th>
               <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">Åtgärd</th>
@@ -675,7 +674,8 @@ function AdminCategoriesTab({ categories, categoryDrafts, handleCategoryDraftCha
               const iconOptions = buildCategoryIconOptions(normalizedIconId);
               const CategoryIcon = getCategoryIcon(draft.icon);
               return (
-                <tr key={category.id} className="border-b border-[var(--border-subtle)] last:border-b-0">
+                <Fragment key={category.id}>
+                <tr>
                   <td className="px-4 py-3 align-top">
                     <input
                       className="max-w-md"
@@ -696,17 +696,6 @@ function AdminCategoriesTab({ categories, categoryDrafts, handleCategoryDraftCha
                         <option key={iconOption.id} value={iconOption.id}>{iconOption.label}</option>
                       ))}
                     </select>
-                  </td>
-                  <td className="px-4 py-3 align-top">
-                    <textarea
-                      className="min-h-20 w-full min-w-72"
-                      rows={3}
-                      value={draft.description}
-                      onChange={(event) => handleCategoryDraftChange(category.id, 'description', event.target.value)}
-                      maxLength={CATEGORY_DESCRIPTION_MAX_LENGTH}
-                      placeholder={t('admin.categoryDescriptionPlaceholder')}
-                      aria-label={t('admin.categoryDescription')}
-                    />
                   </td>
                   <td className="px-4 py-3 align-top">
                     <input
@@ -732,6 +721,22 @@ function AdminCategoriesTab({ categories, categoryDrafts, handleCategoryDraftCha
                     </button>
                   </td>
                 </tr>
+                <tr className="border-b border-[var(--border-subtle)] last:border-b-0">
+                  <td colSpan={5} className="px-4 pb-4 pt-1">
+                    <label className="block space-y-1">
+                      <textarea
+                        className="min-h-20 w-full max-w-3xl"
+                        rows={3}
+                        value={draft.description}
+                        onChange={(event) => handleCategoryDraftChange(category.id, 'description', event.target.value)}
+                        maxLength={CATEGORY_DESCRIPTION_MAX_LENGTH}
+                        placeholder={t('admin.categoryDescriptionPlaceholder')}
+                        aria-label={t('admin.categoryDescription')}
+                      />
+                    </label>
+                  </td>
+                </tr>
+                </Fragment>
               );
             })}
           </tbody>
