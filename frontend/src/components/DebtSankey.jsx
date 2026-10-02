@@ -68,7 +68,9 @@ export default function DebtSankey({ members, payments }) {
     });
     observer.observe(element);
     return () => observer.disconnect();
-  }, []);
+  }, [payments.length]);
+
+  if (payments.length === 1) return null;
 
   if (!payments.length) {
     const hasOutstandingBalance = members.some((member) => Math.abs(Number(member.balance) || 0) >= 1);
@@ -87,7 +89,11 @@ export default function DebtSankey({ members, payments }) {
   }
 
   const maxNodeCount = Math.max(debtors.length, creditors.length);
-  const chartHeight = Math.max(320, maxNodeCount * 22 + CHART_MARGIN * 2);
+  const chartHeight = Math.max(
+    160,
+    Math.min(320, 70 + payments.length * 35),
+    maxNodeCount * 22 + CHART_MARGIN * 2,
+  );
   const targetFlowHeight = chartHeight - CHART_MARGIN * 2 - NODE_GAP * (maxNodeCount - 1);
   const scale = getFlowWidthScale(payments, targetFlowHeight);
   const edgeWidths = payments.map((payment) => ({ payment, width: Math.max(2, payment.amount * scale) }));
