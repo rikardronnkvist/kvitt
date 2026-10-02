@@ -4,6 +4,7 @@ import { ArrowLeft, BarChart3 } from 'lucide-react';
 import { get } from '../api/client.js';
 import UserAvatar from '../components/UserAvatar.jsx';
 import DebtSankey from '../components/DebtSankey.jsx';
+import ExpenseHeatmap from '../components/ExpenseHeatmap.jsx';
 import ErrorMessage from '../components/ErrorMessage.jsx';
 import { getCategoryIcon } from '../lib/expenseCategories.js';
 import { formatCurrency } from '../lib/format.js';
@@ -1561,6 +1562,9 @@ export default function GroupStatistics() {
           highlightedLabel={hoveredCategoryLabel}
           onHighlightChange={setHoveredCategoryLabel}
         />
+        <div className="min-w-0 lg:col-span-2">
+          <ExpenseHeatmap expenses={expenses} members={members} />
+        </div>
         {showCategoryRadarChart ? (
           <div className="lg:col-span-2">
             <CategoryRadarChart

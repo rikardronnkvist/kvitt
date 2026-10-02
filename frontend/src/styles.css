@@ -123,6 +123,92 @@ input[type="radio"] {
   box-shadow: var(--shadow-soft);
 }
 
+.expense-heatmap-scroll:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 2px;
+}
+
+.expense-heatmap-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.expense-heatmap-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 4px;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.expense-heatmap-table th,
+.expense-heatmap-table td {
+  height: 34px;
+  padding: 0.4rem 0.5rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.expense-heatmap-table thead th {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.expense-heatmap-sticky {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  width: 48px;
+  min-width: 48px;
+  max-width: 48px;
+  background: var(--app-surface-strong);
+  text-align: left !important;
+}
+
+.expense-heatmap-corner {
+  z-index: 2;
+}
+
+.expense-heatmap-row-label {
+  overflow: hidden;
+  font-weight: 500;
+}
+
+.expense-heatmap-period {
+  min-width: 76px;
+}
+
+.expense-heatmap-cell {
+  min-width: 76px;
+  border-radius: 6px;
+  text-align: center !important;
+}
+
+.expense-heatmap-cell.level-0 {
+  background: var(--app-surface-muted);
+  color: var(--text-secondary);
+}
+
+.expense-heatmap-cell.level-1 { background: #e4f2e9; color: #173326; }
+.expense-heatmap-cell.level-2 { background: #b9dfc7; color: #173326; }
+.expense-heatmap-cell.level-3 { background: #83c79c; color: #173326; }
+.expense-heatmap-cell.level-4 { background: #42a66f; color: #10291a; }
+.expense-heatmap-cell.level-5 { background: #08794d; color: #ffffff; }
+
+:root[data-theme="dark"] .expense-heatmap-cell.level-1 { background: #263d32; color: #f3faf4; }
+:root[data-theme="dark"] .expense-heatmap-cell.level-2 { background: #315b43; color: #f3faf4; }
+:root[data-theme="dark"] .expense-heatmap-cell.level-3 { background: #427654; color: #ffffff; }
+:root[data-theme="dark"] .expense-heatmap-cell.level-4 { background: #76b982; color: #142b1a; }
+:root[data-theme="dark"] .expense-heatmap-cell.level-5 { background: #b0dfaa; color: #142b1a; }
+
+.expense-heatmap-total {
+  min-width: 84px;
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
 .field-label {
   display: grid;
   gap: 0.5rem;
