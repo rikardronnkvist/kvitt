@@ -44,6 +44,7 @@ const updateGroupSchema = z.object({
 const updateCategorySchema = z.object({
   name: z.string().trim().min(1).max(16),
   icon: z.string().trim().min(1).max(50),
+  description: z.string().trim().max(500).optional().nullable(),
   sort_order: z.number().int().min(0).max(99).optional(),
 });
 
@@ -658,7 +659,7 @@ router.delete('/groups/:id', (req, res) => {
 
 router.get('/categories', (_req, res) => {
   const categories = db.prepare(`
-    SELECT id, name, icon, sort_order, created_at
+    SELECT id, name, icon, description, sort_order, created_at
     FROM expense_categories
     ORDER BY sort_order ASC, id ASC
   `).all();
@@ -672,17 +673,23 @@ router.put('/categories/:id', (req, res) => {
     return res.status(400).json({ error: 'Ogiltig kategoridata.', details: parsed.error.flatten() });
   }
 
-  const existing = db.prepare('SELECT id, name, icon, sort_order FROM expense_categories WHERE id = ?').get(categoryId);
+  const existing = db.prepare('SELECT id, name, icon, description, sort_order FROM expense_categories WHERE id = ?').get(categoryId);
   if (!existing) {
     return res.status(404).json({ error: 'Kategorin hittades inte.' });
   }
 
+  // Omitting description keeps the stored text. Clearing it stores an empty string,
+  // so the default description is not seeded back on the next start.
+  const description = parsed.data.description === undefined
+    ? existing.description
+    : (parsed.data.description ?? '');
+
   try {
     db.prepare(`
       UPDATE expense_categories
-      SET name = ?, icon = ?, sort_order = COALESCE(?, sort_order)
+      SET name = ?, icon = ?, description = ?, sort_order = COALESCE(?, sort_order)
       WHERE id = ?
-    `).run(parsed.data.name, parsed.data.icon, parsed.data.sort_order ?? null, categoryId);
+    `).run(parsed.data.name, parsed.data.icon, description, parsed.data.sort_order ?? null, categoryId);
   } catch (error) {
     if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       return res.status(409).json({ error: 'Kategorinamnet används redan.' });
@@ -691,7 +698,7 @@ router.put('/categories/:id', (req, res) => {
   }
 
   const updated = db.prepare(`
-    SELECT id, name, icon, sort_order, created_at
+    SELECT id, name, icon, description, sort_order, created_at
     FROM expense_categories
     WHERE id = ?
   `).get(categoryId);
@@ -706,11 +713,13 @@ router.put('/categories/:id', (req, res) => {
       before: {
         name: existing.name,
         icon: existing.icon,
+        description: existing.description,
         sort_order: existing.sort_order,
       },
       after: {
         name: updated.name,
         icon: updated.icon,
+        description: updated.description,
         sort_order: updated.sort_order,
       },
     },

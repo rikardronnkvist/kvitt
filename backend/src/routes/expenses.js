@@ -6,7 +6,7 @@ import { getSubscriptionsForUsers, sendPushNotification, isConfigured } from '..
 import { toAvatarUrl } from '../utils/avatar.js';
 import { logActivity, resolveRequestIp } from '../utils/activity-log.js';
 import { changesFormerMemberBalance, getExpenseBalanceEffects } from '../utils/balance.js';
-import { groupMembershipMessages } from '../i18n/sv-se.js';
+import { expenseMessages, groupMembershipMessages } from '../i18n/sv-se.js';
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -68,37 +68,16 @@ function normalizeOccurredAt(occurredAt) {
   return parsed.toISOString();
 }
 
-function extractDistanceMil(value) {
-  const match = /(\d+)\s*mil\b/iu.exec(String(value || ''));
-  if (!match) {
-    return null;
-  }
-  return Number(match[1]);
-}
-
-function resolveDistanceMil({ distanceMil, title, notes, amount, categoryIcon, mileageRate }) {
+// Car expenses are mileage reimbursements, so an explicit distance is required.
+// Returns undefined when a car expense lacks a valid distance; null for other categories.
+function resolveDistanceMil({ distanceMil, categoryIcon }) {
   if (categoryIcon !== 'car') {
     return null;
   }
-  if (distanceMil === null) {
-    return null;
-  }
-  if (Number.isInteger(distanceMil) && distanceMil >= 0) {
+  if (Number.isInteger(distanceMil) && distanceMil > 0) {
     return distanceMil;
   }
-
-  const parsedFromText = extractDistanceMil(notes) ?? extractDistanceMil(title);
-  if (Number.isInteger(parsedFromText) && parsedFromText >= 0) {
-    return parsedFromText;
-  }
-
-  const numericAmount = Number(amount);
-  const numericMileageRate = Number(mileageRate);
-  if (Number.isFinite(numericAmount) && numericAmount >= 0 && Number.isFinite(numericMileageRate) && numericMileageRate > 0) {
-    return Math.round(numericAmount / numericMileageRate);
-  }
-
-  return null;
+  return undefined;
 }
 
 function parseExpenseRows(rows) {
@@ -222,7 +201,7 @@ router.get('/:groupId/export', (req, res) => {
 
 router.get('/categories', (_req, res) => {
   const categories = db.prepare(`
-    SELECT id, name, icon, sort_order
+    SELECT id, name, icon, description, sort_order
     FROM expense_categories
     ORDER BY sort_order ASC, id ASC
   `).all();
@@ -294,7 +273,6 @@ router.post('/:groupId', (req, res) => {
   const memberIds = new Set(groupMembers.map((member) => member.id));
   const { title, amount, currency, paid_by_user_id, notes } = parsed.data;
   const category = validateAndResolveCategory(parsed.data.category_id);
-  const groupMileageRate = Number(db.prepare('SELECT mileage_rate FROM groups WHERE id = ?').get(groupId)?.mileage_rate) || 20;
   const occurredAt = normalizeOccurredAt(parsed.data.occurred_at);
   if (!category) {
     return res.status(400).json({ error: 'Ogiltig kategori för utgiften.' });
@@ -304,12 +282,11 @@ router.post('/:groupId', (req, res) => {
   }
   const distanceMil = resolveDistanceMil({
     distanceMil: parsed.data.distance_mil,
-    title,
-    notes,
-    amount,
     categoryIcon: category.icon,
-    mileageRate: groupMileageRate,
   });
+  if (distanceMil === undefined) {
+    return res.status(400).json({ error: expenseMessages.distanceRequiredForCar });
+  }
 
   if (!memberIds.has(paid_by_user_id)) {
     return res.status(400).json({ error: 'Betalaren måste vara medlem i gruppen.' });
@@ -459,7 +436,6 @@ router.put('/:groupId/:expenseId', (req, res) => {
   const allowedParticipantIds = new Set([...memberIds, expense.paid_by_user_id, ...existingParticipantIds]);
   const { title, amount, currency, paid_by_user_id, notes } = parsed.data;
   const category = validateAndResolveCategory(parsed.data.category_id);
-  const groupMileageRate = Number(db.prepare('SELECT mileage_rate FROM groups WHERE id = ?').get(groupId)?.mileage_rate) || 20;
   const occurredAt = normalizeOccurredAt(parsed.data.occurred_at);
   if (!category) {
     return res.status(400).json({ error: 'Ogiltig kategori för utgiften.' });
@@ -470,12 +446,11 @@ router.put('/:groupId/:expenseId', (req, res) => {
   const distanceMilProvided = Object.prototype.hasOwnProperty.call(req.body ?? {}, 'distance_mil');
   const distanceMil = resolveDistanceMil({
     distanceMil: distanceMilProvided ? parsed.data.distance_mil : expense.distance_mil,
-    title,
-    notes,
-    amount,
     categoryIcon: category.icon,
-    mileageRate: groupMileageRate,
   });
+  if (distanceMil === undefined) {
+    return res.status(400).json({ error: expenseMessages.distanceRequiredForCar });
+  }
 
   if (!allowedParticipantIds.has(paid_by_user_id)) {
     return res.status(400).json({ error: 'Betalaren måste vara medlem i gruppen.' });

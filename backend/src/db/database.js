@@ -4,6 +4,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { ensureRegistrationAccessToken } from '../utils/settings.js';
 import { createUniqueSlug, slugifyGroupName } from '../utils/slug.js';
+import { defaultCategoryDescriptions } from '../i18n/sv-se.js';
 
 function resolveDbPath() {
   const preferredPath = process.env.DB_PATH || '/app/data/kvitt.db';
@@ -191,6 +192,7 @@ function createCoreSchema() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
       icon TEXT NOT NULL,
+      description TEXT,
       sort_order INTEGER NOT NULL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
@@ -582,6 +584,21 @@ function ensurePasskeyColumnsAndSeedCategories() {
   const updateCategorySortOrder = db.prepare('UPDATE expense_categories SET sort_order = ? WHERE name = ?');
   for (const category of categories) {
     updateCategorySortOrder.run(category.sort_order, category.name);
+  }
+
+  const categoryColumns = db.prepare('PRAGMA table_info(expense_categories)').all();
+  if (!tableHasColumn(categoryColumns, 'description')) {
+    db.exec('ALTER TABLE expense_categories ADD COLUMN description TEXT');
+  }
+
+  // Only fill in descriptions that were never set, so admin edits (including clearing one) are kept.
+  const seedCategoryDescription = db.prepare(`
+    UPDATE expense_categories
+    SET description = ?
+    WHERE name = ? AND description IS NULL
+  `);
+  for (const [name, description] of Object.entries(defaultCategoryDescriptions)) {
+    seedCategoryDescription.run(description, name);
   }
 
   const categoryRows = db.prepare('SELECT id FROM expense_categories ORDER BY sort_order ASC, id ASC').all();
