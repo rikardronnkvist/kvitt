@@ -181,9 +181,26 @@ describe('OAuth authorization server routes', () => {
     const validationResponse = await postJson('/api/oauth/authorize/validate', requestInput);
     expect(validationResponse.status).toBe(200);
     await expect(validationResponse.json()).resolves.toMatchObject({
-      requested_scopes: ['groups:read', 'expenses:read', 'settlements:read', 'expenses:write'],
+      requested_scopes: ['groups:read', 'expenses:read', 'settlements:read', 'expenses:write', 'groups:write'],
     });
 
+    const decisionResponse = await postJson('/api/oauth/authorize/decision', {
+      ...requestInput,
+      approved: true,
+      allow_write: true,
+      allow_group_write: true,
+    });
+    expect(decisionResponse.status).toBe(200);
+    const grant = db.prepare(`
+      SELECT scopes FROM oauth_grants
+      WHERE user_id = ? AND client_id = ? AND resource = ?
+    `).get(userId, registration.client_id, 'https://kvitt.example/mcp');
+    expect(JSON.parse(grant.scopes)).toContain('expenses:write');
+    expect(JSON.parse(grant.scopes)).toContain('groups:write');
+  });
+
+  it('omits groups:write unless group write is explicitly allowed', async () => {
+    const requestInput = authorizationInput({ scope: undefined });
     const decisionResponse = await postJson('/api/oauth/authorize/decision', {
       ...requestInput,
       approved: true,
@@ -195,6 +212,7 @@ describe('OAuth authorization server routes', () => {
       WHERE user_id = ? AND client_id = ? AND resource = ?
     `).get(userId, registration.client_id, 'https://kvitt.example/mcp');
     expect(JSON.parse(grant.scopes)).toContain('expenses:write');
+    expect(JSON.parse(grant.scopes)).not.toContain('groups:write');
   });
 
   it('returns redirectable errors only after validating the redirect URI', async () => {

@@ -29,8 +29,16 @@ function isAllowedApiTokenRequest(req, scopes) {
   const hasScope = (scope) => scopes.includes(scope);
   const isGroupPath = req.path === '/' || /^\/[^/]+$/u.test(req.path);
 
-  if (req.baseUrl === '/api/groups' && req.method === 'GET' && isGroupPath) {
-    return hasScope('groups:read');
+  if (req.baseUrl === '/api/groups') {
+    if (req.method === 'GET' && (isGroupPath || /^\/[^/]+\/member-search$/u.test(req.path))) {
+      return hasScope('groups:read');
+    }
+    if (req.method === 'POST' && req.path === '/') {
+      return hasScope('groups:write');
+    }
+    if (req.method === 'POST' && /^\/[^/]+\/members(?:\/placeholder)?$/u.test(req.path)) {
+      return hasScope('groups:write');
+    }
   }
 
   if (req.baseUrl === '/api/expenses') {

@@ -356,9 +356,11 @@ function denyAuthorizationRequest(req, res, validation) {
 }
 
 function approveAuthorizationRequest(req, res, validation) {
-  const finalScopes = validation.requestedScopes.filter(
-    (scope) => scope !== 'expenses:write' || req.body.allow_write,
-  );
+  const finalScopes = validation.requestedScopes.filter((scope) => {
+    if (scope === 'expenses:write') return req.body.allow_write;
+    if (scope === 'groups:write') return req.body.allow_group_write === true;
+    return true;
+  });
   const grantId = randomUUID();
   const authorizationCode = randomBytes(32).toString('base64url');
   const codeHash = createHash('sha256').update(authorizationCode).digest('hex');
@@ -536,7 +538,11 @@ oauthApiRouter.post(
     if (!validation.ok) {
       return res.status(validation.status).json(validation.body);
     }
-    if (typeof req.body.approved !== 'boolean' || typeof req.body.allow_write !== 'boolean') {
+    if (
+      typeof req.body.approved !== 'boolean'
+      || typeof req.body.allow_write !== 'boolean'
+      || (req.body.allow_group_write !== undefined && typeof req.body.allow_group_write !== 'boolean')
+    ) {
       return res.status(400).json(
         redirectableError(
           validation.redirectUri,

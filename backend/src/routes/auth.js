@@ -38,6 +38,7 @@ const updateProfileSchema = z.object({
 const createApiTokenSchema = z.object({
   name: z.string().trim().min(1).max(100),
   can_write_expenses: z.boolean().default(true),
+  can_write_groups: z.boolean().default(false),
   expires_in_days: z.union([z.literal(30), z.literal(90), z.literal(365)]).nullable().optional().default(90),
 });
 
@@ -340,6 +341,9 @@ router.post('/api-tokens', requireAuth, requireInteractiveSession, (req, res) =>
   ];
   if (parsed.data.can_write_expenses) {
     scopes.push(API_TOKEN_SCOPES.expensesWrite);
+  }
+  if (parsed.data.can_write_groups) {
+    scopes.push(API_TOKEN_SCOPES.groupsWrite);
   }
 
   db.prepare(`

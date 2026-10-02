@@ -13,6 +13,7 @@ export const API_TOKEN_SCOPES = Object.freeze({
   groupsRead: 'groups:read',
   expensesRead: 'expenses:read',
   expensesWrite: 'expenses:write',
+  groupsWrite: 'groups:write',
   settlementsRead: 'settlements:read',
 });
 

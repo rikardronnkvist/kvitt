@@ -50,6 +50,7 @@ let groupsResponse;
 let groupsRequestCount;
 let expenseRequests;
 let groupDetailRequests;
+let groupWriteRequests;
 let backendServer;
 let mcpServer;
 let mcpUrl;
@@ -142,6 +143,22 @@ before(async () => {
     groupsRequestCount += 1;
     res.json(groupsResponse);
   });
+  backend.post('/api/groups', (req, res) => {
+    groupWriteRequests.push({ path: req.path, body: req.body });
+    res.status(201).json({ id: 11, slug: 'sundsvall-v40', created_by: 7, ...req.body });
+  });
+  backend.get('/api/groups/:groupId/member-search', (req, res) => {
+    groupWriteRequests.push({ path: req.path, query: req.query });
+    res.json([{ id: 5, full_name: 'Petri' }]);
+  });
+  backend.post('/api/groups/:groupId/members', (req, res) => {
+    groupWriteRequests.push({ path: req.path, body: req.body });
+    res.status(201).json({ id: req.body.user_id, full_name: 'Petri' });
+  });
+  backend.post('/api/groups/:groupId/members/placeholder', (req, res) => {
+    groupWriteRequests.push({ path: req.path, body: req.body });
+    res.status(201).json({ id: 99, full_name: req.body.display_name, is_placeholder: 1 });
+  });
   backend.get('/api/groups/:groupId', (req, res) => {
     groupDetailRequests.push(req.params.groupId);
     res.json({ id: Number(req.params.groupId), name: `Group ${req.params.groupId}` });
@@ -166,6 +183,7 @@ beforeEach(() => {
   groupsRequestCount = 0;
   expenseRequests = [];
   groupDetailRequests = [];
+  groupWriteRequests = [];
 });
 
 after(async () => {
@@ -181,7 +199,7 @@ test('serves protected resource metadata at both RFC 9728 paths', async () => {
   assert.deepEqual(await pathMetadata.json(), {
     resource: `${publicUrl}/mcp`,
     authorization_servers: [publicUrl],
-    scopes_supported: ['groups:read', 'expenses:read', 'settlements:read', 'expenses:write'],
+    scopes_supported: ['groups:read', 'expenses:read', 'settlements:read', 'expenses:write', 'groups:write'],
     bearer_methods_supported: ['header'],
     resource_name: 'Kvitt',
   });
@@ -216,7 +234,7 @@ test('returns discovery challenges for missing and invalid tokens', async () => 
   const missingChallenge = missing.headers.get('www-authenticate');
   assert.equal(missing.status, 401);
   assert.match(missingChallenge, /resource_metadata="https:\/\/kvitt\.example\/\.well-known\/oauth-protected-resource\/mcp"/u);
-  assert.match(missingChallenge, /scope="groups:read expenses:read settlements:read expenses:write"/u);
+  assert.match(missingChallenge, /scope="groups:read expenses:read settlements:read expenses:write groups:write"/u);
   assert.doesNotMatch(missingChallenge, /error="invalid_token"/u);
 
   const invalid = await mcpRequest('kvitt_oat_invalid', { jsonrpc: '2.0', method: 'initialize' });
@@ -330,4 +348,32 @@ test('create_expense preserves an explicit group_id without listing groups', asy
   assert.equal(expenseRequests[0].groupId, '9');
   assert.equal(expenseRequests[0].body.paid_by_user_id, 8);
   assert.equal(JSON.parse(result.content[0].text).group_name, 'Group 9');
+});
+
+test('create_group posts the group to Kvitt', async () => {
+  const result = await callTool('kvitt_pat_test', 'create_group', { name: 'Sundsvall v40' });
+
+  assert.deepEqual(groupWriteRequests, [{ path: '/api/groups', body: { name: 'Sundsvall v40' } }]);
+  assert.equal(JSON.parse(result.content[0].text).id, 11);
+});
+
+test('search_users forwards the query to member-search', async () => {
+  const result = await callTool('kvitt_pat_test', 'search_users', { group_id: 11, query: 'Petri' });
+
+  assert.equal(groupWriteRequests[0].path, '/api/groups/11/member-search');
+  assert.equal(groupWriteRequests[0].query.query, 'Petri');
+  assert.deepEqual(JSON.parse(result.content[0].text), [{ id: 5, full_name: 'Petri' }]);
+});
+
+test('add_group_member adds an existing user to the group', async () => {
+  await callTool('kvitt_pat_test', 'add_group_member', { group_id: 11, user_id: 5 });
+
+  assert.deepEqual(groupWriteRequests, [{ path: '/api/groups/11/members', body: { user_id: 5 } }]);
+});
+
+test('add_placeholder_member adds a named placeholder to the group', async () => {
+  const result = await callTool('kvitt_pat_test', 'add_placeholder_member', { group_id: 11, display_name: 'Mikael' });
+
+  assert.deepEqual(groupWriteRequests, [{ path: '/api/groups/11/members/placeholder', body: { display_name: 'Mikael' } }]);
+  assert.equal(JSON.parse(result.content[0].text).is_placeholder, 1);
 });

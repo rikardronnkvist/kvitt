@@ -233,6 +233,66 @@ describe('authMiddleware', () => {
     expect(next).toHaveBeenCalledOnce();
   });
 
+  it.each([
+    ['POST', '/'],
+    ['POST', '/12/members'],
+    ['POST', '/sundsvall-v40/members/placeholder'],
+  ])('allows group-write tokens to %s %s on groups', (method, path) => {
+    const request = {
+      baseUrl: '/api/groups',
+      headers: { authorization: 'Bearer kvitt_pat_00000000-0000-0000-0000-000000000000_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' },
+      method,
+      path,
+    };
+    const response = createResponse();
+    const next = vi.fn();
+    mocks.verifyApiToken.mockReturnValue({ id: 'token-id', scopes: ['groups:write'], user: { id: 4 } });
+
+    authMiddleware(request, response, next);
+
+    expect(next).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ['POST', '/'],
+    ['POST', '/12/members'],
+    ['POST', '/12/members/placeholder'],
+    ['POST', '/12/invite'],
+    ['DELETE', '/12/members/5'],
+    ['PATCH', '/12'],
+  ])('rejects %s %s on groups without groups:write', (method, path) => {
+    const request = {
+      baseUrl: '/api/groups',
+      headers: { authorization: 'Bearer kvitt_pat_00000000-0000-0000-0000-000000000000_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' },
+      method,
+      path,
+    };
+    const response = createResponse();
+    const next = vi.fn();
+    mocks.verifyApiToken.mockReturnValue({ id: 'token-id', scopes: ['groups:read', 'expenses:write'], user: { id: 4 } });
+
+    authMiddleware(request, response, next);
+
+    expect(response.status).toHaveBeenCalledWith(403);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('allows group-read tokens to search for members', () => {
+    const request = {
+      baseUrl: '/api/groups',
+      headers: { authorization: 'Bearer kvitt_pat_00000000-0000-0000-0000-000000000000_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' },
+      method: 'GET',
+      path: '/12/member-search',
+    };
+    const response = createResponse();
+    const next = vi.fn();
+    mocks.verifyApiToken.mockReturnValue({ id: 'token-id', scopes: ['groups:read'], user: { id: 4 } });
+
+    authMiddleware(request, response, next);
+
+    expect(next).toHaveBeenCalledOnce();
+  });
+
   it('requires an interactive session for account operations', () => {
     const request = { auth: { type: 'api_token', scopes: [] } };
     const response = createResponse();

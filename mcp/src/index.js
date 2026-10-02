@@ -16,7 +16,7 @@ const publicUrl = process.env.KVITT_PUBLIC_URL?.replace(/\/$/u, '');
 const resourceUrl = process.env.MCP_RESOURCE_URL?.replace(/\/$/u, '')
   || (publicUrl ? `${publicUrl}/mcp` : null);
 const port = Number(process.env.PORT) || 3001;
-const supportedScopes = ['groups:read', 'expenses:read', 'settlements:read', 'expenses:write'];
+const supportedScopes = ['groups:read', 'expenses:read', 'settlements:read', 'expenses:write', 'groups:write'];
 const defaultScopes = [...supportedScopes];
 const tokenCacheTtlMs = 60_000;
 const allowedOrigins = new Set(
@@ -234,6 +234,76 @@ server.registerTool('get_group', {
 }, async ({ group_id: groupId }, extra) => {
   try {
     return textResult(await authenticatedRequest(extra, `/api/groups/${encodeURIComponent(groupId)}`));
+  } catch (error) {
+    return errorResult(error);
+  }
+});
+
+server.registerTool('create_group', {
+  description: 'Create a new Kvitt group. The authenticated user becomes the creator and first member. Add other members afterwards with search_users and add_group_member, or add_placeholder_member for people without a Kvitt account. Requires permission to manage groups.',
+  annotations: { destructiveHint: false },
+  inputSchema: {
+    name: z.string().trim().min(1).max(100),
+    mileage_rate: z.coerce.number().positive().max(1000).optional(),
+  },
+}, async (group, extra) => {
+  try {
+    return textResult(await authenticatedRequest(extra, '/api/groups', {
+      method: 'POST',
+      body: JSON.stringify(group),
+    }));
+  } catch (error) {
+    return errorResult(error);
+  }
+});
+
+server.registerTool('search_users', {
+  description: 'Search Kvitt users by name who are not yet members of the given group. Use the returned id with add_group_member. The authenticated user must be a member of the group.',
+  annotations: { readOnlyHint: true },
+  inputSchema: {
+    group_id: z.coerce.number().int().positive(),
+    query: z.string().trim().min(1).max(100),
+  },
+}, async ({ group_id: groupId, query }, extra) => {
+  try {
+    const params = new URLSearchParams({ query });
+    return textResult(await authenticatedRequest(extra, `/api/groups/${groupId}/member-search?${params}`));
+  } catch (error) {
+    return errorResult(error);
+  }
+});
+
+server.registerTool('add_group_member', {
+  description: 'Add an existing Kvitt user (id from search_users) to a group where the authenticated user is a member. Requires permission to manage groups.',
+  annotations: { destructiveHint: false },
+  inputSchema: {
+    group_id: z.coerce.number().int().positive(),
+    user_id: z.coerce.number().int().positive(),
+  },
+}, async ({ group_id: groupId, user_id: userId }, extra) => {
+  try {
+    return textResult(await authenticatedRequest(extra, `/api/groups/${groupId}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId }),
+    }));
+  } catch (error) {
+    return errorResult(error);
+  }
+});
+
+server.registerTool('add_placeholder_member', {
+  description: 'Add a placeholder member by name to a group, for someone who does not have a Kvitt account. Only the group creator can do this. Prefer search_users and add_group_member when the person already uses Kvitt. Requires permission to manage groups.',
+  annotations: { destructiveHint: false },
+  inputSchema: {
+    group_id: z.coerce.number().int().positive(),
+    display_name: z.string().trim().min(1).max(100),
+  },
+}, async ({ group_id: groupId, display_name: displayName }, extra) => {
+  try {
+    return textResult(await authenticatedRequest(extra, `/api/groups/${groupId}/members/placeholder`, {
+      method: 'POST',
+      body: JSON.stringify({ display_name: displayName }),
+    }));
   } catch (error) {
     return errorResult(error);
   }
