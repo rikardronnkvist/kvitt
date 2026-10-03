@@ -240,11 +240,12 @@ server.registerTool('get_group', {
 });
 
 server.registerTool('create_group', {
-  description: 'Create a new Kvitt group. The authenticated user becomes the creator and first member. Add other members afterwards with search_users and add_group_member, or add_placeholder_member for people without a Kvitt account. Requires permission to manage groups.',
+  description: 'Create a new Kvitt group. The authenticated user becomes the creator and first member. Optionally provide member_names: unique exact matches to existing Kvitt users are added directly; other names become placeholders that members can claim when accepting an invite. Requires permission to manage groups.',
   annotations: { destructiveHint: false },
   inputSchema: {
     name: z.string().trim().min(1).max(100),
     mileage_rate: z.coerce.number().positive().max(1000).optional(),
+    member_names: z.array(z.string().trim().min(1).max(100)).max(50).optional(),
   },
 }, async (group, extra) => {
   try {

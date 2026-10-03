@@ -236,11 +236,13 @@ function AppMenuDropdown({
 function CreateGroupModal({
   creatingGroup,
   newGroupName,
+  newGroupMembers,
   newGroupTheme,
   groupError,
   groupSaving,
   setCreatingGroup,
   setNewGroupName,
+  setNewGroupMembers,
   setNewGroupTheme,
   onSubmit,
 }) {
@@ -266,6 +268,16 @@ function CreateGroupModal({
                 placeholder={t('shell.groupNamePlaceholder')}
                 required
               />
+            </label>
+            <label className="field-label">
+              {t('shell.groupMembers')}
+              <textarea
+                value={newGroupMembers}
+                onChange={(event) => setNewGroupMembers(event.target.value)}
+                placeholder={t('shell.groupMembersPlaceholder')}
+                rows={3}
+              />
+              <span className="text-xs font-normal text-[var(--text-muted)]">{t('shell.groupMembersHint')}</span>
             </label>
             <div className="grid gap-3">
               <p className="text-sm font-medium text-[var(--text-secondary)]">{t('shell.theme')}</p>
@@ -623,6 +635,7 @@ export default function AppShell() {
   const [creatingGroup, setCreatingGroup] = useState(false);
   const [managingPasskeys, setManagingPasskeys] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupMembers, setNewGroupMembers] = useState('');
   const [newGroupTheme, setNewGroupTheme] = useState(GROUP_THEMES[0].id);
   const [groupError, setGroupError] = useState('');
   const [groupSaving, setGroupSaving] = useState(false);
@@ -783,6 +796,7 @@ export default function AppShell() {
 
   const openCreateGroup = async () => {
     setNewGroupName('');
+    setNewGroupMembers('');
     setGroupError('');
     // Pick a random color not already in use; fall back to all if all are taken
     let usedColors = [];
@@ -900,7 +914,12 @@ export default function AppShell() {
     setGroupError('');
     setGroupSaving(true);
     try {
-      const group = await post('/api/groups', { name: newGroupName, theme_color: newGroupTheme });
+      const memberNames = newGroupMembers.split('\n').map((name) => name.trim()).filter(Boolean);
+      const group = await post('/api/groups', {
+        name: newGroupName,
+        theme_color: newGroupTheme,
+        ...(memberNames.length ? { member_names: memberNames } : {}),
+      });
       setCreatingGroup(false);
       navigate(`/groups/${group.slug || group.id}`);
     } catch (err) {
@@ -997,11 +1016,13 @@ export default function AppShell() {
       <CreateGroupModal
         creatingGroup={creatingGroup}
         newGroupName={newGroupName}
+        newGroupMembers={newGroupMembers}
         newGroupTheme={newGroupTheme}
         groupError={groupError}
         groupSaving={groupSaving}
         setCreatingGroup={setCreatingGroup}
         setNewGroupName={setNewGroupName}
+        setNewGroupMembers={setNewGroupMembers}
         setNewGroupTheme={setNewGroupTheme}
         onSubmit={handleCreateGroup}
       />

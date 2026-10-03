@@ -53,6 +53,18 @@ async function listGroups() {
   return response.json();
 }
 
+async function createGroup(body) {
+  const response = await fetch(`${baseUrl}/api/groups`, {
+    method: 'POST',
+    headers: {
+      Authorization: ['Bearer', sessionToken].join(' '),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  return { status: response.status, body: await response.json() };
+}
+
 beforeAll(async () => {
   initializeDatabase();
   const app = express();
@@ -92,6 +104,58 @@ afterAll(async () => {
   for (const suffix of ['', '-shm', '-wal']) {
     fs.rmSync(`${databasePath}${suffix}`, { force: true });
   }
+});
+
+describe('POST /api/groups', () => {
+  it('adds uniquely matching users and creates claimable placeholders for other names', async () => {
+    const response = await createGroup({
+      name: 'New group',
+      member_names: ['  OTHER USER  ', 'Guest Person'],
+    });
+
+    expect(response.status).toBe(201);
+    const memberships = db.prepare(`
+      SELECT u.id, u.full_name, u.is_placeholder
+      FROM group_members gm
+      JOIN users u ON u.id = gm.user_id
+      WHERE gm.group_id = ?
+      ORDER BY u.id
+    `).all(response.body.id);
+    expect(memberships).toEqual([
+      { id: userId, full_name: 'Route User', is_placeholder: 0 },
+      { id: otherUserId, full_name: 'Other User', is_placeholder: 0 },
+      expect.objectContaining({ full_name: 'Guest Person', is_placeholder: 1 }),
+    ]);
+  });
+
+  it('still creates groups when no member names are provided', async () => {
+    const response = await createGroup({ name: 'Solo group' });
+
+    expect(response.status).toBe(201);
+    expect(db.prepare('SELECT user_id FROM group_members WHERE group_id = ?').all(response.body.id))
+      .toEqual([{ user_id: userId }]);
+  });
+
+  it('keeps ambiguous names as placeholders instead of linking an arbitrary account', async () => {
+    db.prepare(`
+      INSERT INTO users (id, full_name, user_handle, is_placeholder)
+      VALUES (93003, 'Other User', 'another-other-user', 0)
+    `).run();
+
+    const response = await createGroup({ name: 'Ambiguous group', member_names: ['Other User'] });
+
+    expect(response.status).toBe(201);
+    const members = db.prepare(`
+      SELECT u.id, u.full_name, u.is_placeholder
+      FROM group_members gm
+      JOIN users u ON u.id = gm.user_id
+      WHERE gm.group_id = ?
+      ORDER BY u.id
+    `).all(response.body.id);
+    expect(members).toHaveLength(2);
+    expect(members[0]).toMatchObject({ id: userId, is_placeholder: 0 });
+    expect(members[1]).toMatchObject({ full_name: 'Other User', is_placeholder: 1 });
+  });
 });
 
 describe('GET /api/groups default group', () => {
