@@ -357,6 +357,18 @@ test('create_group posts the group to Kvitt', async () => {
   assert.equal(JSON.parse(result.content[0].text).id, 11);
 });
 
+test('create_group forwards member names', async () => {
+  await callTool('kvitt_pat_test', 'create_group', {
+    name: 'Sundsvall v40',
+    member_names: ['Patrik', 'Guest'],
+  });
+
+  assert.deepEqual(groupWriteRequests, [{
+    path: '/api/groups',
+    body: { name: 'Sundsvall v40', member_names: ['Patrik', 'Guest'] },
+  }]);
+});
+
 test('search_users forwards the query to member-search', async () => {
   const result = await callTool('kvitt_pat_test', 'search_users', { group_id: 11, query: 'Petri' });
 

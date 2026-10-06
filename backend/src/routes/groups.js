@@ -16,6 +16,7 @@ const createGroupSchema = z.object({
   name: z.string().trim().min(1).max(100),
   theme_color: z.string().trim().optional(),
   mileage_rate: z.number().positive().max(1000).optional(),
+  member_names: z.array(z.string().trim().min(1).max(100)).max(50).optional(),
 });
 
 const updateGroupSchema = z.object({
@@ -166,14 +167,15 @@ router.post('/', (req, res) => {
     db.prepare('UPDATE groups SET slug = ? WHERE id = ?').run(slug, result.lastInsertRowid);
     db.prepare('INSERT INTO group_members (group_id, user_id) VALUES (?, ?)').run(result.lastInsertRowid, req.user.id);
 
+    const groupId = Number(result.lastInsertRowid);
     logActivity({
       eventType: 'group.created',
       action: 'create',
       actorUserId: req.user.id,
       targetUserId: req.user.id,
-      groupId: Number(result.lastInsertRowid),
+      groupId,
       entityType: 'group',
-      entityId: Number(result.lastInsertRowid),
+      entityId: groupId,
       metadata: {
         name: parsed.data.name,
         slug,
@@ -182,6 +184,58 @@ router.post('/', (req, res) => {
       },
       ipAddress,
     });
+
+    const usersByName = new Map();
+    for (const user of db.prepare('SELECT id, full_name FROM users WHERE is_placeholder = 0 AND full_name IS NOT NULL').all()) {
+      const normalizedName = String(user.full_name).trim().toLocaleLowerCase();
+      if (!normalizedName) {
+        continue;
+      }
+      const matches = usersByName.get(normalizedName) ?? [];
+      matches.push(user);
+      usersByName.set(normalizedName, matches);
+    }
+
+    for (const memberName of parsed.data.member_names ?? []) {
+      const normalizedName = memberName.toLocaleLowerCase();
+      const matches = usersByName.get(normalizedName) ?? [];
+      if (matches.length === 1) {
+        const user = matches[0];
+        const membership = db.prepare('INSERT OR IGNORE INTO group_members (group_id, user_id) VALUES (?, ?)').run(groupId, user.id);
+        if (membership.changes > 0) {
+          logActivity({
+            eventType: 'group.member.added',
+            action: 'add',
+            actorUserId: req.user.id,
+            targetUserId: Number(user.id),
+            groupId,
+            entityType: 'group_member',
+            entityId: Number(user.id),
+            metadata: { member_full_name: user.full_name },
+            ipAddress,
+          });
+        }
+        continue;
+      }
+
+      const userHandle = `placeholder-${randomUUID()}`;
+      const placeholder = db.prepare(
+        'INSERT INTO users (full_name, user_handle, is_placeholder) VALUES (?, ?, 1)',
+      ).run(memberName, userHandle);
+      const userId = Number(placeholder.lastInsertRowid);
+      db.prepare('INSERT INTO group_members (group_id, user_id) VALUES (?, ?)').run(groupId, userId);
+      logActivity({
+        eventType: 'group.member.placeholder_added',
+        action: 'add',
+        actorUserId: req.user.id,
+        targetUserId: userId,
+        groupId,
+        entityType: 'group_member',
+        entityId: userId,
+        metadata: { display_name: memberName },
+        ipAddress,
+      });
+    }
 
     return result.lastInsertRowid;
   });
