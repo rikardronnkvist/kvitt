@@ -21,6 +21,7 @@ import { getCurrentUserId } from '../lib/session.js';
 import { getUserDisplayName } from '../lib/users.js';
 import { t } from '../lib/i18n.js';
 import { GROUP_THEMES, getThemeForGroup } from '../lib/groupTheme.js';
+import { DEFAULT_MILEAGE_RATE, resolveMileageRate } from '../lib/mileage.js';
 
 const INITIAL_TIMELINE_VISIBLE_COUNT = 25;
 const TIMELINE_LOAD_STEP = 25;
@@ -1002,7 +1003,7 @@ export default function GroupView() {
   const [addingPlaceholder, setAddingPlaceholder] = useState(false);
   const [groupNameDraft, setGroupNameDraft] = useState('');
   const [renamingGroup, setRenamingGroup] = useState(false);
-  const [mileageRateDraft, setMileageRateDraft] = useState('20');
+  const [mileageRateDraft, setMileageRateDraft] = useState(String(DEFAULT_MILEAGE_RATE));
   const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [editingSettlementId, setEditingSettlementId] = useState(null);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
@@ -1062,7 +1063,7 @@ export default function GroupView() {
   useEffect(() => {
     if (!group) return;
     setGroupNameDraft(group.name || '');
-    setMileageRateDraft(String(Number(group.mileage_rate) > 0 ? Number(group.mileage_rate) : 20));
+    setMileageRateDraft(String(resolveMileageRate(group.mileage_rate)));
   }, [group]);
 
   useEffect(() => {
@@ -1079,7 +1080,7 @@ export default function GroupView() {
   const isGroupOwner = Number(group?.created_by) === Number(currentUserId);
   const isArchived = Boolean(group?.archived_at);
   const theme = getThemeForGroup(group);
-  const mileageRate = Number(group?.mileage_rate) > 0 ? Number(group.mileage_rate) : 20;
+  const mileageRate = resolveMileageRate(group?.mileage_rate);
   const editingExpense = expenses.find((expense) => expense.id === editingExpenseId);
   const editingSettlement = settlements.find((settlement) => settlement.id === editingSettlementId);
 

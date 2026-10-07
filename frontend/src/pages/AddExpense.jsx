@@ -6,6 +6,7 @@ import ExpenseFormFields from '../components/ExpenseFormFields.jsx';
 import { createExpenseForm } from '../lib/expenseForm.js';
 import { getCurrentUserId } from '../lib/session.js';
 import { t } from '../lib/i18n.js';
+import { resolveMileageRate } from '../lib/mileage.js';
 
 export default function AddExpense() {
   const { slug } = useParams();
@@ -21,7 +22,7 @@ export default function AddExpense() {
     currentUserId: getCurrentUserId(),
   }));
   const isArchived = Boolean(group?.archived_at);
-  const mileageRate = Number(group?.mileage_rate) > 0 ? Number(group.mileage_rate) : 20;
+  const mileageRate = resolveMileageRate(group?.mileage_rate);
 
   useEffect(() => {
     const loadGroup = async () => {
@@ -37,7 +38,7 @@ export default function AddExpense() {
           members: groupData.members || [],
           categories: categoriesData,
           currentUserId: getCurrentUserId(),
-          mileageRate: Number(groupData?.mileage_rate) > 0 ? Number(groupData.mileage_rate) : 20,
+          mileageRate: resolveMileageRate(groupData?.mileage_rate),
         }));
         setError('');
       } catch (loadError) {

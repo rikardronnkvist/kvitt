@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- Default mileage rate for the Bil category raised from 20 to 25 kr/mil to match Skatteverket's tax-free standard rate for private cars. Applies to new groups; existing groups keep their configured rate.
+
 ## 1.3.11 - 2026-10-06
 
 ### Added
