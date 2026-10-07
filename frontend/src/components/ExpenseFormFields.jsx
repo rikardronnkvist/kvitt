@@ -4,6 +4,7 @@ import { buildExpensePayload, getSplitSummary } from '../lib/expenseForm.js';
 import { getCategoryIcon } from '../lib/expenseCategories.js';
 import { formatCurrency } from '../lib/format.js';
 import { getUserDisplayName } from '../lib/users.js';
+import { DEFAULT_MILEAGE_RATE } from '../lib/mileage.js';
 import MemberDropdown from './MemberDropdown.jsx';
 import UserAvatar from './UserAvatar.jsx';
 import DateTimePicker from './DateTimePicker.jsx';
@@ -413,7 +414,7 @@ export default function ExpenseFormFields({
   setForm,
   members,
   categories,
-  mileageRate = 20,
+  mileageRate = DEFAULT_MILEAGE_RATE,
   error,
   saving,
   onCancel,

@@ -8,6 +8,7 @@ import { toAvatarUrl } from '../utils/avatar.js';
 import { createUniqueSlug, slugifyGroupName } from '../utils/slug.js';
 import { logActivity, resolveRequestIp } from '../utils/activity-log.js';
 import { groupMembershipMessages } from '../i18n/sv-se.js';
+import { DEFAULT_MILEAGE_RATE } from '../utils/mileage.js';
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -161,7 +162,7 @@ router.post('/', (req, res) => {
     const result = db.prepare('INSERT INTO groups (name, theme_color, mileage_rate, created_by) VALUES (?, ?, ?, ?)').run(
       parsed.data.name,
       parsed.data.theme_color ?? null,
-      parsed.data.mileage_rate ?? 20,
+      parsed.data.mileage_rate ?? DEFAULT_MILEAGE_RATE,
       req.user.id,
     );
     db.prepare('UPDATE groups SET slug = ? WHERE id = ?').run(slug, result.lastInsertRowid);
@@ -180,7 +181,7 @@ router.post('/', (req, res) => {
         name: parsed.data.name,
         slug,
         theme_color: parsed.data.theme_color ?? null,
-        mileage_rate: parsed.data.mileage_rate ?? 20,
+        mileage_rate: parsed.data.mileage_rate ?? DEFAULT_MILEAGE_RATE,
       },
       ipAddress,
     });

@@ -7,6 +7,7 @@ import { CATEGORY_ICON_OPTIONS, getCategoryIcon } from '../lib/expenseCategories
 import { GROUP_THEMES, getThemeForGroup } from '../lib/groupTheme.js';
 import { getUserDisplayName } from '../lib/users.js';
 import { t } from '../lib/i18n.js';
+import { DEFAULT_MILEAGE_RATE, resolveMileageRate } from '../lib/mileage.js';
 
 function AdminSkeleton() {
   return (
@@ -88,7 +89,7 @@ function toGroupDraft(group) {
   return {
     name: group.name,
     theme_color: group.theme_color ?? null,
-    mileage_rate: Number(group.mileage_rate) > 0 ? group.mileage_rate : 20,
+    mileage_rate: Number(group.mileage_rate) > 0 ? group.mileage_rate : DEFAULT_MILEAGE_RATE,
   };
 }
 
@@ -1079,7 +1080,7 @@ export default function Admin() {
       const updated = await put(`/api/admin/groups/${groupId}`, {
         name: draft.name,
         theme_color: draft.theme_color ?? null,
-        mileage_rate: Number(draft.mileage_rate) > 0 ? Number(draft.mileage_rate) : 20,
+        mileage_rate: resolveMileageRate(draft.mileage_rate),
       });
       applyUpdatedGroupState(groupId, updated, setGroups, setGroupDrafts);
     } catch (saveError) {
@@ -1247,7 +1248,7 @@ export default function Admin() {
   const selectedGroupDraft = selectedGroup ? (groupDrafts[selectedGroup.id] ?? {
     name: selectedGroup.name,
     theme_color: selectedGroup.theme_color ?? null,
-    mileage_rate: Number(selectedGroup.mileage_rate) > 0 ? selectedGroup.mileage_rate : 20,
+    mileage_rate: Number(selectedGroup.mileage_rate) > 0 ? selectedGroup.mileage_rate : DEFAULT_MILEAGE_RATE,
   }) : null;
 
   return (

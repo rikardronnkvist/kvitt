@@ -4,6 +4,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { ensureRegistrationAccessToken } from '../utils/settings.js';
 import { createUniqueSlug, slugifyGroupName } from '../utils/slug.js';
+import { DEFAULT_MILEAGE_RATE } from '../utils/mileage.js';
 import { defaultCategoryDescriptions } from '../i18n/sv-se.js';
 
 function resolveDbPath() {
@@ -175,7 +176,7 @@ function createCoreSchema() {
       name TEXT NOT NULL,
       slug TEXT UNIQUE,
       theme_color TEXT,
-      mileage_rate REAL NOT NULL DEFAULT 20,
+      mileage_rate REAL NOT NULL DEFAULT ${DEFAULT_MILEAGE_RATE},
       created_by INTEGER NOT NULL REFERENCES users(id),
       archived_at DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -426,7 +427,7 @@ function ensureGroupColumnsAndSlugs() {
     db.exec('ALTER TABLE groups ADD COLUMN slug TEXT');
   }
   if (!tableHasColumn(groupColumns, 'mileage_rate')) {
-    db.exec('ALTER TABLE groups ADD COLUMN mileage_rate REAL NOT NULL DEFAULT 20');
+    db.exec(`ALTER TABLE groups ADD COLUMN mileage_rate REAL NOT NULL DEFAULT ${DEFAULT_MILEAGE_RATE}`);
   }
   if (!tableHasColumn(groupColumns, 'archived_at')) {
     db.exec('ALTER TABLE groups ADD COLUMN archived_at DATETIME');
@@ -448,7 +449,7 @@ function ensureGroupColumnsAndSlugs() {
   }
 
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_groups_slug ON groups(slug)');
-  db.exec('UPDATE groups SET mileage_rate = 20 WHERE mileage_rate IS NULL OR mileage_rate <= 0');
+  db.prepare('UPDATE groups SET mileage_rate = ? WHERE mileage_rate IS NULL OR mileage_rate <= 0').run(DEFAULT_MILEAGE_RATE);
 }
 
 function normalizeSplitAmounts(splits) {

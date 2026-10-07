@@ -1,6 +1,7 @@
 import { getUserDisplayName } from './users.js';
 import { getDefaultCategoryId } from './expenseCategories.js';
 import { t } from './i18n.js';
+import { DEFAULT_MILEAGE_RATE } from './mileage.js';
 
 function toLocalDateTimeInputValue(input) {
   const date = input ? new Date(input) : new Date();
@@ -113,7 +114,7 @@ function resolveInitialDistanceMil(expense, categories, mileageRate) {
   return '';
 }
 
-export function createExpenseForm({ members, categories = [], currentUserId, defaultPaidByUserId, expense, mileageRate = 20 }) {
+export function createExpenseForm({ members, categories = [], currentUserId, defaultPaidByUserId, expense, mileageRate = DEFAULT_MILEAGE_RATE }) {
   const defaultPayerId = resolveDefaultPayerId({ defaultPaidByUserId, currentUserId, expense, members });
 
   const includedUsers = Object.fromEntries(
