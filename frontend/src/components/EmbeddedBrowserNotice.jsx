@@ -3,12 +3,15 @@ import { Check, Copy, ExternalLink } from 'lucide-react';
 import { isEmbeddedBrowser } from '../lib/embeddedBrowser.js';
 import { t } from '../lib/i18n.js';
 
-export default function EmbeddedBrowserNotice() {
+export default function EmbeddedBrowserNotice({ forceShow = false }) {
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
   const [manualLink, setManualLink] = useState('');
 
-  if (!isEmbeddedBrowser(navigator.userAgent)) return null;
+  const embedded = isEmbeddedBrowser(navigator.userAgent, {
+    standalone: navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches,
+  });
+  if (!forceShow && !embedded) return null;
 
   const copyLink = async () => {
     const link = window.location.href;
@@ -29,7 +32,7 @@ export default function EmbeddedBrowserNotice() {
         <ExternalLink size={18} aria-hidden="true" />
         <span>{t('auth.embeddedBrowserTitle')}</span>
       </div>
-      <p className="m-0 text-sm text-[var(--text-secondary)]">{t('auth.embeddedBrowserDescription')}</p>
+      <p className="m-0 text-sm text-[var(--text-secondary)]">{t(embedded ? 'auth.embeddedBrowserDescription' : 'auth.passkeyBrowserFallback')}</p>
       <button type="button" className="btn-secondary w-full" onClick={copyLink}>
         {copied ? <Check size={18} aria-hidden="true" /> : <Copy size={18} aria-hidden="true" />}
         {t('auth.copyBrowserLink')}

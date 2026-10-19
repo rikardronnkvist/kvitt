@@ -34,6 +34,7 @@
   "auth": {
     "embeddedBrowserTitle": "Öppna i Safari eller Chrome",
     "embeddedBrowserDescription": "Du verkar använda en inbyggd webbläsare, till exempel i Messenger. Passkeys fungerar inte alltid där. Kopiera länken och öppna den i Safari eller Chrome så följer din inbjudan med.",
+    "passkeyBrowserFallback": "Om du öppnade länken i till exempel Messenger, prova i Safari eller Chrome i stället. Kopiera hela länken så följer eventuell gruppinbjudan med. Om du redan använder en vanlig webbläsare, kontrollera att din passkey finns tillgänglig där.",
     "copyBrowserLink": "Kopiera länk",
     "browserLinkCopied": "Länken är kopierad.",
     "browserLinkCopyFailed": "Kopieringen blockerades. Markera och kopiera länken nedan.",

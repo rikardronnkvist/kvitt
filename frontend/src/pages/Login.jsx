@@ -341,7 +341,7 @@ export default function Login() {
   const { devboxUsers, devboxAvailable, devboxLoading } = useDevboxUsers({ isRegisterMode, setError });
   const hasValidRegistrationToken = hasRegistrationToken && registrationTokenValid;
   const hasValidRegisterName = registerForm.full_name.trim().length >= 3;
-  const { passkeyLoading, handlePasskeySignup, handlePasskeyLogin } = usePasskeyAuth({ navigate, setError });
+  const { passkeyLoading, passkeyFailed, handlePasskeySignup, handlePasskeyLogin } = usePasskeyAuth({ navigate, setError });
   const isBusy = passkeyLoading || devboxLoading || devboxLoginLoading || checkingRegistrationToken;
 
   useEffect(() => {
@@ -425,7 +425,7 @@ export default function Login() {
           </div>
         </div>
 
-        <EmbeddedBrowserNotice />
+        <EmbeddedBrowserNotice forceShow={passkeyFailed} />
 
         <form className="space-y-4" onSubmit={(event) => event.preventDefault()}>
           {isRegisterMode ? (

@@ -24,3 +24,16 @@ test('does not flag regular Safari, Chrome or Edge', () => {
     assert.equal(isEmbeddedBrowser(userAgent), false, userAgent);
   }
 });
+
+test('recognizes an unbranded iOS webview but excludes standalone apps', () => {
+  const userAgent = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148';
+  assert.equal(isEmbeddedBrowser(userAgent), true);
+  assert.equal(isEmbeddedBrowser(userAgent, { standalone: true }), false);
+});
+
+test('does not flag other regular iOS browsers', () => {
+  for (const browser of ['CriOS/130.0', 'FxiOS/130.0', 'EdgiOS/130.0', 'OPiOS/130.0', 'DuckDuckGo/7.0']) {
+    const userAgent = `Mozilla/5.0 (iPhone) AppleWebKit/605.1.15 ${browser} Mobile/15E148`;
+    assert.equal(isEmbeddedBrowser(userAgent), false, browser);
+  }
+});

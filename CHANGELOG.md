@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 1.3.13 - 2026-10-19
+
+### Fixed
+- Detect unbranded iOS webviews when showing the external-browser notice, while excluding standalone apps and known regular browsers.
+- Show link-copying help after failed or unsupported passkey authentication even when the embedded browser cannot be identified.
+
 ## 1.3.12 - 2026-10-19
 
 ### Added

@@ -11,6 +11,7 @@ import { navigateAfterLogin } from '../lib/postLoginNavigation.js';
 export function usePasskeyAuth({ navigate, setError }) {
   const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [passkeySupported, setPasskeySupported] = useState(true);
+  const [passkeyFailed, setPasskeyFailed] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -42,6 +43,7 @@ export function usePasskeyAuth({ navigate, setError }) {
     }
 
     setError(t('auth.deviceNoPasskey'));
+    setPasskeyFailed(true);
     return false;
   };
 
@@ -51,11 +53,13 @@ export function usePasskeyAuth({ navigate, setError }) {
     }
 
     setError('');
+    setPasskeyFailed(false);
     setPasskeyLoading(true);
     try {
       const data = await registerWithPasskey(displayName, phone, registrationToken);
       finishAuth(data);
     } catch (error) {
+      setPasskeyFailed(true);
       setError(getPasskeyErrorMessage(error, 'register'));
     } finally {
       setPasskeyLoading(false);
@@ -68,11 +72,13 @@ export function usePasskeyAuth({ navigate, setError }) {
     }
 
     setError('');
+    setPasskeyFailed(false);
     setPasskeyLoading(true);
     try {
       const data = await loginWithPasskey();
       finishAuth(data);
     } catch (error) {
+      setPasskeyFailed(true);
       setError(getPasskeyErrorMessage(error, 'login'));
     } finally {
       setPasskeyLoading(false);
@@ -81,6 +87,7 @@ export function usePasskeyAuth({ navigate, setError }) {
 
   return {
     passkeyLoading,
+    passkeyFailed,
     handlePasskeySignup,
     handlePasskeyLogin,
   };
