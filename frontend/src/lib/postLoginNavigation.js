@@ -1,3 +1,5 @@
+import { isValidInviteToken } from './inviteToken.js';
+
 export const PENDING_INVITE_TOKEN_KEY = 'pending_invite_token';
 export const OAUTH_REQUEST_HANDLE_KEY = 'oauth_request_handle';
 
@@ -38,10 +40,17 @@ function consumePendingOAuthPath(search) {
   return handle ? `/oauth/authorize?request=${encodeURIComponent(handle)}` : null;
 }
 
-function consumePendingInvitePath() {
-  const pendingInvite = sessionStorage.getItem(PENDING_INVITE_TOKEN_KEY);
+export function getInviteTokenFromSearch(search) {
+  const tokens = new URLSearchParams(search).getAll('invite');
+  return tokens.length === 1 && isValidInviteToken(tokens[0]) ? tokens[0] : null;
+}
+
+function consumePendingInvitePath(search) {
+  const storedInvite = sessionStorage.getItem(PENDING_INVITE_TOKEN_KEY);
+  const pendingInvite = getInviteTokenFromSearch(search)
+    || (isValidInviteToken(storedInvite) ? storedInvite : null);
+  sessionStorage.removeItem(PENDING_INVITE_TOKEN_KEY);
   if (pendingInvite) {
-    sessionStorage.removeItem(PENDING_INVITE_TOKEN_KEY);
     return `/invite/${encodeURIComponent(pendingInvite)}`;
   }
   return null;
@@ -52,6 +61,6 @@ export function navigateAfterLogin(
   options = {},
   search = globalThis.location?.search || '',
 ) {
-  const destination = consumePendingOAuthPath(search) ?? consumePendingInvitePath() ?? '/';
+  const destination = consumePendingOAuthPath(search) ?? consumePendingInvitePath(search) ?? '/';
   navigate(destination, options);
 }

@@ -2,8 +2,19 @@
 
 ## Unreleased
 
+## 1.3.12 - 2026-10-19
+
+### Added
+- Warn users in known embedded browsers, including Messenger, and offer link copying with a manual fallback.
+
+### Fixed
+- Preserve group invitations in the URL through login and registration so they survive copying to an external browser.
+
 ### Changed
 - Default mileage rate for the Bil category raised from 20 to 25 kr/mil to match Skatteverket's tax-free standard rate for private cars. Applies to new groups; existing groups keep their configured rate.
+
+### Updated
+- Updated dependencies, including Vite, Lucide React, react-easy-crop, dotenv, express-rate-limit, and the MCP SDK.
 
 ## 1.3.11 - 2026-10-06
 

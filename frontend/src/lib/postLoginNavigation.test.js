@@ -4,12 +4,46 @@ import {
   buildOAuthLoginPath,
   clearOAuthRequestHandle,
   getOAuthRequestHandle,
+  getInviteTokenFromSearch,
   navigateAfterLogin,
+  PENDING_INVITE_TOKEN_KEY,
   OAUTH_REQUEST_HANDLE_KEY,
   rememberOAuthRequestHandle,
 } from './postLoginNavigation.js';
 
 const handle = 'abcdefghijklmnopqrstuvwxyzABCDEFGH012345678';
+
+test('returns to the invitation from the URL without session storage state', () => {
+  withSessionStorage(() => {
+    let destination;
+    navigateAfterLogin((path) => { destination = path; }, {}, '?invite=svartgol-token');
+    assert.equal(destination, '/invite/svartgol-token');
+  });
+});
+
+test('prefers the current invitation and consumes an older stored invitation', () => {
+  withSessionStorage((values) => {
+    values.set(PENDING_INVITE_TOKEN_KEY, 'previous-token');
+    let destination;
+    navigateAfterLogin((path) => { destination = path; }, {}, '?invite=svartgol-token');
+    assert.equal(destination, '/invite/svartgol-token');
+    assert.equal(values.has(PENDING_INVITE_TOKEN_KEY), false);
+  });
+});
+
+test('keeps legacy invitation navigation and rejects invalid invitation tokens', () => {
+  withSessionStorage((values) => {
+    values.set(PENDING_INVITE_TOKEN_KEY, 'legacy-invite');
+    let destination;
+    navigateAfterLogin((path) => { destination = path; }, {}, '');
+    assert.equal(destination, '/invite/legacy-invite');
+    for (const search of ['?invite=short', '?invite=../../admin', '?invite=valid-token&invite=another-token']) {
+      assert.equal(getInviteTokenFromSearch(search), null);
+      navigateAfterLogin((path) => { destination = path; }, {}, search);
+      assert.equal(destination, '/');
+    }
+  });
+});
 
 function withSessionStorage(run) {
   const values = new Map();

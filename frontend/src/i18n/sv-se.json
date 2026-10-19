@@ -32,6 +32,12 @@
     "invalidErrorResponse": "Serverns felsvar saknade läsbara JSON-detaljer."
   },
   "auth": {
+    "embeddedBrowserTitle": "Öppna i Safari eller Chrome",
+    "embeddedBrowserDescription": "Du verkar använda en inbyggd webbläsare, till exempel i Messenger. Passkeys fungerar inte alltid där. Kopiera länken och öppna den i Safari eller Chrome så följer din inbjudan med.",
+    "copyBrowserLink": "Kopiera länk",
+    "browserLinkCopied": "Länken är kopierad.",
+    "browserLinkCopyFailed": "Kopieringen blockerades. Markera och kopiera länken nedan.",
+    "browserLinkLabel": "Länk att öppna i webbläsaren",
     "sessionExpired": "Din session har gått ut.",
     "deviceNoPasskey": "Din enhet stödjer inte Passkeys",
     "loginTitle": "Logga in på Kvitt",

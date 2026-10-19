@@ -4,6 +4,7 @@ import { ScanLine, QrCode } from 'lucide-react';
 import { get, post } from '../api/client.js';
 import PasskeyButton from '../components/PasskeyButton.jsx';
 import ErrorMessage from '../components/ErrorMessage.jsx';
+import EmbeddedBrowserNotice from '../components/EmbeddedBrowserNotice.jsx';
 import QrScannerModal from '../components/QrScannerModal.jsx';
 import QrLoginModal from '../components/QrLoginModal.jsx';
 import { usePasskeyAuth } from '../hooks/usePasskeyAuth.js';
@@ -13,7 +14,7 @@ import { applyThemePreference, getStoredThemePreference, getSystemTheme } from '
 import { extractInviteToken } from '../lib/inviteToken.js';
 import { extractQrLoginPath } from '../lib/qrCode.js';
 import { t } from '../lib/i18n.js';
-import { navigateAfterLogin } from '../lib/postLoginNavigation.js';
+import { getInviteTokenFromSearch, navigateAfterLogin } from '../lib/postLoginNavigation.js';
 
 const registerInitialState = { full_name: '', phone: '' };
 
@@ -290,7 +291,7 @@ function DevboxSection({ devboxUsers, isBusy, onLogin }) {
   );
 }
 
-function AuthFooter({ isRegisterMode, hasRegistrationToken, registrationToken }) {
+function AuthFooter({ isRegisterMode, hasRegistrationToken, registrationToken, inviteToken }) {
   const renderFooterContent = () => {
     if (!isRegisterMode) {
       if (!hasRegistrationToken) {
@@ -299,14 +300,14 @@ function AuthFooter({ isRegisterMode, hasRegistrationToken, registrationToken })
 
       return (
         <>
-          {t('auth.noAccount')} <Link to={`/register?${encodeURIComponent(registrationToken)}`}>{t('auth.register')}</Link>
+          {t('auth.noAccount')} <Link to={inviteToken ? `/register?invite=${encodeURIComponent(inviteToken)}` : `/register?${encodeURIComponent(registrationToken)}`}>{t('auth.register')}</Link>
         </>
       );
     }
 
     return (
       <>
-        {t('auth.alreadyHaveAccount')} <Link to="/login">{t('auth.login')}</Link>
+        {t('auth.alreadyHaveAccount')} <Link to={inviteToken ? `/login?invite=${encodeURIComponent(inviteToken)}` : '/login'}>{t('auth.login')}</Link>
       </>
     );
   };
@@ -325,6 +326,7 @@ export default function Login() {
   const { settings: appSettings } = useAppSettings();
   const isRegisterRoute = useMemo(() => location.pathname === '/register', [location.pathname]);
   const registrationToken = useMemo(() => parseRegistrationToken(location.search), [location.search]);
+  const inviteToken = getInviteTokenFromSearch(location.search);
   const [registerForm, setRegisterForm] = useState(registerInitialState);
   const [devboxLoginLoading, setDevboxLoginLoading] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -423,6 +425,8 @@ export default function Login() {
           </div>
         </div>
 
+        <EmbeddedBrowserNotice />
+
         <form className="space-y-4" onSubmit={(event) => event.preventDefault()}>
           {isRegisterMode ? (
             <RegisterSection
@@ -458,6 +462,7 @@ export default function Login() {
             isRegisterMode={isRegisterMode}
             hasRegistrationToken={hasRegistrationToken}
             registrationToken={registrationToken}
+            inviteToken={inviteToken}
           />
         </form>
       </section>

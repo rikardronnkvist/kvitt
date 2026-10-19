@@ -6,6 +6,7 @@ import { parseUser } from '../lib/session.js';
 import { getGroupTheme } from '../lib/groupTheme.js';
 import { t } from '../lib/i18n.js';
 import ErrorMessage from '../components/ErrorMessage.jsx';
+import EmbeddedBrowserNotice from '../components/EmbeddedBrowserNotice.jsx';
 
 export const PENDING_INVITE_TOKEN_KEY = 'pending_invite_token';
 
@@ -54,7 +55,7 @@ export default function InvitePage() {
 
   const goToAuth = (path) => {
     sessionStorage.setItem(PENDING_INVITE_TOKEN_KEY, token);
-    navigate(`${path}?${encodeURIComponent(token)}`);
+    navigate(`${path}?invite=${encodeURIComponent(token)}`);
   };
 
   const accept = async (placeholderId) => {
@@ -113,6 +114,7 @@ export default function InvitePage() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-12">
       <div className="w-full max-w-md space-y-6">
+        <EmbeddedBrowserNotice />
         {/* Group header */}
         <div
           className="surface-card overflow-hidden"
