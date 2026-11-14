@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 1.3.14 - 2026-11-14
+
+### Updated
+- Updated dependencies across the backend, frontend, and MCP packages, including React, Vite, Express, Web Push, SimpleWebAuthn, and the Model Context Protocol SDK.
+
 ## 1.3.13 - 2026-10-19
 
 ### Fixed
