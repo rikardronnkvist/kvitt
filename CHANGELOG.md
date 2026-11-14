@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 1.3.15 - 2026-11-14
+
+### Fixed
+- Fixed backend startup with Web Push 4 by using its named exports.
+
 ## 1.3.14 - 2026-11-14
 
 ### Updated

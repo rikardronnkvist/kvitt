@@ -1,8 +1,8 @@
-import webpush from 'web-push';
+import { sendNotification, setVapidDetails } from 'web-push';
 import { db } from '../db/database.js';
 
 if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(
+  setVapidDetails(
     `mailto:${process.env.VAPID_CONTACT_EMAIL || 'admin@example.com'}`,
     process.env.VAPID_PUBLIC_KEY,
     process.env.VAPID_PRIVATE_KEY,
@@ -19,7 +19,7 @@ export function getSubscriptionsForUsers(userIds) {
 
 export async function sendPushNotification(subscription, payload) {
   try {
-    await webpush.sendNotification(
+    await sendNotification(
       { endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth } },
       JSON.stringify(payload),
     );
