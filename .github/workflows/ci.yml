@@ -51,85 +51,76 @@ jobs:
         run: npm ci
         working-directory: backend
 
-      - name: Audit backend dependencies
-        run: npm audit --audit-level=high
+      - name: Audit backend production dependencies
+        run: npm audit --omit=dev --audit-level=high
         working-directory: backend
 
       - name: Install frontend dependencies
         run: npm ci
         working-directory: frontend
 
-      - name: Audit frontend dependencies
+      - name: Audit all backend and frontend dependencies
+        shell: bash
         run: |
-          npm audit --json > audit-frontend.json || true
-          node <<'NODE'
+          audit() {
+            local project="$1" status=0
+            local report="$RUNNER_TEMP/npm-audit-$project.json"
+            npm --prefix "$project" audit --json --audit-level=high > "$report" || status=$?
+            if (( status > 1 )); then
+              cat "$report"
+              return "$status"
+            fi
+            node - "$project" "$report" <<'NODE'
           const fs = require('fs');
+          const [project, path] = process.argv.slice(2);
 
-          const report = JSON.parse(fs.readFileSync('audit-frontend.json', 'utf8'));
-          const allow = new Set(['GHSA-qwww-vcr4-c8h2']);
-          const severityGate = new Set(['high', 'critical']);
-          const vulns = report.vulnerabilities || {};
-          const memo = new Map();
-
-          function getAdvisoryIds(vulnerability) {
-            const viaObjects = (vulnerability.via || []).filter((item) => item && typeof item === 'object');
-            return viaObjects
-              .map((item) => {
-                const match = (item.url || '').match(/GHSA-[A-Za-z0-9-]+/);
-                return match ? match[0] : null;
-              })
-              .filter(Boolean);
+          const report = JSON.parse(fs.readFileSync(path, 'utf8'));
+          if (report.error || report.auditReportVersion !== 2 ||
+              !report.vulnerabilities || typeof report.vulnerabilities !== 'object' ||
+              Array.isArray(report.vulnerabilities) || !report.metadata?.vulnerabilities) {
+            console.error(`Invalid ${project} npm audit report:`, report.error || 'missing audit data');
+            process.exit(1);
           }
 
-          function collectAdvisoryIds(name, visiting = new Set()) {
-            if (memo.has(name)) {
-              return memo.get(name);
-            }
+          // Remove this exception once picomatch has a published fix. It is
+          // used by backend test tooling and frontend build tooling.
+          const picomatchAdvisory = 'https://github.com/advisories/GHSA-fc5q-39xc-vjpf';
+          const frontendAdvisory = 'https://github.com/advisories/GHSA-qwww-vcr4-c8h2';
+          const severityGate = new Set(['high', 'critical']);
+          const vulns = report.vulnerabilities;
 
-            const vulnerability = vulns[name];
-            if (vulnerability === undefined) {
-              memo.set(name, []);
-              return [];
+          function isAllowlisted(name, visiting = new Set()) {
+            const via = vulns[name]?.via;
+            if (!Array.isArray(via) || via.length === 0 || visiting.has(name)) {
+              return false;
             }
-
-            const advisoryIds = getAdvisoryIds(vulnerability);
-            if (advisoryIds.length > 0) {
-              memo.set(name, advisoryIds);
-              return advisoryIds;
-            }
-
-            const referencedPackages = (vulnerability.via || []).filter((item) => typeof item === 'string');
-            if (referencedPackages.length === 0 || visiting.has(name)) {
-              memo.set(name, []);
-              return [];
-            }
-
             visiting.add(name);
-            const collected = referencedPackages.flatMap((dep) => collectAdvisoryIds(dep, visiting));
+            const allowed = via.every((cause) => {
+              if (typeof cause === 'string') {
+                return isAllowlisted(cause, visiting);
+              }
+              return (name === 'picomatch' && cause?.url === picomatchAdvisory) ||
+                (project === 'frontend' && cause?.url === frontendAdvisory);
+            });
             visiting.delete(name);
-
-            const unique = [...new Set(collected)];
-            memo.set(name, unique);
-            return unique;
+            return allowed;
           }
 
           const blocking = Object.entries(vulns).filter(([name, vulnerability]) => (
-            severityGate.has(vulnerability.severity) && (() => {
-              const advisoryIds = collectAdvisoryIds(name);
-              return advisoryIds.length === 0 || advisoryIds.every((id) => allow.has(id)) === false;
-            })()
+            severityGate.has(vulnerability.severity) && !isAllowlisted(name)
           ));
 
           if (blocking.length) {
-            console.error('Blocking frontend npm audit findings detected:');
+            console.error(`Blocking ${project} npm audit findings detected:`);
             for (const [name, vulnerability] of blocking) {
               console.error(`- ${name} (${vulnerability.severity})`);
             }
             process.exit(1);
           }
 
-          const summary = report.metadata?.vulnerabilities || {};
-          console.log('Frontend audit completed. Remaining advisories are allowlisted no-fix items only.');
-          console.log(JSON.stringify(summary));
+          console.log(`${project} audit completed with no unallowlisted high or critical findings.`);
+          console.log(JSON.stringify(report.metadata.vulnerabilities));
           NODE
-        working-directory: frontend
+          }
+          audit backend
+          audit frontend
