@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 1.3.16 - 2026-11-18
+
+### Fixed
+- Aligned the highlighted current-user row in the group balance card on mobile so its bar and amount line up with the other members.
+
+### Updated
+- Updated dependencies across the backend and frontend, including Vite, the Vite React plugin, Lucide icons, React Easy Crop, better-sqlite3, express-rate-limit, dotenv, and concurrently.
+
 ## 1.3.15 - 2026-11-14
 
 ### Fixed
